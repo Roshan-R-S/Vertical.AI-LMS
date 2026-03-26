@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CRM Backend Architecture</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0d0f14;
+    --surface: #13161d;
+    --surface2: #1a1e28;
+    --surface3: #222736;
+    --border: #2a2f3f;
+    --border2: #343b52;
+    --text: #e8eaf0;
+    --muted: #7c849a;
+    --accent: #6c8eff;
+    --accent2: #3dffc0;
+    --accent3: #ff8c6b;
+    --accent4: #c084fc;
+    --warn: #fbbf24;
+    --success: #34d399;
+  }
+  body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; }
+
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 24px 40px;
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--surface);
+  }
+  header h1 { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 22px; color: var(--text); }
+  header h1 span { color: var(--accent); }
+  .badge { font-family: 'IBM Plex Mono', monospace; font-size: 11px; background: var(--surface3); border: 1px solid var(--border2); color: var(--accent2); padding: 4px 10px; border-radius: 20px; }
+
+  .tabs-wrapper { display: flex; border-bottom: 1px solid var(--border); background: var(--surface); padding: 0 40px; overflow-x: auto; gap: 0; }
+  .tab-btn {
+    font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500;
+    color: var(--muted); padding: 14px 20px; border: none; background: none;
+    cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;
+    transition: color .2s, border-color .2s;
+  }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .content { padding: 40px; max-width: 1100px; margin: 0 auto; }
+  .tab-pane { display: none; }
+  .tab-pane.active { display: block; }
+
+  h2 { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 20px; color: var(--text); margin-bottom: 6px; }
+  .section-desc { color: var(--muted); font-size: 14px; margin-bottom: 28px; line-height: 1.6; }
+
+  /* Cards */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+  .card-title { font-family: 'Syne', sans-serif; font-weight: 600; font-size: 14px; color: var(--text); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .dot-blue { background: var(--accent); }
+  .dot-green { background: var(--accent2); }
+  .dot-orange { background: var(--accent3); }
+  .dot-purple { background: var(--accent4); }
+  .dot-yellow { background: var(--warn); }
+
+  /* Code blocks */
+  pre {
+    background: #0a0c10; border: 1px solid var(--border); border-radius: 10px;
+    padding: 20px 24px; overflow-x: auto;
+    font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; line-height: 1.7;
+    color: #c9d1e8;
+  }
+  .kw { color: #c084fc; }
+  .str { color: #3dffc0; }
+  .cm { color: #4a5568; font-style: italic; }
+  .type { color: #6c8eff; }
+  .val { color: #ff8c6b; }
+  .fn { color: #fbbf24; }
+  .num { color: #fb923c; }
+
+  /* Schema table */
+  .schema-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+  @media (max-width: 750px) { .schema-grid { grid-template-columns: 1fr; } }
+
+  .entity-card {
+    background: var(--surface2); border: 1px solid var(--border2); border-radius: 10px; overflow: hidden;
+  }
+  .entity-header {
+    padding: 10px 16px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .entity-header.blue   { background: #1a2540; color: #6c8eff; border-bottom: 1px solid #2a3a5e; }
+  .entity-header.green  { background: #0f2820; color: #3dffc0; border-bottom: 1px solid #1a3d30; }
+  .entity-header.orange { background: #2a1c10; color: #ff8c6b; border-bottom: 1px solid #3d2a1a; }
+  .entity-header.purple { background: #221530; color: #c084fc; border-bottom: 1px solid #332245; }
+  .entity-row {
+    padding: 6px 16px; display: flex; justify-content: space-between; align-items: center;
+    border-bottom: 1px solid var(--border); font-size: 12px;
+  }
+  .entity-row:last-child { border-bottom: none; }
+  .field-name { font-family: 'IBM Plex Mono', monospace; color: var(--text); }
+  .field-type { font-family: 'IBM Plex Mono', monospace; color: var(--muted); font-size: 11px; }
+  .tag { font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 600; font-family: 'IBM Plex Mono', monospace; }
+  .tag-pk  { background: #1e2d4a; color: #6c8eff; }
+  .tag-fk  { background: #2a1c10; color: #ff8c6b; }
+  .tag-uni { background: #0f2820; color: #3dffc0; }
+  .tag-opt { background: #1e1e1e; color: #555; }
+  .tag-req { background: #221530; color: #c084fc; }
+
+  /* Endpoint list */
+  .endpoint { display: flex; align-items: flex-start; gap: 12px; padding: 12px 16px; border-radius: 8px; margin-bottom: 6px; }
+  .endpoint:hover { background: var(--surface2); }
+  .method { font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 4px; min-width: 52px; text-align: center; }
+  .get    { background: #0f2820; color: #3dffc0; }
+  .post   { background: #1a2540; color: #6c8eff; }
+  .put    { background: #2a2010; color: #fbbf24; }
+  .delete { background: #2a1010; color: #f87171; }
+  .patch  { background: #221530; color: #c084fc; }
+  .endpoint-path { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: var(--text); }
+  .endpoint-desc { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  /* Folder tree */
+  .tree { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; line-height: 2; color: var(--text); }
+  .tree .dir  { color: var(--accent); }
+  .tree .file { color: var(--muted); }
+  .tree .desc { color: #4a5568; font-style: italic; padding-left: 8px; }
+  .tree-row { display: flex; align-items: baseline; gap: 0; }
+
+  /* Arch overview */
+  .arch-layers { display: flex; flex-direction: column; gap: 12px; }
+  .arch-layer {
+    border-radius: 10px; border: 1px solid var(--border2); overflow: hidden;
+  }
+  .arch-layer-header {
+    padding: 10px 20px; font-size: 12px; font-weight: 600; font-family: 'IBM Plex Mono', monospace;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .arch-layer-body { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 16px; background: var(--surface); }
+  .arch-chip {
+    border-radius: 6px; padding: 6px 12px; font-size: 12px; font-weight: 500;
+    border: 1px solid transparent; cursor: default;
+  }
+  .layer-1 .arch-layer-header { background: #1a2540; color: #6c8eff; border-bottom: 1px solid #2a3a5e; }
+  .layer-1 .arch-chip { background: #1a2540; border-color: #2a3a5e; color: #a5beff; }
+  .layer-2 .arch-layer-header { background: #0f2820; color: #3dffc0; border-bottom: 1px solid #1a3d30; }
+  .layer-2 .arch-chip { background: #0f2820; border-color: #1a3d30; color: #7dffe0; }
+  .layer-3 .arch-layer-header { background: #221530; color: #c084fc; border-bottom: 1px solid #332245; }
+  .layer-3 .arch-chip { background: #221530; border-color: #332245; color: #d4a8ff; }
+  .layer-4 .arch-layer-header { background: #2a2010; color: #fbbf24; border-bottom: 1px solid #3d3010; }
+  .layer-4 .arch-chip { background: #2a2010; border-color: #3d3010; color: #fcd34d; }
+  .layer-5 .arch-layer-header { background: #2a1010; color: #f87171; border-bottom: 1px solid #3d1a1a; }
+  .layer-5 .arch-chip { background: #2a1010; border-color: #3d1a1a; color: #fca5a5; }
+
+  .arrow-down { text-align: center; color: var(--border2); font-size: 20px; line-height: 1; }
+
+  /* Enum pills */
+  .enum-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+  .enum-pill { font-family: 'IBM Plex Mono', monospace; font-size: 11px; padding: 4px 10px; border-radius: 20px; border: 1px solid; }
+  .milestone-pill { background: #1a2540; color: #a5beff; border-color: #2a3a5e; }
+  .sub-pill       { background: #0f2820; color: #7dffe0; border-color: #1a3d30; }
+
+  /* Info row */
+  .info-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 28px; }
+  .info-box { flex: 1; min-width: 160px; background: var(--surface2); border: 1px solid var(--border2); border-radius: 10px; padding: 16px; }
+  .info-box .num { font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 800; color: var(--accent); line-height: 1; }
+  .info-box .lbl { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .info-box.green .num { color: var(--accent2); }
+  .info-box.orange .num { color: var(--accent3); }
+  .info-box.purple .num { color: var(--accent4); }
+  .info-box.yellow .num { color: var(--warn); }
+
+  .divider { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
+  .note { background: #1a2540; border: 1px solid #2a3a5e; border-left: 3px solid var(--accent); border-radius: 8px; padding: 12px 16px; font-size: 13px; color: #a5beff; margin-bottom: 16px; }
+  .note strong { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>CRM <span>Backend</span> Architecture</h1>
+  <span class="badge">Node.js · Prisma · PostgreSQL</span>
+</header>
+
+<div class="tabs-wrapper">
+  <button class="tab-btn active" onclick="setTab(0)">Overview</button>
+  <button class="tab-btn" onclick="setTab(1)">Database Schema</button>
+  <button class="tab-btn" onclick="setTab(2)">Prisma Schema</button>
+  <button class="tab-btn" onclick="setTab(3)">Folder Structure</button>
+  <button class="tab-btn" onclick="setTab(4)">API Endpoints</button>
+  <button class="tab-btn" onclick="setTab(5)">Sample Code</button>
+</div>
+
+<!-- =================== TAB 0: OVERVIEW =================== -->
+<div class="content">
+<div class="tab-pane active" id="pane-0">
+  <h2>System Architecture</h2>
+  <p class="section-desc">A layered REST API for a CRM sales pipeline. Leads flow through milestones tracked by assigned sales executives.</p>
+
+  <div class="info-row">
+    <div class="info-box"><div class="num">63</div><div class="lbl">Leads in dataset</div></div>
+    <div class="info-box green"><div class="num">9</div><div class="lbl">Pipeline milestones</div></div>
+    <div class="info-box orange"><div class="num">9</div><div class="lbl">Submilestone states</div></div>
+    <div class="info-box purple"><div class="num">4</div><div class="lbl">Core DB entities</div></div>
+    <div class="info-box yellow"><div class="num">18</div><div class="lbl">API endpoints</div></div>
+  </div>
+
+  <div class="arch-layers">
+    <div class="arch-layer layer-1">
+      <div class="arch-layer-header"><span>CLIENT LAYER</span><span style="font-weight:400;font-size:11px">HTTP requests</span></div>
+      <div class="arch-layer-body">
+        <span class="arch-chip">Web Dashboard</span>
+        <span class="arch-chip">Mobile App</span>
+        <span class="arch-chip">Admin Panel</span>
+        <span class="arch-chip">Postman / API Client</span>
+      </div>
+    </div>
+    <div class="arrow-down">↓</div>
+    <div class="arch-layer layer-2">
+      <div class="arch-layer-header"><span>API LAYER — Express.js</span><span style="font-weight:400;font-size:11px">Route handlers + middleware</span></div>
+      <div class="arch-layer-body">
+        <span class="arch-chip">JWT Auth Middleware</span>
+        <span class="arch-chip">Input Validation (Zod)</span>
+        <span class="arch-chip">Error Handler</span>
+        <span class="arch-chip">Rate Limiter</span>
+        <span class="arch-chip">Request Logger (Morgan)</span>
+        <span class="arch-chip">CORS</span>
+      </div>
+    </div>
+    <div class="arrow-down">↓</div>
+    <div class="arch-layer layer-3">
+      <div class="arch-layer-header"><span>SERVICE / BUSINESS LOGIC LAYER</span><span style="font-weight:400;font-size:11px">Core application logic</span></div>
+      <div class="arch-layer-body">
+        <span class="arch-chip">LeadService</span>
+        <span class="arch-chip">CompanyService</span>
+        <span class="arch-chip">ActivityService</span>
+        <span class="arch-chip">UserService</span>
+        <span class="arch-chip">AnalyticsService</span>
+        <span class="arch-chip">AuthService</span>
+      </div>
+    </div>
+    <div class="arrow-down">↓</div>
+    <div class="arch-layer layer-4">
+      <div class="arch-layer-header"><span>DATA ACCESS LAYER — Prisma ORM</span><span style="font-weight:400;font-size:11px">Type-safe DB queries</span></div>
+      <div class="arch-layer-body">
+        <span class="arch-chip">LeadRepository</span>
+        <span class="arch-chip">CompanyRepository</span>
+        <span class="arch-chip">ActivityRepository</span>
+        <span class="arch-chip">UserRepository</span>
+        <span class="arch-chip">PrismaClient (singleton)</span>
+      </div>
+    </div>
+    <div class="arrow-down">↓</div>
+    <div class="arch-layer layer-5">
+      <div class="arch-layer-header"><span>PERSISTENCE LAYER — PostgreSQL</span><span style="font-weight:400;font-size:11px">Relational data store</span></div>
+      <div class="arch-layer-body">
+        <span class="arch-chip">users</span>
+        <span class="arch-chip">companies</span>
+        <span class="arch-chip">leads</span>
+        <span class="arch-chip">activities</span>
+        <span class="arch-chip">Enums: Milestone, Submilestone</span>
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+  <h2 style="margin-bottom: 16px;">Pipeline Enums (from data)</h2>
+
+  <div class="card">
+    <div class="card-title"><span class="dot dot-blue"></span>Milestones (pipeline stages)</div>
+    <div class="enum-grid">
+      <span class="enum-pill milestone-pill">FIRST_CALL</span>
+      <span class="enum-pill milestone-pill">SECOND_CALL</span>
+      <span class="enum-pill milestone-pill">THIRD_CALL</span>
+      <span class="enum-pill milestone-pill">EMAIL_THE_DETAILS</span>
+      <span class="enum-pill milestone-pill">MEETING_SCHEDULED</span>
+      <span class="enum-pill milestone-pill">MEETING_POSTPONED</span>
+      <span class="enum-pill milestone-pill">MEETING_EXECUTED</span>
+      <span class="enum-pill milestone-pill">SECOND_LEVEL_MEETING</span>
+      <span class="enum-pill milestone-pill">NEGOTIATION</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="dot dot-green"></span>Submilestones (lead status within stage)</div>
+    <div class="enum-grid">
+      <span class="enum-pill sub-pill">INTERESTED</span>
+      <span class="enum-pill sub-pill">FOLLOW_UP</span>
+      <span class="enum-pill sub-pill">NOT_RIGHT_SPOC</span>
+      <span class="enum-pill sub-pill">DNP</span>
+      <span class="enum-pill sub-pill">DECLINED</span>
+      <span class="enum-pill sub-pill">SWITCHED_OFF</span>
+      <span class="enum-pill sub-pill">INVALID_NUMBER</span>
+      <span class="enum-pill sub-pill">NOT_INTERESTED</span>
+      <span class="enum-pill sub-pill">BUSY</span>
+    </div>
+  </div>
+</div>
+
+<!-- =================== TAB 1: DB SCHEMA =================== -->
+<div class="tab-pane" id="pane-1">
+  <h2>Database Schema</h2>
+  <p class="section-desc">4 core entities with clear relationships. Activities serve as the audit trail for each lead's pipeline progress.</p>
+
+  <div class="note">
+    <strong>Design decision:</strong> Each Activity record is an immutable log entry (one row per interaction). This gives you full history of every call, meeting, and status change — critical for CRM analytics.
+  </div>
+
+  <div class="schema-grid">
+    <div class="entity-card">
+      <div class="entity-header blue">🏢 &nbsp;User (Sales Executives)</div>
+      <div class="entity-row"><span class="field-name">id</span><span><span class="tag tag-pk">PK</span> <span class="field-type">UUID</span></span></div>
+      <div class="entity-row"><span class="field-name">name</span><span><span class="tag tag-req">required</span> <span class="field-type">String</span></span></div>
+      <div class="entity-row"><span class="field-name">email</span><span><span class="tag tag-uni">unique</span> <span class="field-type">String</span></span></div>
+      <div class="entity-row"><span class="field-name">passwordHash</span><span><span class="field-type">String</span></span></div>
+      <div class="entity-row"><span class="field-name">role</span><span><span class="field-type">Enum: ADMIN / EXEC</span></span></div>
+      <div class="entity-row"><span class="field-name">createdAt</span><span><span class="field-type">DateTime</span></span></div>
+    </div>
+
+    <div class="entity-card">
+      <div class="entity-header green">🏗 &nbsp;Company</div>
+      <div class="entity-row"><span class="field-name">id</span><span><span class="tag tag-pk">PK</span> <span class="field-type">UUID</span></span></div>
+      <div class="entity-row"><span class="field-name">name</span><span><span class="tag tag-uni">unique</span> <span class="field-type">String</span></span></div>
+      <div class="entity-row"><span class="field-name">industry</span><span><span class="tag tag-opt">optional</span> <span class="field-type">String</span></span></div>
+      <div class="entity-row"><span class="field-name">website</span><span><span class="tag tag-opt">optional</span> <span class="field-type">String</span></span></div>
+      <div class="entity-row"><span class="field-name">createdAt</span><span><span class="field-type">DateTime</span></span></div>
+    </div>
+
+    <div class="entity-card">
+      <div class="entity-header orange">👤 &nbsp;Lead</div>
+      <div class="entity-row"><span class="field-name">id</span><span><span class="tag tag-pk">PK</span> <span class="field-type">UUID</span></span></div>
+      <div class="entity-row"><span class="field-name">name</span><span><span class="tag tag-req">required</span> <span class="field-type">String</span></span></div>
+      <div class="entity-row"><span class="field-name">email</span><span><span class="tag tag-opt">optional</span> <span class="field-type">String</span></span></div>
+      <div class="entity-row"><span class="field-name">mobile</span><span><span class="tag tag-req">required</span> <span class="field-type">String</span></span></div>
+      <div class="entity-row"><span class="field-name">designation</span><span><span class="tag tag-opt">optional</span> <span class="field-type">String</span></span></div>
+      <div class="entity-row"><span class="field-name">companyId</span><span><span class="tag tag-fk">FK</span> <span class="field-type">→ Company</span></span></div>
+      <div class="entity-row"><span class="field-name">assignedToId</span><span><span class="tag tag-fk">FK</span> <span class="field-type">→ User</span></span></div>
+      <div class="entity-row"><span class="field-name">currentMilestone</span><span><span class="field-type">Enum: Milestone</span></span></div>
+      <div class="entity-row"><span class="field-name">currentSubmilestone</span><span><span class="field-type">Enum: Submilestone</span></span></div>
+      <div class="entity-row"><span class="field-name">createdAt</span><span><span class="field-type">DateTime</span></span></div>
+      <div class="entity-row"><span class="field-name">updatedAt</span><span><span class="field-type">DateTime</span></span></div>
+    </div>
+
+    <div class="entity-card">
+      <div class="entity-header purple">📋 &nbsp;Activity (Interaction Log)</div>
+      <div class="entity-row"><span class="field-name">id</span><span><span class="tag tag-pk">PK</span> <span class="field-type">UUID</span></span></div>
+      <div class="entity-row"><span class="field-name">leadId</span><span><span class="tag tag-fk">FK</span> <span class="field-type">→ Lead</span></span></div>
+      <div class="entity-row"><span class="field-name">executiveId</span><span><span class="tag tag-fk">FK</span> <span class="field-type">→ User</span></span></div>
+      <div class="entity-row"><span class="field-name">milestone</span><span><span class="tag tag-req">required</span> <span class="field-type">Enum</span></span></div>
+      <div class="entity-row"><span class="field-name">submilestone</span><span><span class="tag tag-req">required</span> <span class="field-type">Enum</span></span></div>
+      <div class="entity-row"><span class="field-name">remarks</span><span><span class="tag tag-opt">optional</span> <span class="field-type">String</span></span></div>
+      <div class="entity-row"><span class="field-name">createdAt</span><span><span class="field-type">DateTime</span></span></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top: 8px;">
+    <div class="card-title"><span class="dot dot-blue"></span>Entity Relationships</div>
+    <pre>Company  1──n  Lead  1──n  Activity  n──1  User
+Lead     n──1  User  (assignedTo)
+Activity n──1  User  (executiveId — who logged the activity)</pre>
+  </div>
+</div>
+
+<!-- =================== TAB 2: PRISMA =================== -->
+<div class="tab-pane" id="pane-2">
+  <h2>Prisma Schema</h2>
+  <p class="section-desc">Copy this into <code style="font-family: IBM Plex Mono; font-size: 13px; color: var(--accent2);">prisma/schema.prisma</code>. Run <code style="font-family: IBM Plex Mono; font-size: 13px; color: var(--accent2);">npx prisma migrate dev</code> to generate migrations.</p>
+
+  <pre><span class="cm">// prisma/schema.prisma</span>
+
+<span class="kw">generator</span> <span class="fn">client</span> {
+  <span class="type">provider</span> = <span class="str">"prisma-client-js"</span>
+}
+
+<span class="kw">datasource</span> <span class="fn">db</span> {
+  <span class="type">provider</span> = <span class="str">"postgresql"</span>
+  <span class="type">url</span>      = <span class="fn">env</span>(<span class="str">"DATABASE_URL"</span>)
+}
+
+<span class="cm">// ──────────────────────────── ENUMS ────────────────────────────</span>
+
+<span class="kw">enum</span> <span class="type">Role</span> {
+  <span class="val">ADMIN</span>
+  <span class="val">EXECUTIVE</span>
+}
+
+<span class="kw">enum</span> <span class="type">Milestone</span> {
+  <span class="val">FIRST_CALL</span>
+  <span class="val">SECOND_CALL</span>
+  <span class="val">THIRD_CALL</span>
+  <span class="val">EMAIL_THE_DETAILS</span>
+  <span class="val">MEETING_SCHEDULED</span>
+  <span class="val">MEETING_POSTPONED</span>
+  <span class="val">MEETING_EXECUTED</span>
+  <span class="val">SECOND_LEVEL_MEETING</span>
+  <span class="val">NEGOTIATION</span>
+}
+
+<span class="kw">enum</span> <span class="type">Submilestone</span> {
+  <span class="val">INTERESTED</span>
+  <span class="val">FOLLOW_UP</span>
+  <span class="val">NOT_RIGHT_SPOC</span>
+  <span class="val">DNP</span>          <span class="cm">// Did Not Pick</span>
+  <span class="val">DECLINED</span>
+  <span class="val">SWITCHED_OFF</span>
+  <span class="val">INVALID_NUMBER</span>
+  <span class="val">NOT_INTERESTED</span>
+  <span class="val">BUSY</span>
+}
+
+<span class="cm">// ──────────────────────────── MODELS ───────────────────────────</span>
+
+<span class="kw">model</span> <span class="type">User</span> {
+  <span class="fn">id</span>           <span class="type">String</span>     <span class="kw">@id @default</span>(<span class="fn">cuid</span>())
+  <span class="fn">name</span>         <span class="type">String</span>
+  <span class="fn">email</span>        <span class="type">String</span>     <span class="kw">@unique</span>
+  <span class="fn">passwordHash</span> <span class="type">String</span>
+  <span class="fn">role</span>         <span class="type">Role</span>       <span class="kw">@default</span>(<span class="val">EXECUTIVE</span>)
+  <span class="fn">leads</span>        <span class="type">Lead[]</span>     <span class="cm">// leads assigned to this exec</span>
+  <span class="fn">activities</span>   <span class="type">Activity[]</span> <span class="cm">// activities logged by this exec</span>
+  <span class="fn">createdAt</span>    <span class="type">DateTime</span>   <span class="kw">@default</span>(<span class="fn">now</span>())
+  <span class="fn">updatedAt</span>    <span class="type">DateTime</span>   <span class="kw">@updatedAt</span>
+
+  <span class="kw">@@map</span>(<span class="str">"users"</span>)
+}
+
+<span class="kw">model</span> <span class="type">Company</span> {
+  <span class="fn">id</span>        <span class="type">String</span>   <span class="kw">@id @default</span>(<span class="fn">cuid</span>())
+  <span class="fn">name</span>      <span class="type">String</span>   <span class="kw">@unique</span>
+  <span class="fn">industry</span>  <span class="type">String?</span>
+  <span class="fn">website</span>   <span class="type">String?</span>
+  <span class="fn">leads</span>     <span class="type">Lead[]</span>
+  <span class="fn">createdAt</span> <span class="type">DateTime</span> <span class="kw">@default</span>(<span class="fn">now</span>())
+
+  <span class="kw">@@map</span>(<span class="str">"companies"</span>)
+}
+
+<span class="kw">model</span> <span class="type">Lead</span> {
+  <span class="fn">id</span>                  <span class="type">String</span>       <span class="kw">@id @default</span>(<span class="fn">cuid</span>())
+  <span class="fn">name</span>                <span class="type">String</span>
+  <span class="fn">email</span>               <span class="type">String?</span>
+  <span class="fn">mobile</span>              <span class="type">String</span>
+  <span class="fn">designation</span>         <span class="type">String?</span>
+  <span class="fn">currentMilestone</span>    <span class="type">Milestone</span>   <span class="kw">@default</span>(<span class="val">FIRST_CALL</span>)
+  <span class="fn">currentSubmilestone</span> <span class="type">Submilestone</span> <span class="kw">@default</span>(<span class="val">FOLLOW_UP</span>)
+  <span class="fn">company</span>             <span class="type">Company</span>     <span class="kw">@relation</span>(fields: [<span class="fn">companyId</span>], references: [<span class="fn">id</span>])
+  <span class="fn">companyId</span>           <span class="type">String</span>
+  <span class="fn">assignedTo</span>          <span class="type">User</span>        <span class="kw">@relation</span>(fields: [<span class="fn">assignedToId</span>], references: [<span class="fn">id</span>])
+  <span class="fn">assignedToId</span>        <span class="type">String</span>
+  <span class="fn">activities</span>          <span class="type">Activity[]</span>
+  <span class="fn">createdAt</span>           <span class="type">DateTime</span>    <span class="kw">@default</span>(<span class="fn">now</span>())
+  <span class="fn">updatedAt</span>           <span class="type">DateTime</span>    <span class="kw">@updatedAt</span>
+
+  <span class="kw">@@index</span>([<span class="fn">companyId</span>])
+  <span class="kw">@@index</span>([<span class="fn">assignedToId</span>])
+  <span class="kw">@@index</span>([<span class="fn">currentMilestone</span>])
+  <span class="kw">@@map</span>(<span class="str">"leads"</span>)
+}
+
+<span class="kw">model</span> <span class="type">Activity</span> {
+  <span class="fn">id</span>           <span class="type">String</span>       <span class="kw">@id @default</span>(<span class="fn">cuid</span>())
+  <span class="fn">lead</span>         <span class="type">Lead</span>        <span class="kw">@relation</span>(fields: [<span class="fn">leadId</span>], references: [<span class="fn">id</span>], onDelete: <span class="val">Cascade</span>)
+  <span class="fn">leadId</span>       <span class="type">String</span>
+  <span class="fn">executive</span>    <span class="type">User</span>        <span class="kw">@relation</span>(fields: [<span class="fn">executiveId</span>], references: [<span class="fn">id</span>])
+  <span class="fn">executiveId</span>  <span class="type">String</span>
+  <span class="fn">milestone</span>    <span class="type">Milestone</span>
+  <span class="fn">submilestone</span> <span class="type">Submilestone</span>
+  <span class="fn">remarks</span>      <span class="type">String?</span>
+  <span class="fn">createdAt</span>    <span class="type">DateTime</span>    <span class="kw">@default</span>(<span class="fn">now</span>())
+
+  <span class="kw">@@index</span>([<span class="fn">leadId</span>])
+  <span class="kw">@@index</span>([<span class="fn">executiveId</span>])
+  <span class="kw">@@map</span>(<span class="str">"activities"</span>)
+}</pre>
+</div>
+
+<!-- =================== TAB 3: FOLDER STRUCTURE =================== -->
+<div class="tab-pane" id="pane-3">
+  <h2>Folder Structure</h2>
+  <p class="section-desc">Feature-based separation with a clean service/repository pattern. Each domain has its own routes, controller, service, and validation layer.</p>
+
+  <div class="card">
+<pre class="tree">
+<span class="dir">crm-backend/</span>
+├── <span class="dir">prisma/</span>
+│   ├── <span class="file">schema.prisma</span>          <span class="desc">← DB schema + enums</span>
+│   ├── <span class="dir">migrations/</span>            <span class="desc">← auto-generated</span>
+│   └── <span class="file">seed.ts</span>                <span class="desc">← import Excel data here</span>
+│
+├── <span class="dir">src/</span>
+│   ├── <span class="file">app.ts</span>                 <span class="desc">← Express app factory</span>
+│   ├── <span class="file">server.ts</span>              <span class="desc">← Entry point (listen)</span>
+│   ├── <span class="file">prisma.ts</span>              <span class="desc">← Singleton PrismaClient</span>
+│   │
+│   ├── <span class="dir">config/</span>
+│   │   ├── <span class="file">env.ts</span>             <span class="desc">← Zod-validated env vars</span>
+│   │   └── <span class="file">constants.ts</span>       <span class="desc">← App-wide constants</span>
+│   │
+│   ├── <span class="dir">middleware/</span>
+│   │   ├── <span class="file">auth.middleware.ts</span> <span class="desc">← JWT verify</span>
+│   │   ├── <span class="file">error.middleware.ts</span><span class="desc">← Global error handler</span>
+│   │   └── <span class="file">validate.ts</span>        <span class="desc">← Zod request parser</span>
+│   │
+│   ├── <span class="dir">modules/</span>
+│   │   ├── <span class="dir">auth/</span>
+│   │   │   ├── <span class="file">auth.router.ts</span>
+│   │   │   ├── <span class="file">auth.controller.ts</span>
+│   │   │   ├── <span class="file">auth.service.ts</span>
+│   │   │   └── <span class="file">auth.schema.ts</span>     <span class="desc">← Zod schemas</span>
+│   │   │
+│   │   ├── <span class="dir">leads/</span>
+│   │   │   ├── <span class="file">leads.router.ts</span>
+│   │   │   ├── <span class="file">leads.controller.ts</span>
+│   │   │   ├── <span class="file">leads.service.ts</span>
+│   │   │   ├── <span class="file">leads.repository.ts</span>  <span class="desc">← Prisma queries</span>
+│   │   │   └── <span class="file">leads.schema.ts</span>
+│   │   │
+│   │   ├── <span class="dir">companies/</span>
+│   │   │   ├── <span class="file">companies.router.ts</span>
+│   │   │   ├── <span class="file">companies.controller.ts</span>
+│   │   │   ├── <span class="file">companies.service.ts</span>
+│   │   │   └── <span class="file">companies.schema.ts</span>
+│   │   │
+│   │   ├── <span class="dir">activities/</span>
+│   │   │   ├── <span class="file">activities.router.ts</span>
+│   │   │   ├── <span class="file">activities.controller.ts</span>
+│   │   │   ├── <span class="file">activities.service.ts</span>
+│   │   │   ├── <span class="file">activities.repository.ts</span>
+│   │   │   └── <span class="file">activities.schema.ts</span>
+│   │   │
+│   │   ├── <span class="dir">users/</span>
+│   │   │   ├── <span class="file">users.router.ts</span>
+│   │   │   ├── <span class="file">users.controller.ts</span>
+│   │   │   └── <span class="file">users.service.ts</span>
+│   │   │
+│   │   └── <span class="dir">analytics/</span>
+│   │       ├── <span class="file">analytics.router.ts</span>
+│   │       ├── <span class="file">analytics.controller.ts</span>
+│   │       └── <span class="file">analytics.service.ts</span>
+│   │
+│   └── <span class="dir">utils/</span>
+│       ├── <span class="file">ApiError.ts</span>            <span class="desc">← Custom error class</span>
+│       ├── <span class="file">ApiResponse.ts</span>         <span class="desc">← Consistent response shape</span>
+│       └── <span class="file">pagination.ts</span>          <span class="desc">← Cursor / offset helper</span>
+│
+├── <span class="file">.env</span>                       <span class="desc">← DATABASE_URL, JWT_SECRET</span>
+├── <span class="file">tsconfig.json</span>
+└── <span class="file">package.json</span>
+</pre>
+  </div>
+</div>
+
+<!-- =================== TAB 4: API ENDPOINTS =================== -->
+<div class="tab-pane" id="pane-4">
+  <h2>API Endpoints</h2>
+  <p class="section-desc">RESTful design. All routes prefixed with <code style="font-family: IBM Plex Mono; font-size: 13px; color: var(--accent2);">/api/v1</code>. Protected routes require <code style="font-family: IBM Plex Mono; font-size: 13px; color: var(--accent2);">Authorization: Bearer &lt;token&gt;</code>.</p>
+
+  <div class="card">
+    <div class="card-title"><span class="dot dot-orange"></span>Auth</div>
+    <div class="endpoint"><span class="method post">POST</span><div><div class="endpoint-path">/auth/login</div><div class="endpoint-desc">Login with email + password → returns JWT</div></div></div>
+    <div class="endpoint"><span class="method post">POST</span><div><div class="endpoint-path">/auth/refresh</div><div class="endpoint-desc">Refresh access token using refresh token</div></div></div>
+    <div class="endpoint"><span class="method post">POST</span><div><div class="endpoint-path">/auth/logout</div><div class="endpoint-desc">Invalidate refresh token</div></div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="dot dot-orange"></span>Leads — core pipeline resource</div>
+    <div class="endpoint"><span class="method get">GET</span><div><div class="endpoint-path">/leads</div><div class="endpoint-desc">List all leads · query: <code style="font-family: IBM Plex Mono; font-size:11px">milestone, submilestone, assignedTo, companyId, search, page, limit</code></div></div></div>
+    <div class="endpoint"><span class="method post">POST</span><div><div class="endpoint-path">/leads</div><div class="endpoint-desc">Create a new lead (auto-creates company if not found)</div></div></div>
+    <div class="endpoint"><span class="method get">GET</span><div><div class="endpoint-path">/leads/:id</div><div class="endpoint-desc">Get single lead with company, assignee, and latest activity</div></div></div>
+    <div class="endpoint"><span class="method put">PUT</span><div><div class="endpoint-path">/leads/:id</div><div class="endpoint-desc">Update lead info (name, email, mobile, designation)</div></div></div>
+    <div class="endpoint"><span class="method delete">DEL</span><div><div class="endpoint-path">/leads/:id</div><div class="endpoint-desc">Soft-delete lead (cascades activities)</div></div></div>
+    <div class="endpoint"><span class="method patch">PATCH</span><div><div class="endpoint-path">/leads/:id/assign</div><div class="endpoint-desc">Reassign lead to different executive · body: <code style="font-family: IBM Plex Mono; font-size:11px">{ executiveId }</code></div></div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="dot dot-purple"></span>Activities — pipeline interaction log</div>
+    <div class="endpoint"><span class="method get">GET</span><div><div class="endpoint-path">/leads/:id/activities</div><div class="endpoint-desc">Full activity history for a lead (chronological)</div></div></div>
+    <div class="endpoint"><span class="method post">POST</span><div><div class="endpoint-path">/leads/:id/activities</div><div class="endpoint-desc">Log new interaction → also updates lead's currentMilestone</div></div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="dot dot-green"></span>Companies</div>
+    <div class="endpoint"><span class="method get">GET</span><div><div class="endpoint-path">/companies</div><div class="endpoint-desc">List all companies with lead count</div></div></div>
+    <div class="endpoint"><span class="method post">POST</span><div><div class="endpoint-path">/companies</div><div class="endpoint-desc">Create company</div></div></div>
+    <div class="endpoint"><span class="method get">GET</span><div><div class="endpoint-path">/companies/:id/leads</div><div class="endpoint-desc">All leads belonging to a company</div></div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="dot dot-blue"></span>Users (Executives)</div>
+    <div class="endpoint"><span class="method get">GET</span><div><div class="endpoint-path">/users</div><div class="endpoint-desc">List all executives — ADMIN only</div></div></div>
+    <div class="endpoint"><span class="method post">POST</span><div><div class="endpoint-path">/users</div><div class="endpoint-desc">Create executive account — ADMIN only</div></div></div>
+    <div class="endpoint"><span class="method get">GET</span><div><div class="endpoint-path">/users/me</div><div class="endpoint-desc">Current user profile</div></div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="dot dot-yellow"></span>Analytics</div>
+    <div class="endpoint"><span class="method get">GET</span><div><div class="endpoint-path">/analytics/pipeline</div><div class="endpoint-desc">Lead count grouped by milestone · filter by exec / date range</div></div></div>
+    <div class="endpoint"><span class="method get">GET</span><div><div class="endpoint-path">/analytics/executive</div><div class="endpoint-desc">Per-executive conversion stats (calls → meetings → negotiation)</div></div></div>
+    <div class="endpoint"><span class="method get">GET</span><div><div class="endpoint-path">/analytics/submilestone</div><div class="endpoint-desc">DNP / Not Interested / Declined breakdown</div></div></div>
+  </div>
+</div>
+
+<!-- =================== TAB 5: SAMPLE CODE =================== -->
+<div class="tab-pane" id="pane-5">
+  <h2>Sample Implementation</h2>
+  <p class="section-desc">Key patterns to get you started quickly.</p>
+
+  <div class="card">
+    <div class="card-title"><span class="dot dot-green"></span>src/prisma.ts — singleton client</div>
+    <pre><span class="kw">import</span> { PrismaClient } <span class="kw">from</span> <span class="str">"@prisma/client"</span>;
+
+<span class="kw">const</span> globalForPrisma = <span class="fn">globalThis</span> <span class="kw">as unknown as</span> { prisma: PrismaClient };
+
+<span class="kw">export const</span> prisma =
+  globalForPrisma.prisma ?? <span class="kw">new</span> <span class="type">PrismaClient</span>({ log: [<span class="str">"query"</span>] });
+
+<span class="kw">if</span> (process.env.NODE_ENV !== <span class="str">"production"</span>)
+  globalForPrisma.prisma = prisma;</pre>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="dot dot-orange"></span>modules/leads/leads.repository.ts</div>
+    <pre><span class="kw">import</span> { prisma } <span class="kw">from</span> <span class="str">"../../prisma"</span>;
+<span class="kw">import</span> { Milestone, Submilestone } <span class="kw">from</span> <span class="str">"@prisma/client"</span>;
+
+<span class="kw">export const</span> LeadRepo = {
+  <span class="fn">findAll</span>: (filters: {
+    milestone?: <span class="type">Milestone</span>;
+    assignedToId?: <span class="type">string</span>;
+    search?: <span class="type">string</span>;
+    skip?: <span class="type">number</span>;
+    take?: <span class="type">number</span>;
+  }) => {
+    <span class="kw">const</span> { milestone, assignedToId, search, skip = <span class="num">0</span>, take = <span class="num">20</span> } = filters;
+    <span class="kw">return</span> prisma.lead.<span class="fn">findMany</span>({
+      where: {
+        ...(milestone && { currentMilestone: milestone }),
+        ...(assignedToId && { assignedToId }),
+        ...(search && {
+          OR: [
+            { name: { <span class="fn">contains</span>: search, <span class="fn">mode</span>: <span class="str">"insensitive"</span> } },
+            { email: { <span class="fn">contains</span>: search, <span class="fn">mode</span>: <span class="str">"insensitive"</span> } },
+            { company: { name: { <span class="fn">contains</span>: search, <span class="fn">mode</span>: <span class="str">"insensitive"</span> } } },
+          ],
+        }),
+      },
+      include: { company: <span class="kw">true</span>, assignedTo: { select: { id: <span class="kw">true</span>, name: <span class="kw">true</span> } } },
+      orderBy: { updatedAt: <span class="str">"desc"</span> },
+      skip,
+      take,
+    });
+  },
+
+  <span class="fn">logActivity</span>: async (
+    leadId: <span class="type">string</span>,
+    executiveId: <span class="type">string</span>,
+    milestone: <span class="type">Milestone</span>,
+    submilestone: <span class="type">Submilestone</span>,
+    remarks?: <span class="type">string</span>
+  ) => {
+    <span class="kw">return</span> prisma.$<span class="fn">transaction</span>([
+      prisma.activity.<span class="fn">create</span>({
+        data: { leadId, executiveId, milestone, submilestone, remarks },
+      }),
+      prisma.lead.<span class="fn">update</span>({
+        where: { id: leadId },
+        data: { currentMilestone: milestone, currentSubmilestone: submilestone },
+      }),
+    ]);
+  },
+};</pre>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="dot dot-blue"></span>modules/analytics/analytics.service.ts</div>
+    <pre><span class="kw">import</span> { prisma } <span class="kw">from</span> <span class="str">"../../prisma"</span>;
+
+<span class="kw">export const</span> <span class="fn">getPipelineBreakdown</span> = <span class="kw">async</span> (executiveId?: <span class="type">string</span>) => {
+  <span class="kw">return</span> prisma.lead.<span class="fn">groupBy</span>({
+    by: [<span class="str">"currentMilestone"</span>],
+    _count: { _all: <span class="kw">true</span> },
+    where: executiveId ? { assignedToId: executiveId } : {},
+    orderBy: { _count: { currentMilestone: <span class="str">"desc"</span> } },
+  });
+};
+
+<span class="kw">export const</span> <span class="fn">getExecutiveStats</span> = <span class="kw">async</span> () => {
+  <span class="kw">return</span> prisma.user.<span class="fn">findMany</span>({
+    select: {
+      id: <span class="kw">true</span>,
+      name: <span class="kw">true</span>,
+      _count: { select: { leads: <span class="kw">true</span>, activities: <span class="kw">true</span> } },
+    },
+  });
+};</pre>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="dot dot-purple"></span>prisma/seed.ts — import your Excel data</div>
+    <pre><span class="kw">import</span> * <span class="kw">as</span> xlsx <span class="kw">from</span> <span class="str">"xlsx"</span>;
+<span class="kw">import</span> { prisma } <span class="kw">from</span> <span class="str">"../src/prisma"</span>;
+<span class="kw">import</span> { Milestone, Submilestone } <span class="kw">from</span> <span class="str">"@prisma/client"</span>;
+
+<span class="kw">const</span> MILESTONE_MAP: Record&lt;<span class="type">string</span>, <span class="type">Milestone</span>&gt; = {
+  <span class="str">"First Call"</span>:           <span class="str">"FIRST_CALL"</span>,
+  <span class="str">"Second Call"</span>:          <span class="str">"SECOND_CALL"</span>,
+  <span class="str">"Third Call"</span>:           <span class="str">"THIRD_CALL"</span>,
+  <span class="str">"Email the Details"</span>:    <span class="str">"EMAIL_THE_DETAILS"</span>,
+  <span class="str">"Meeting Scheduled"</span>:    <span class="str">"MEETING_SCHEDULED"</span>,
+  <span class="str">"Meeting Postponed"</span>:    <span class="str">"MEETING_POSTPONED"</span>,
+  <span class="str">"Meeting Executed"</span>:     <span class="str">"MEETING_EXECUTED"</span>,
+  <span class="str">"2nd Level Meeting"</span>:    <span class="str">"SECOND_LEVEL_MEETING"</span>,
+  <span class="str">"Negotiation"</span>:          <span class="str">"NEGOTIATION"</span>,
+};
+
+<span class="kw">async function</span> <span class="fn">main</span>() {
+  <span class="kw">const</span> wb = xlsx.<span class="fn">readFile</span>(<span class="str">"./data/leads.xlsx"</span>);
+  <span class="kw">const</span> rows = xlsx.utils.<span class="fn">sheet_to_json</span>(wb.Sheets[wb.SheetNames[<span class="num">0</span>]]);
+
+  <span class="kw">for</span> (<span class="kw">const</span> row <span class="kw">of</span> rows) {
+    <span class="kw">const</span> r = row <span class="kw">as any</span>;
+    <span class="kw">const</span> company = <span class="kw">await</span> prisma.company.<span class="fn">upsert</span>({
+      where: { name: r.Company },
+      create: { name: r.Company },
+      update: {},
+    });
+
+    <span class="cm">// upsert executive by name</span>
+    <span class="kw">const</span> exec = <span class="kw">await</span> prisma.user.<span class="fn">upsert</span>({
+      where: { email: <span class="str">`</span><span class="val">${r.Exe.toLowerCase()}</span><span class="str">@crm.internal`</span> },
+      create: { name: r.Exe, email: <span class="str">`</span><span class="val">${r.Exe.toLowerCase()}</span><span class="str">@crm.internal`</span>, passwordHash: <span class="str">""</span> },
+      update: {},
+    });
+
+    <span class="kw">const</span> lead = <span class="kw">await</span> prisma.lead.<span class="fn">create</span>({
+      data: {
+        name:               r.Name,
+        email:              r.Email || <span class="kw">null</span>,
+        mobile:             String(r[<span class="str">"Mobile No"</span>]),
+        designation:        r.Designation || <span class="kw">null</span>,
+        companyId:          company.id,
+        assignedToId:       exec.id,
+        currentMilestone:   MILESTONE_MAP[r.Milestone] ?? <span class="str">"FIRST_CALL"</span>,
+        currentSubmilestone: <span class="str">"FOLLOW_UP"</span>,
+      },
+    });
+
+    <span class="kw">await</span> prisma.activity.<span class="fn">create</span>({
+      data: {
+        leadId:      lead.id,
+        executiveId: exec.id,
+        milestone:   lead.currentMilestone,
+        submilestone: <span class="str">"FOLLOW_UP"</span>,
+        remarks:     r.Remarks || <span class="kw">null</span>,
+      },
+    });
+  }
+  <span class="fn">console</span>.<span class="fn">log</span>(<span class="str">"✓ Seed complete"</span>);
+}
+
+<span class="fn">main</span>().<span class="fn">catch</span>(console.error).<span class="fn">finally</span>(() => prisma.$<span class="fn">disconnect</span>());</pre>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="dot dot-blue"></span>package.json — key dependencies</div>
+    <pre>{
+  <span class="str">"dependencies"</span>: {
+    <span class="str">"express"</span>: <span class="str">"^4"</span>,
+    <span class="str">"@prisma/client"</span>: <span class="str">"^5"</span>,
+    <span class="str">"zod"</span>: <span class="str">"^3"</span>,          <span class="cm">// request validation</span>
+    <span class="str">"jsonwebtoken"</span>: <span class="str">"^9"</span>,   <span class="cm">// auth</span>
+    <span class="str">"bcryptjs"</span>: <span class="str">"^2"</span>,      <span class="cm">// password hashing</span>
+    <span class="str">"morgan"</span>: <span class="str">"^1"</span>,        <span class="cm">// HTTP logging</span>
+    <span class="str">"xlsx"</span>: <span class="str">"^0.18"</span>,       <span class="cm">// seed script only</span>
+    <span class="str">"cors"</span>: <span class="str">"^2"</span>
+  },
+  <span class="str">"devDependencies"</span>: {
+    <span class="str">"prisma"</span>: <span class="str">"^5"</span>,
+    <span class="str">"typescript"</span>: <span class="str">"^5"</span>,
+    <span class="str">"tsx"</span>: <span class="str">"^4"</span>,           <span class="cm">// run TS directly</span>
+    <span class="str">"@types/express"</span>: <span class="str">"*"</span>
+  },
+  <span class="str">"scripts"</span>: {
+    <span class="str">"dev"</span>:  <span class="str">"tsx watch src/server.ts"</span>,
+    <span class="str">"seed"</span>: <span class="str">"tsx prisma/seed.ts"</span>,
+    <span class="str">"db:push"</span>: <span class="str">"prisma db push"</span>,
+    <span class="str">"db:migrate"</span>: <span class="str">"prisma migrate dev"</span>
+  }
+}</pre>
+  </div>
+</div>
+
+</div><!-- .content -->
+
+<script>
+function setTab(idx) {
+  document.querySelectorAll('.tab-btn').forEach((b, i) => b.classList.toggle('active', i === idx));
+  document.querySelectorAll('.tab-pane').forEach((p, i) => p.classList.toggle('active', i === idx));
+}
+</script>
+</body>
+</html>
