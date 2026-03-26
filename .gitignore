@@ -1,8 +1,29 @@
+# Dependencies
 node_modules/
-build/
+
+# Production
 dist/
-coverage/
-.DS_Store
-*.log
+build/
+
+# Environment
 .env*
 !.env.example
+frontend/.env*
+!frontend/.env.example
+backend/.env*
+!backend/.env.example
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# Misc
+.DS_Store
+.vscode/
+coverage/
+frontend/node_modules/
+backend/node_modules/
+frontend/dist/
+backend/dist/
