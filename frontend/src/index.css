@@ -51,7 +51,7 @@
 }
 
 .glass-card {
-  @apply bg-white/70 backdrop-blur-xl border border-slate-200/50 shadow-xl shadow-slate-200/20;
+  @apply bg-white/95 backdrop-blur-xl border border-slate-200/50 shadow-xl shadow-slate-200/20;
 }
 
 .status-pill {

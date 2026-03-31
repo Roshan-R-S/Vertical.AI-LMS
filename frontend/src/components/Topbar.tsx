@@ -113,22 +113,24 @@ export const Topbar = ({
               >
                 <button
                   onClick={() => { setIsAddModalOpen(true); setIsNewLeadDropdownOpen(false); }}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-300 hover:text-white hover:bg-white/5 rounded-xl transition-all text-left"
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-600 hover:text-brand-600 hover:bg-slate-50 rounded-xl transition-all text-left"
                 >
                   <div className="w-8 h-8 rounded-lg bg-brand-500/10 flex items-center justify-center">
                     <UserCircle size={18} className="text-brand-500" />
                   </div>
-                  Single Opportunity
+                  New Lead
                 </button>
-                <button
-                  onClick={() => { setIsBulkModalOpen(true); setIsNewLeadDropdownOpen(false); }}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-300 hover:text-white hover:bg-white/5 rounded-xl transition-all text-left"
-                >
-                  <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
-                    <FileSpreadsheet size={18} className="text-emerald-500" />
-                  </div>
-                  Bulk Ingestion
-                </button>
+                {(currentUser.role !== 'BDE' || currentUser.canBulkUpload) && (
+                  <button
+                    onClick={() => { setIsBulkModalOpen(true); setIsNewLeadDropdownOpen(false); }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-600 hover:text-brand-600 hover:bg-slate-50 rounded-xl transition-all text-left"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+                      <FileSpreadsheet size={18} className="text-emerald-500" />
+                    </div>
+                    Bulk Upload
+                  </button>
+                )}
               </motion.div>
             </>
           )}

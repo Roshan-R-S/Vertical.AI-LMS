@@ -82,8 +82,8 @@ export const AddLeadModal = ({
               <div className="col-span-2 sm:col-span-1 space-y-2">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Industry</label>
                 <select name="industry" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20">
-                  {['Information Technology', 'Banking & Finance', 'Education', 'Logistics', 'Renewable Energy', 'Manufacturing'].map(i => (
-                    <option key={i}>{i}</option>
+                  {['Information Technology', 'BFSI', 'BPO', 'Education', 'Logistics', 'Renewable Energy', 'Manufacturing'].map(i => (
+                    <option key={i} value={i}>{i}</option>
                   ))}
                 </select>
               </div>
@@ -92,8 +92,8 @@ export const AddLeadModal = ({
               <div className="col-span-2 sm:col-span-1 space-y-2">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Lead Source</label>
                 <select name="source" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20">
-                  {['LinkedIn', 'Website', 'Referral', 'Cold Call', 'Email Campaign'].map(s => (
-                    <option key={s}>{s}</option>
+                  {['Website', 'LinkedIn', 'Referral', 'Cold Call', 'Email Campaign', 'Google Ads'].map(s => (
+                    <option key={s} value={s}>{s}</option>
                   ))}
                 </select>
               </div>

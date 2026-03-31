@@ -1,0 +1,156 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  
+}
+
+enum Role {
+  SUPER_ADMIN
+  SALES_ADMIN
+  TEAM_LEAD
+  BDE
+}
+
+enum LeadStage {
+  DEFAULT
+  LOST
+  YET_TO_CALL
+  NOT_INTERESTED
+  DNP
+  CALL_BACK
+  DND
+  SWITCHED_OFF
+  MEETING_SCHEDULED
+  MEETING_POSTPONED
+  PROPOSAL_SHARED
+  HANDED_OVER
+  PAYMENT_COMPLETED
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  DENIED
+}
+
+model User {
+  id           String        @id @default(cuid())
+  name         String
+  email        String        @unique
+  passwordHash String
+  role         Role          @default(BDE)
+  isActive     Boolean       @default(false)
+  canBulkUpload Boolean      @default(false)
+  teamId       String?
+  avatar       String?
+  leads        Lead[]        @relation("AssignedLeads")
+  activities   Activity[]
+  tasks        Task[]
+  attachments  Attachment[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@map("users")
+}
+
+model RegistrationRequest {
+  id            String         @id @default(cuid())
+  name          String
+  email         String         @unique
+  passwordHash  String
+  role          Role
+  status        ApprovalStatus @default(PENDING)
+  approvalToken String         @unique
+  teamLeadEmail String
+  expiresAt     DateTime
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@map("registration_requests")
+}
+
+model Lead {
+  id              String       @id @default(cuid())
+  name            String
+  phone           String
+  email           String?
+  designation     String?
+  industry        String?
+  source          String?
+  value           Float        @default(0)
+  stage           LeadStage    @default(YET_TO_CALL)
+  remarks         String?
+  linkedIn        String?
+  location        String?
+  companyName     String?
+  companyLocation String?
+  companyWebsite  String?
+  product         String?
+  state           String?
+  city            String?
+  assignedToId    String
+  assignedTo      User         @relation("AssignedLeads", fields: [assignedToId], references: [id])
+  teamId          String
+  nextFollowUp    DateTime?
+  lastFollowUp    DateTime?
+  activities      Activity[]
+  tasks           Task[]
+  attachments     Attachment[]
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([stage])
+  @@index([assignedToId])
+  @@map("leads")
+}
+
+model Activity {
+  id        String   @id @default(cuid())
+  leadId    String
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  type      String   // e.g., NOTE, TASK, STAGE_CHANGE, ATTACHMENT
+  content   String
+  createdBy String
+  creator   User     @relation(fields: [createdBy], references: [id])
+  createdAt DateTime @default(now())
+
+  @@index([leadId])
+  @@map("activities")
+}
+
+model Task {
+  id         String    @id @default(cuid())
+  leadId     String
+  lead       Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  title      String
+  dueDate    DateTime
+  priority   String    // LOW, MEDIUM, HIGH
+  status     String    @default("PENDING") // PENDING, COMPLETED
+  reminderAt DateTime?
+  createdBy  String
+  creator    User      @relation(fields: [createdBy], references: [id])
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([leadId])
+  @@map("tasks")
+}
+
+model Attachment {
+  id           String   @id @default(cuid())
+  leadId       String
+  lead         Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  uploadedById String
+  uploadedBy   User     @relation(fields: [uploadedById], references: [id])
+  fileName     String
+  mimeType     String
+  fileSize     Int
+  fileData     Bytes
+  createdAt    DateTime @default(now())
+
+  @@index([leadId])
+  @@map("attachments")
+}

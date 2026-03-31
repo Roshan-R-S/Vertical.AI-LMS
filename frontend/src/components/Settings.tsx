@@ -12,9 +12,10 @@ interface SettingsProps {
   users: UserType[];
   auditLogs: AuditLogEntry[];
   addAuditLog: (action: string, entityType: AuditLogEntry['entityType'], entityId?: string, details?: string) => void;
+  onUpdateUser: (id: string, data: Partial<UserType>) => Promise<void>;
 }
 
-export const Settings = ({ user, users, auditLogs, addAuditLog }: SettingsProps) => {
+export const Settings = ({ user, users, auditLogs, addAuditLog, onUpdateUser }: SettingsProps) => {
   const [activeSection, setActiveSection] = useState('profile');
   const [profileEmail, setProfileEmail] = useState(user.email);
   const [emailError, setEmailError] = useState<string | null>(null);
@@ -261,30 +262,110 @@ export const Settings = ({ user, users, auditLogs, addAuditLog }: SettingsProps)
             )}
 
             {activeSection === 'team' && (
-              <div className="p-8 space-y-6">
-                <h3 className="text-lg font-bold text-slate-900">Team Management</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 space-y-4">
-                    <p className="text-sm font-bold text-slate-900">Active Team Members</p>
-                    <div className="flex -space-x-2">
-                      {users.filter(u => u.teamId === user.teamId).slice(0, 4).map(u => (
-                        <img key={u.id} className="w-8 h-8 rounded-full border-2 border-white" src={u.avatar} alt={u.name} title={u.name} />
-                      ))}
-                      {users.filter(u => u.teamId === user.teamId).length > 4 && (
-                        <div className="w-8 h-8 rounded-full border-2 border-white bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-500">
-                          +{users.filter(u => u.teamId === user.teamId).length - 4}
+              <div className="p-8 space-y-8">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-bold text-slate-900">Team Organization</h3>
+                  {(user.role === 'SUPER_ADMIN' || user.role === 'SALES_ADMIN') && (
+                    <button className="flex items-center gap-2 px-4 py-2 bg-brand-600 text-white text-xs font-bold rounded-lg hover:bg-brand-700 transition-all">
+                      <Plus size={14} />
+                      Create New Team
+                    </button>
+                  )}
+                </div>
+
+                {/* Team Hierarchy View */}
+                <div className="space-y-6">
+                  {users.filter(u => u.role === 'TEAM_LEAD').map(teamLead => {
+                    const teamMembers = users.filter(u => u.teamId === teamLead.teamId && u.role === 'BDE');
+                    return (
+                      <div key={teamLead.id} className="bg-slate-50 rounded-2xl border border-slate-200 overflow-hidden">
+                        <div className="p-4 bg-white border-b border-slate-200 flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-brand-500/10 flex items-center justify-center">
+                              <Shield size={20} className="text-brand-500" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-bold text-slate-900">{teamLead.name}'s Team</p>
+                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Team Lead: {teamLead.email}</p>
+                            </div>
+                          </div>
+                          {(user.role === 'SUPER_ADMIN' || user.role === 'SALES_ADMIN') && (
+                            <button 
+                              onClick={async () => {
+                                const bdeToAssign = prompt("Enter BDE Email to assign to this team:");
+                                if (bdeToAssign) {
+                                  const bde = users.find(u => u.email === bdeToAssign && u.role === 'BDE');
+                                  if (bde) {
+                                    await onUpdateUser(bde.id, { teamId: teamLead.teamId });
+                                    addAuditLog('ASSIGN_BDE_TO_TEAM', 'USER', bde.id, `Assigned ${bde.name} to ${teamLead.name}'s team`);
+                                  } else {
+                                    alert("BDE not found or user is not a BDE.");
+                                  }
+                                }
+                              }}
+                              className="px-3 py-1 text-[10px] font-bold text-brand-600 border border-brand-200 rounded-lg hover:bg-brand-50 transition-all uppercase tracking-widest"
+                            >
+                              Assign BDE
+                            </button>
+                          )}
                         </div>
+                        <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {teamMembers.length === 0 ? (
+                            <p className="col-span-full text-xs text-slate-400 italic py-2 text-center">No BDEs assigned to this team yet.</p>
+                          ) : (
+                            teamMembers.map(member => (
+                              <div key={member.id} className="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
+                                <img src={member.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(member.name)}`} alt={member.name} className="w-8 h-8 rounded-full border border-slate-200" />
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs font-bold text-slate-900 truncate">{member.name}</p>
+                                  <p className="text-[9px] text-slate-500 truncate">{member.email}</p>
+                                </div>
+                                <button 
+                                  onClick={() => {
+                                    if(window.confirm(`Unassign ${member.name} from this team?`)) {
+                                      onUpdateUser(member.id, { teamId: 'default-team' });
+                                    }
+                                  }}
+                                  className="p-1 text-slate-300 hover:text-red-500 transition-colors"
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Unassigned BDEs */}
+                  <div className="bg-slate-50/50 rounded-2xl border border-slate-200 border-dashed p-6">
+                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Unassigned BDEs</h4>
+                    <div className="flex flex-wrap gap-3">
+                      {users.filter(u => u.role === 'BDE' && (!u.teamId || u.teamId === 'N/A' || u.teamId === 'default-team')).map(unassigned => (
+                        <div key={unassigned.id} className="flex items-center gap-2 px-3 py-2 bg-white rounded-lg border border-slate-200 shadow-sm">
+                           <img src={unassigned.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(unassigned.name)}`} alt={unassigned.name} className="w-6 h-6 rounded-full border border-slate-200" />
+                           <span className="text-xs font-bold text-slate-700">{unassigned.name}</span>
+                        </div>
+                      ))}
+                      {users.filter(u => u.role === 'BDE' && (!u.teamId || u.teamId === 'N/A' || u.teamId === 'default-team')).length === 0 && (
+                        <p className="text-xs text-slate-400 italic">All BDEs are successfully assigned to teams.</p>
                       )}
                     </div>
-                    <button onClick={() => setIsTeamModalOpen(true)} className="text-xs font-bold text-brand-600 hover:underline">View All Members</button>
                   </div>
-                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 space-y-4">
-                    <p className="text-sm font-bold text-slate-900">Lead Distribution</p>
-                    <select className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs font-medium">
-                      <option>Round Robin</option>
-                      <option>Manual Assignment</option>
-                      <option>Performance Based</option>
-                    </select>
+                </div>
+
+                <div className="pt-6 border-t border-slate-100">
+                  <h4 className="text-sm font-bold text-slate-900 mb-4">Lead Distribution Strategy</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                       <p className="text-xs font-bold text-slate-700 mb-2">Primary Method</p>
+                       <select className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs font-medium">
+                        <option>Manual Team Lead Assignment</option>
+                        <option>Round Robin Distribution</option>
+                        <option>Performance Based (AI Optimized)</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
               </div>

@@ -15,10 +15,40 @@ export default defineConfig(({mode}) => {
         '@': path.resolve(__dirname, '.'),
       },
     },
+    // Pre-bundle all major dependencies so Vite doesn't discover them lazily
+    // on first request — this dramatically reduces cold-start time.
+    optimizeDeps: {
+      include: [
+        'react',
+        'react-dom',
+        'react/jsx-runtime',
+        'motion/react',
+        'lucide-react',
+        'recharts',
+        'xlsx',
+        'papaparse',
+        'date-fns',
+        'clsx',
+        'tailwind-merge',
+      ],
+    },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
-      // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
+      // Do not modify—file watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',
+      // Warm up the most-used modules so they are transformed before the first
+      // browser request — removes the stall on initial page load.
+      warmup: {
+        clientFiles: [
+          './src/main.tsx',
+          './src/App.tsx',
+          './src/components/Sidebar.tsx',
+          './src/components/Topbar.tsx',
+          './src/components/LeadsPage.tsx',
+          './src/components/Dashboard.tsx',
+          './src/contexts/AuthContext.tsx',
+        ],
+      },
     },
   };
 });

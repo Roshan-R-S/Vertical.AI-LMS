@@ -3,7 +3,7 @@ import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
 import { motion, AnimatePresence } from 'motion/react';
 import { STAGE_CONFIG, User, Activity, Task, LeadStage, Lead, UserTarget, TeamTarget, CustomFieldDefinition, AuditLogEntry } from './types';
-import { MOCK_LEADS, MOCK_USERS, MOCK_ACTIVITIES, MOCK_TASKS, INITIAL_CUSTOM_FIELDS, INITIAL_AUDIT_LOGS, MOCK_USER_TARGETS, MOCK_TEAM_TARGETS } from './mockData';
+import { MOCK_ACTIVITIES, MOCK_TASKS, INITIAL_CUSTOM_FIELDS, INITIAL_AUDIT_LOGS, MOCK_USER_TARGETS, MOCK_TEAM_TARGETS } from './mockData';
 import { cn, formatCurrency, formatDate, formatDateTime } from './lib/utils';
 
 import { LoginPage } from './components/LoginPage';
@@ -36,11 +36,13 @@ export default function App() {
     }
   }, [currentUser]);
 
-  const [leads, setLeads] = useState<Lead[]>(MOCK_LEADS);
-  const [users, setUsers] = useState<User[]>(MOCK_USERS);
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [leadsLoading, setLeadsLoading] = useState(false);
+  const [users, setUsers] = useState<User[]>([]);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [activities, setActivities] = useState<Activity[]>(MOCK_ACTIVITIES);
   const [tasks, setTasks] = useState<Task[]>(MOCK_TASKS);
+  const [attachments, setAttachments] = useState<any[]>([]);
   const [customFields, setCustomFields] = useState<CustomFieldDefinition[]>(INITIAL_CUSTOM_FIELDS);
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>(INITIAL_AUDIT_LOGS);
   const [userTargets, setUserTargets] = useState<UserTarget[]>(MOCK_USER_TARGETS);
@@ -52,15 +54,132 @@ export default function App() {
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [isNewLeadDropdownOpen, setIsNewLeadDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [stageFilter, setStageFilter] = useState<LeadStage | 'ALL'>('DEFAULT');
+  const [stageFilter, setStageFilter] = useState<LeadStage | 'ALL' | 'OVERDUE'>('ALL');
   const [dateRangeFilter, setDateRangeFilter] = useState<'ALL' | 'TODAY' | 'YESTERDAY' | 'CUSTOM'>('ALL');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [industryFilter, setIndustryFilter] = useState('ALL');
   const [sourceFilter, setSourceFilter] = useState('ALL');
   const [assigneeFilter, setAssigneeFilter] = useState('ALL');
+  const [subStatusFilter, setSubStatusFilter] = useState('ALL');
   const [isMoreFiltersOpen, setIsMoreFiltersOpen] = useState(false);
+  const [pageSize, setPageSize] = useState(25);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalLeads, setTotalLeads] = useState(0);
+  const [leadStats, setLeadStats] = useState<{ 
+    totalValue: number; 
+    meetingsCount: number; 
+    overdueCount: number;
+    industries: string[];
+    sources: string[];
+  }>({
+    totalValue: 0,
+    meetingsCount: 0,
+    overdueCount: 0,
+    industries: [],
+    sources: []
+  });
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  const fetchLeads = React.useCallback(async () => {
+    if (!currentUser) return;
+    setLeadsLoading(true);
+    const token = localStorage.getItem('lendkraft_token');
+    try {
+      const query = new URLSearchParams();
+      if (stageFilter !== 'ALL') query.append('stage', stageFilter);
+      if (searchQuery) query.append('search', searchQuery);
+      if (industryFilter !== 'ALL') query.append('industry', industryFilter);
+      if (sourceFilter !== 'ALL') query.append('source', sourceFilter);
+      if (assigneeFilter !== 'ALL') query.append('assignedToId', assigneeFilter);
+      
+      query.append('page', currentPage.toString());
+      query.append('limit', pageSize.toString());
+
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/leads?${query.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        // Backend wraps response as: { statusCode, data: { data: [...], meta: {...} }, message }
+        const rawLeads = data.data?.data || [];
+        const mapped: Lead[] = rawLeads.map((l: any) => ({
+          id: l.id,
+          name: l.name,
+          phone: l.phone,
+          email: l.email || '',
+          designation: l.designation || '',
+          industry: l.industry || '',
+          source: l.source || '',
+          value: l.value ?? 0,
+          stage: l.stage as LeadStage,
+          remarks: l.remarks || '',
+          linkedIn: l.linkedIn || '',
+          location: l.location || '',
+          companyName: l.companyName || '',
+          companyWebsite: l.companyWebsite || '',
+          product: l.product || '',
+          state: l.state || '',
+          city: l.city || '',
+          assignedToId: l.assignedToId,
+          subStatus: l.subStatus,
+          teamId: l.teamId,
+          nextFollowUp: l.nextFollowUp || undefined,
+          lastFollowUp: l.lastFollowUp || undefined,
+          createdAt: l.createdAt,
+          updatedAt: l.updatedAt,
+        }));
+        setLeads(mapped);
+        
+        // Ensure we use the GLOBAL total from stats for the KPI
+        if (data.data?.meta?.stats) {
+          const stats = data.data.meta.stats;
+          setLeadStats(stats);
+          setTotalLeads(stats.totalLeads); // <--- This ensures the KPI uses the non-filtered count
+        } else {
+          setTotalLeads(data.data?.meta?.total || 0);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching leads:', err);
+    } finally {
+      setLeadsLoading(false);
+    }
+  }, [currentUser, stageFilter, searchQuery, industryFilter, sourceFilter, assigneeFilter, currentPage, pageSize]);
+
+  React.useEffect(() => {
+    fetchLeads();
+  }, [fetchLeads]);
+
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [stageFilter, searchQuery, industryFilter, sourceFilter, assigneeFilter]);
+
+  // Fetch all users for name-mapping and assignment
+  React.useEffect(() => {
+    if (!currentUser) return;
+    const token = localStorage.getItem('lendkraft_token');
+    if (!token) return;
+
+    const fetchUsers = async () => {
+      try {
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/users`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) throw new Error('Failed to fetch users');
+        const json = await res.json();
+        const apiUsers = json.data || [];
+        if (apiUsers.length > 0) {
+          setUsers(apiUsers);
+        }
+      } catch (err) {
+        console.error('Error fetching users:', err);
+      }
+    };
+
+    fetchUsers();
+  }, [currentUser]);
+
   const [isUploading, setIsUploading] = useState(false);
   const [isTargetModalOpen, setIsTargetModalOpen] = useState(false);
   const [targetMonth] = useState('2024-03');
@@ -121,14 +240,9 @@ export default function App() {
 
   const filteredLeads = leads.filter(lead => {
     if (!currentUser) return false;
-    let hasAccess = false;
-    if (currentUser.role === 'SUPER_ADMIN' || currentUser.role === 'SALES_ADMIN') hasAccess = true;
-    else if (currentUser.role === 'TEAM_LEAD') hasAccess = lead.teamId === currentUser.teamId;
-    else if (currentUser.role === 'BDE') hasAccess = lead.assignedToId === currentUser.id;
-    if (!hasAccess) return false;
 
     const matchesSearch = lead.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      lead.phone.includes(searchQuery) || lead.industry.toLowerCase().includes(searchQuery.toLowerCase());
+      lead.phone.includes(searchQuery) || (lead.industry || '').toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStage = stageFilter === 'ALL' || (stageFilter === 'DEFAULT' ? isFollowUpOverdue(lead) : lead.stage === stageFilter);
     const matchesIndustry = industryFilter === 'ALL' || lead.industry === industryFilter;
     const matchesSource = sourceFilter === 'ALL' || lead.source === sourceFilter;
@@ -147,43 +261,242 @@ export default function App() {
   });
 
   // --- Handlers ---
-  const handleAddNote = (leadId: string, content: string) => {
+  const handleAddNote = async (leadId: string, content: string) => {
     if (!content.trim()) return;
-    setActivities(prev => [{ id: `a${Date.now()}`, leadId, type: 'NOTE', content, createdBy: currentUser!.id, createdAt: new Date().toISOString() }, ...prev]);
-    addAuditLog('ADD_NOTE', 'LEAD', leadId, `Added note: ${content.substring(0, 50)}...`);
+    const token = localStorage.getItem('lendkraft_token');
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/leads/${leadId}/activities`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ type: 'NOTE', content }),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const newActivity = json.data;
+        setActivities(prev => [newActivity, ...prev]);
+        addAuditLog('ADD_NOTE', 'LEAD', leadId, `Added note: ${content.substring(0, 50)}...`);
+      }
+    } catch (err) {
+      console.error('Error adding note:', err);
+    }
   };
 
-  const handleAddTask = (leadId: string, title: string, dueDate: string, priority: 'LOW' | 'MEDIUM' | 'HIGH', reminderAt?: string) => {
+  const handleSetFollowUp = async (leadId: string, date: string) => {
+    const token = localStorage.getItem('lendkraft_token');
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/leads/${leadId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ nextFollowUp: new Date(date).toISOString() }),
+      });
+      if (res.ok) {
+        setLeads(prev => prev.map(l => l.id === leadId ? { ...l, nextFollowUp: date } : l));
+        if (selectedLead?.id === leadId) setSelectedLead(prev => prev ? { ...prev, nextFollowUp: date } : null);
+        addAuditLog('SET_FOLLOWUP', 'LEAD', leadId, `Scheduled follow-up for ${formatDate(date)}`);
+      }
+    } catch (err) {
+      console.error('Error setting follow-up:', err);
+    }
+  };
+
+  // Fetch activities, tasks, and attachments for selected lead
+  React.useEffect(() => {
+    if (selectedLead) {
+      const fetchData = async () => {
+        const token = localStorage.getItem('lendkraft_token');
+        try {
+          const [actRes, taskRes, attRes] = await Promise.all([
+            fetch(`${import.meta.env.VITE_API_URL}/leads/${selectedLead.id}/activities`, {
+              headers: { Authorization: `Bearer ${token}` },
+            }),
+            fetch(`${import.meta.env.VITE_API_URL}/tasks?leadId=${selectedLead.id}`, {
+              headers: { Authorization: `Bearer ${token}` },
+            }),
+            fetch(`${import.meta.env.VITE_API_URL}/leads/${selectedLead.id}/attachments`, {
+              headers: { Authorization: `Bearer ${token}` },
+            }),
+          ]);
+          if (actRes.ok) {
+            const json = await actRes.json();
+            setActivities(json.data || []);
+          }
+          if (taskRes.ok) {
+            const json = await taskRes.json();
+            setTasks(json.data || []);
+          }
+          if (attRes.ok) {
+            const json = await attRes.json();
+            setAttachments(json.data || []);
+          }
+        } catch (err) {
+          console.error('Error fetching lead data:', err);
+        }
+      };
+      fetchData();
+    } else {
+      setTasks([]);
+      setActivities([]);
+      setAttachments([]);
+    }
+  }, [selectedLead?.id]);
+
+  const handleAddTask = async (leadId: string, title: string, dueDate: string, priority: 'LOW' | 'MEDIUM' | 'HIGH', reminderAt?: string) => {
     if (!title.trim()) return;
-    const newTask: Task = { id: `t${Date.now()}`, leadId, title, dueDate, reminderAt, status: 'PENDING', priority };
-    setTasks(prev => [newTask, ...prev]);
-    setActivities(prev => [{ id: `a${Date.now() + 1}`, leadId, type: 'TASK', content: `New task created: ${title}${reminderAt ? ` (Reminder set for ${formatDateTime(reminderAt)})` : ''}`, createdBy: currentUser!.id, createdAt: new Date().toISOString() }, ...prev]);
-    addAuditLog('ADD_TASK', 'TASK', newTask.id, `Created task: ${title}`);
+    const token = localStorage.getItem('lendkraft_token');
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/tasks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ 
+          leadId, 
+          title, 
+          dueDate: new Date(dueDate).toISOString(), 
+          priority,
+          reminderAt: reminderAt ? new Date(reminderAt).toISOString() : undefined
+        }),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        setTasks(prev => [json.data, ...prev]);
+        
+        // Refresh activities to show the task creation
+        const actRes = await fetch(`${import.meta.env.VITE_API_URL}/leads/${leadId}/activities`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (actRes.ok) {
+          const actJson = await actRes.json();
+          setActivities(actJson.data || []);
+        }
+        
+        addAuditLog('ADD_TASK', 'LEAD', leadId, `Created task: ${title}`);
+      }
+    } catch (err) {
+      console.error('Error adding task:', err);
+    }
   };
 
-  const handleToggleTask = (taskId: string) => setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: t.status === 'COMPLETED' ? 'PENDING' : 'COMPLETED' } as Task : t));
-  const handleDeleteTask = (taskId: string) => setTasks(prev => prev.filter(t => t.id !== taskId));
-
-  const handleSetFollowUp = (leadId: string, date: string) => {
-    setLeads(prev => prev.map(l => l.id === leadId ? { ...l, nextFollowUp: date } : l));
-    if (selectedLead?.id === leadId) setSelectedLead(prev => prev ? { ...prev, nextFollowUp: date } : null);
-    setActivities(prev => [{ id: `a${Date.now()}`, leadId, type: 'NOTE', content: `Follow-up scheduled for ${formatDate(date)}`, createdBy: currentUser!.id, createdAt: new Date().toISOString() }, ...prev]);
-    addAuditLog('SET_FOLLOWUP', 'LEAD', leadId, `Scheduled follow-up for ${formatDate(date)}`);
+  const handleToggleTask = async (taskId: string) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+    const newStatus = task.status === 'COMPLETED' ? 'PENDING' : 'COMPLETED';
+    const token = localStorage.getItem('lendkraft_token');
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (res.ok) {
+        setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
+        
+        // Refresh activities if completed
+        if (newStatus === 'COMPLETED') {
+          const actRes = await fetch(`${import.meta.env.VITE_API_URL}/leads/${task.leadId}/activities`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (actRes.ok) {
+            const actJson = await actRes.json();
+            setActivities(actJson.data || []);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error toggling task:', err);
+    }
   };
 
-  const handleAddAttachment = (leadId: string, fileName: string, size = '1.2 MB') => {
-    setActivities(prev => [{ id: `a${Date.now()}`, leadId, type: 'ATTACHMENT', content: `Attached file: ${fileName}`, createdBy: currentUser!.id, createdAt: new Date().toISOString(), metadata: { fileName, size } }, ...prev]);
-    addAuditLog('ADD_ATTACHMENT', 'LEAD', leadId, `Attached file: ${fileName}`);
+  const handleDeleteTask = async (taskId: string) => {
+    const token = localStorage.getItem('lendkraft_token');
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/tasks/${taskId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        setTasks(prev => prev.filter(t => t.id !== taskId));
+      }
+    } catch (err) {
+      console.error('Error deleting task:', err);
+    }
+  };
+
+  const handleUpdateLead = async (leadId: string, data: Partial<Lead>) => {
+    const token = localStorage.getItem('lendkraft_token');
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/leads/${leadId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(data),
+      });
+      if (res.ok) {
+        setLeads(prev => prev.map(l => l.id === leadId ? { ...l, ...data, updatedAt: new Date().toISOString() } : l));
+        if (selectedLead?.id === leadId) setSelectedLead(prev => prev ? { ...prev, ...data } : null);
+        addAuditLog('UPDATE_LEAD', 'LEAD', leadId, 'Updated lead details');
+      }
+    } catch (err) {
+      console.error('Error updating lead:', err);
+    }
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file && selectedLead) {
-      setIsUploading(true);
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      handleAddAttachment(selectedLead.id, file.name, (file.size / (1024 * 1024)).toFixed(1) + ' MB');
+    if (!file || !selectedLead) return;
+    const token = localStorage.getItem('lendkraft_token');
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/leads/${selectedLead.id}/attachments`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      if (res.ok) {
+        const json = await res.json();
+        setAttachments(prev => [json.data, ...prev]);
+        addAuditLog('ADD_ATTACHMENT', 'LEAD', selectedLead.id, `Attached file: ${file.name}`);
+        // Re-fetch activities so the ATTACHMENT entry appears in Activity History
+        const actRes = await fetch(`${import.meta.env.VITE_API_URL}/leads/${selectedLead.id}/activities`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (actRes.ok) {
+          const actJson = await actRes.json();
+          setActivities(actJson.data || []);
+        }
+      } else {
+        const err = await res.json().catch(() => ({}));
+        console.error('Upload failed:', err.message || res.statusText);
+      }
+    } catch (err) {
+      console.error('Error uploading file:', err);
+    } finally {
       setIsUploading(false);
       e.target.value = '';
+    }
+  };
+
+  const handleDeleteAttachment = async (attachmentId: string) => {
+    const token = localStorage.getItem('lendkraft_token');
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/attachments/${attachmentId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        setAttachments(prev => prev.filter(a => a.id !== attachmentId));
+        // Re-fetch activities so the ATTACHMENT_DELETED entry appears in Activity History
+        if (selectedLead) {
+          const actRes = await fetch(`${import.meta.env.VITE_API_URL}/leads/${selectedLead.id}/activities`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (actRes.ok) {
+            const actJson = await actRes.json();
+            setActivities(actJson.data || []);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error deleting attachment:', err);
     }
   };
 
@@ -201,15 +514,26 @@ export default function App() {
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
   };
 
-  const handleReassign = (leadId: string, newUserId: string) => {
-    setLeads(prev => prev.map(l => l.id === leadId ? { ...l, assignedToId: newUserId, updatedAt: new Date().toISOString() } : l));
-    if (selectedLead?.id === leadId) setSelectedLead(prev => prev ? { ...prev, assignedToId: newUserId } : null);
-    const newUser = MOCK_USERS.find(u => u.id === newUserId);
-    setActivities(prev => [{ id: `a${Date.now()}`, leadId, type: 'STAGE_CHANGE', content: `Lead reassigned to ${newUser?.name}`, createdBy: currentUser!.id, createdAt: new Date().toISOString() }, ...prev]);
-    addAuditLog('REASSIGN_LEAD', 'LEAD', leadId, `Reassigned to ${newUser?.name}`);
+  const handleReassign = async (leadId: string, newUserId: string) => {
+    const token = localStorage.getItem('lendkraft_token');
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/leads/${leadId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ assignedToId: newUserId }),
+      });
+      if (res.ok) {
+        setLeads(prev => prev.map(l => l.id === leadId ? { ...l, assignedToId: newUserId, updatedAt: new Date().toISOString() } : l));
+        if (selectedLead?.id === leadId) setSelectedLead(prev => prev ? { ...prev, assignedToId: newUserId } : null);
+        const newUser = users.find(u => u.id === newUserId);
+        addAuditLog('REASSIGN_LEAD', 'LEAD', leadId, `Reassigned to ${newUser?.name || 'Unknown'}`);
+      }
+    } catch (err) {
+      console.error('Error reassigning lead:', err);
+    }
   };
 
-  const handleAddLead = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleAddLead = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const email = formData.get('email') as string;
@@ -217,39 +541,91 @@ export default function App() {
     setEmailError(null);
     const leadCustomFields: Record<string, any> = {};
     customFields.forEach(field => { const value = formData.get(`cf_${field.id}`); if (value) leadCustomFields[field.id] = value; });
-    const newLead: Lead = {
-      id: `l${leads.length + 1}`, name: formData.get('name') as string, phone: formData.get('phone') as string,
-      email: formData.get('email') as string, designation: formData.get('designation') as string,
-      industry: formData.get('industry') as string, source: formData.get('source') as string,
-      value: 0, stage: 'YET_TO_CALL',
-      linkedIn: formData.get('linkedIn') as string, location: formData.get('location') as string,
-      companyName: formData.get('companyName') as string, companyLocation: formData.get('companyLocation') as string,
-      companyWebsite: formData.get('companyWebsite') as string, product: formData.get('product') as string,
-      state: formData.get('state') as string, city: formData.get('city') as string,
-      assignedToId: formData.get('assignedToId') as string || currentUser?.id || 'u1',
-      teamId: currentUser?.teamId || 't1', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
-      customFields: leadCustomFields
+    
+    const leadData = {
+      name: formData.get('name') as string,
+      phone: formData.get('phone') as string,
+      email: formData.get('email') as string || undefined,
+      designation: formData.get('designation') as string || undefined,
+      industry: formData.get('industry') as string || undefined,
+      source: formData.get('source') as string || undefined,
+      linkedIn: formData.get('linkedIn') as string || undefined,
+      location: formData.get('location') as string || undefined,
+      companyName: formData.get('companyName') as string || undefined,
+      companyLocation: formData.get('companyLocation') as string || undefined,
+      companyWebsite: formData.get('companyWebsite') as string || undefined,
+      product: formData.get('product') as string || undefined,
+      state: formData.get('state') as string || undefined,
+      city: formData.get('city') as string || undefined,
+      assignedToId: formData.get('assignedToId') as string || currentUser?.id,
+      teamId: currentUser?.teamId || 'default-team',
     };
-    setLeads(prev => [newLead, ...prev]);
-    setActivities(prev => [{ id: `a${Date.now()}`, leadId: newLead.id, type: 'STAGE_CHANGE', content: `Initial stage: ${STAGE_CONFIG[newLead.stage].label}`, createdBy: currentUser!.id, createdAt: new Date().toISOString() }, ...prev]);
-    addAuditLog('CREATE_LEAD', 'LEAD', newLead.id, `Created lead: ${newLead.name}`);
-    setIsAddModalOpen(false);
+
+    const token = localStorage.getItem('lendkraft_token');
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/leads`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(leadData),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const newLead = json.data;
+        setLeads(prev => [newLead, ...prev]);
+        addAuditLog('CREATE_LEAD', 'LEAD', newLead.id, `Created lead: ${newLead.name}`);
+        setIsAddModalOpen(false);
+      }
+    } catch (err) {
+      console.error('Error adding lead:', err);
+    }
   };
 
-  const handleUpdateStage = (leadId: string, newStage: LeadStage) => {
+  const handleUpdateStage = async (leadId: string, newStage: LeadStage) => {
     const lead = leads.find(l => l.id === leadId); if (!lead) return;
     const oldStage = lead.stage;
-    setLeads(prev => prev.map(l => l.id === leadId ? { ...l, stage: newStage, updatedAt: new Date().toISOString() } : l));
-    if (selectedLead?.id === leadId) setSelectedLead(prev => prev ? { ...prev, stage: newStage } : null);
-    setActivities(prev => [{ id: `a${Date.now()}`, leadId, type: 'STAGE_CHANGE', content: `Status changed from ${STAGE_CONFIG[oldStage].label} to ${STAGE_CONFIG[newStage].label}`, createdBy: currentUser!.id, createdAt: new Date().toISOString() }, ...prev]);
-    addAuditLog('UPDATE_STAGE', 'LEAD', leadId, `Status changed from ${oldStage} to ${newStage}`);
+    const token = localStorage.getItem('lendkraft_token');
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/leads/${leadId}/stage`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ stage: newStage }),
+      });
+      if (res.ok) {
+        setLeads(prev => prev.map(l => l.id === leadId ? { ...l, stage: newStage, updatedAt: new Date().toISOString() } : l));
+        if (selectedLead?.id === leadId) setSelectedLead(prev => prev ? { ...prev, stage: newStage } : null);
+        
+        // Refresh activities to show the automatic stage change activity from backend
+        const actRes = await fetch(`${import.meta.env.VITE_API_URL}/leads/${leadId}/activities`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (actRes.ok) {
+          const actJson = await actRes.json();
+          setActivities(actJson.data || []);
+        }
+        
+        addAuditLog('UPDATE_STAGE', 'LEAD', leadId, `Status changed from ${oldStage} to ${newStage}`);
+      }
+    } catch (err) {
+      console.error('Error updating stage:', err);
+    }
   };
 
-  const handleDeleteLead = (id: string) => {
+  const handleDeleteLead = async (id: string) => {
     const lead = leads.find(l => l.id === id);
-    setLeads(prev => prev.filter(l => l.id !== id));
-    setSelectedLead(null);
-    addAuditLog('DELETE_LEAD', 'LEAD', id, `Deleted lead: ${lead?.name}`);
+    const token = localStorage.getItem('lendkraft_token');
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/leads/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        setLeads(prev => prev.filter(l => l.id !== id));
+        setSelectedLead(null);
+        addAuditLog('DELETE_LEAD', 'LEAD', id, `Deleted lead: ${lead?.name}`);
+      }
+    } catch (err) {
+      console.error('Error deleting lead:', err);
+    }
   };
 
   const downloadTemplate = () => {
@@ -259,20 +635,74 @@ export default function App() {
     document.body.appendChild(link); link.click(); document.body.removeChild(link);
   };
 
-  const processBulkLeads = (data: any[]) => {
-    const newLeads: Lead[] = data.map((row, index) => ({
-      id: `l${leads.length + index + 1}`, name: row['Lead Name'] || row['name'] || 'Unknown',
-      phone: String(row['Mobile Number'] || row['phone'] || ''), email: row['Email'] || row['email'] || '',
-      designation: row['Designation'] || row['designation'] || '', industry: row['Industry'] || row['industry'] || '',
-      product: row['Product'] || row['product'] || '', state: row['State'] || row['state'] || '',
-      city: row['City'] || row['city'] || '', source: 'Bulk Upload', value: 0, stage: 'YET_TO_CALL',
-      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
-      assignedToId: currentUser?.id || 'u1', teamId: currentUser?.teamId || 't1',
-    }));
-    setLeads(prev => [...newLeads, ...prev]);
-    addAuditLog('BULK_CREATE_LEAD', 'LEAD', 'multiple', `Bulk uploaded ${newLeads.length} leads`);
-    setIsBulkModalOpen(false);
-    setNotifications(prev => [{ id: Date.now().toString(), title: 'Bulk Upload Success', message: `Successfully uploaded ${newLeads.length} leads.`, type: 'INFO' }, ...prev]);
+  const processBulkLeads = async (data: any[]) => {
+    setLeadsLoading(true);
+    const token = localStorage.getItem('lendkraft_token');
+    
+    const mappedLeads = data.map((row) => {
+      // Support 'Exe' column (like in the seed script)
+      const assignedBdeName = row['Exe'] || row['exe'] || row['BDE Name'] || row['Assigned BDE'] || row['Assigned To'] || '';
+      const normalized = String(assignedBdeName).trim().toLowerCase();
+      const matchedUser = users.find(u => 
+        u.name.toLowerCase() === normalized ||
+        u.name.toLowerCase().includes(normalized) ||
+        normalized.includes(u.name.toLowerCase())
+      );
+
+      return {
+        name: row['Lead Name'] || row['name'] || 'Unknown',
+        phone: String(row['Mobile Number'] || row['phone'] || ''),
+        email: row['Email'] || row['email'] || '',
+        designation: row['Designation'] || row['designation'] || '',
+        industry: row['Industry'] || row['industry'] || '',
+        product: row['Product'] || row['product'] || '',
+        state: row['State'] || row['state'] || '',
+        city: row['City'] || row['city'] || '',
+        source: 'Bulk Upload',
+        value: 0,
+        stage: 'YET_TO_CALL',
+        assignedToId: matchedUser?.id || currentUser?.id,
+        teamId: matchedUser?.teamId || currentUser?.teamId || 'DEFAULT_TEAM',
+      };
+    });
+
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/leads/bulk`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}` 
+        },
+        body: JSON.stringify(mappedLeads),
+      });
+
+      if (!res.ok) throw new Error('Failed to bulk upload leads');
+
+      addAuditLog('BULK_CREATE_LEAD', 'LEAD', 'multiple', `Bulk uploaded ${mappedLeads.length} leads`);
+      setIsBulkModalOpen(false);
+      setNotifications(prev => [{ id: Date.now().toString(), title: 'Bulk Upload Success', message: `Successfully uploaded ${mappedLeads.length} leads.`, type: 'INFO' }, ...prev]);
+      
+      // Trigger a refetch of leads
+      const getLeadsRes = await fetch(`${import.meta.env.VITE_API_URL}/leads?limit=500`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (getLeadsRes.ok) {
+        const json = await getLeadsRes.json();
+        const mapped: Lead[] = (json.data?.data || []).map((l: any) => ({
+          id: l.id, name: l.name, phone: l.phone, email: l.email || '',
+          designation: l.designation || '', industry: l.industry || '',
+          source: l.source || '', value: l.value ?? 0, stage: l.stage as LeadStage,
+          remarks: l.remarks || '', assignedToId: l.assignedToId, teamId: l.teamId,
+          createdAt: l.createdAt, updatedAt: l.updatedAt
+        }));
+        setLeads(mapped);
+      }
+    } catch (err) {
+      console.error('Error during bulk upload:', err);
+      setNotifications(prev => [{ id: Date.now().toString(), title: 'Upload Failed', message: 'Failed to process bulk upload. Please try again.', type: 'REMINDER' }, ...prev]);
+    } finally {
+      setLeadsLoading(false);
+    }
   };
 
   const handleBulkUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -298,6 +728,43 @@ export default function App() {
   const handleUpdateUserTarget = (target: UserTarget) => {
     setUserTargets(prev => prev.find(t => t.id === target.id) ? prev.map(t => t.id === target.id ? target : t) : [...prev, target]);
     addAuditLog('UPDATE_USER_TARGET', 'SETTING', target.id, `Updated user target for ${target.userId} in ${target.month}`);
+  };
+
+  const handleUpdateUser = async (id: string, data: Partial<User>) => {
+    const token = localStorage.getItem('lendkraft_token');
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/users/${id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(data),
+      });
+      if (res.ok) {
+        setUsers(prev => prev.map(u => u.id === id ? { ...u, ...data } : u));
+        addAuditLog('UPDATE_USER', 'USER', id, `Updated user: ${id}`);
+      }
+    } catch (err) {
+      console.error('Error updating user:', err);
+    }
+  };
+
+  const handleDeleteUser = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this user?')) return;
+    const token = localStorage.getItem('lendkraft_token');
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/users/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        setUsers(prev => prev.filter(u => u.id !== id));
+        addAuditLog('DELETE_USER', 'USER', id, `Deleted user: ${id}`);
+      }
+    } catch (err) {
+      console.error('Error deleting user:', err);
+    }
   };
 
   if (authLoading) return (
@@ -344,16 +811,21 @@ export default function App() {
 
           {activeTab === 'leads' && (
             <LeadsPage
-              leads={leads} filteredLeads={filteredLeads} currentUser={currentUser}
+              leads={leads} currentUser={currentUser}
               stageFilter={stageFilter} setStageFilter={setStageFilter}
               dateRangeFilter={dateRangeFilter} setDateRangeFilter={setDateRangeFilter}
               startDate={startDate} setStartDate={setStartDate} endDate={endDate} setEndDate={setEndDate}
               industryFilter={industryFilter} setIndustryFilter={setIndustryFilter}
               sourceFilter={sourceFilter} setSourceFilter={setSourceFilter}
               assigneeFilter={assigneeFilter} setAssigneeFilter={setAssigneeFilter}
+              
               isMoreFiltersOpen={isMoreFiltersOpen} setIsMoreFiltersOpen={setIsMoreFiltersOpen}
               users={users} onSelectLead={setSelectedLead} onExport={handleExport}
               isFollowUpOverdue={isFollowUpOverdue}
+              pageSize={pageSize} setPageSize={setPageSize}
+              currentPage={currentPage} setCurrentPage={setCurrentPage}
+              totalLeads={totalLeads}
+              leadStats={leadStats}
             />
           )}
 
@@ -367,9 +839,22 @@ export default function App() {
           {activeTab === 'stage-history' && <StageHistoryPage leads={leads} activities={activities} />}
           {activeTab === 'clients' && <ClientsPage />}
           {activeTab === 'reports' && <ReportsPage />}
-          {activeTab === 'users' && <UserManagement users={users} setUsers={setUsers} />}
+          {activeTab === 'users' && (
+            <UserManagement 
+              users={users} 
+              currentUser={currentUser}
+              onUpdateUser={handleUpdateUser}
+              onDeleteUser={handleDeleteUser}
+            />
+          )}
           {activeTab === 'settings' && (
-            <SettingsPage user={currentUser} users={users} auditLogs={auditLogs} addAuditLog={addAuditLog} />
+            <SettingsPage 
+              user={currentUser} 
+              users={users} 
+              auditLogs={auditLogs} 
+              addAuditLog={addAuditLog} 
+              onUpdateUser={handleUpdateUser}
+            />
           )}
         </div>
 
@@ -377,13 +862,17 @@ export default function App() {
         <LeadDetailPanel
           selectedLead={selectedLead} onClose={() => setSelectedLead(null)}
           currentUser={currentUser} activities={activities} tasks={tasks}
+          attachments={attachments}
           customFields={customFields} isUploading={isUploading}
           onAddNote={handleAddNote} onAddTask={handleAddTask}
           onToggleTask={handleToggleTask} onDeleteTask={handleDeleteTask}
           onSetFollowUp={handleSetFollowUp} onUpdateStage={handleUpdateStage}
           onDeleteLead={handleDeleteLead} onReassign={handleReassign}
-          onFileUpload={handleFileUpload} isFollowUpOverdue={isFollowUpOverdue}
-          isTaskOverdue={isTaskOverdue}
+          onFileUpload={handleFileUpload} onDeleteAttachment={handleDeleteAttachment}
+          isFollowUpOverdue={isFollowUpOverdue}
+          isTaskOverdue={isTaskOverdue} onUpdateLead={handleUpdateLead}
+          users={users}
+          apiUrl={import.meta.env.VITE_API_URL}
         />
 
         {/* Modals */}

@@ -1,13 +1,12 @@
 import React from 'react';
 import {
-  X, Briefcase, Phone, Mail, ExternalLink, UserCircle, Bell, ArrowRight,
+  X, Briefcase, Phone, Mail, UserCircle, Bell, ArrowRight,
   CheckSquare, FileText, Paperclip, MessageSquare, Trash2, Download, Clock,
   FileSpreadsheet
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Lead, LeadStage, Activity, Task, User } from '../types';
 import { STAGE_CONFIG } from '../types';
-import { MOCK_USERS } from '../mockData';
 import { CustomFieldDefinition } from '../types';
 import { cn, formatCurrency, formatDate, formatDateTime } from '../lib/utils';
 
@@ -17,6 +16,14 @@ interface LeadDetailPanelProps {
   currentUser: User;
   activities: Activity[];
   tasks: Task[];
+  attachments: Array<{
+    id: string;
+    fileName: string;
+    mimeType: string;
+    fileSize: number;
+    createdAt: string;
+    uploadedBy: { id: string; name: string };
+  }>;
   customFields: CustomFieldDefinition[];
   isUploading: boolean;
   onAddNote: (leadId: string, content: string) => void;
@@ -28,18 +35,47 @@ interface LeadDetailPanelProps {
   onDeleteLead: (id: string) => void;
   onReassign: (leadId: string, userId: string) => void;
   onFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onDeleteAttachment: (id: string) => void;
   isFollowUpOverdue: (lead: Lead) => boolean;
   isTaskOverdue: (task: Task) => boolean;
+  onUpdateLead: (leadId: string, data: Partial<Lead>) => void;
+  users: User[];
+  apiUrl: string;
 }
 
 export const LeadDetailPanel = ({
-  selectedLead, onClose, currentUser, activities, tasks, customFields, isUploading,
+  selectedLead, onClose, currentUser, activities, tasks, attachments, customFields, isUploading,
   onAddNote, onAddTask, onToggleTask, onDeleteTask, onSetFollowUp,
-  onUpdateStage, onDeleteLead, onReassign, onFileUpload,
-  isFollowUpOverdue, isTaskOverdue
+  onUpdateStage, onDeleteLead, onReassign, onFileUpload, onDeleteAttachment,
+  isFollowUpOverdue, isTaskOverdue, onUpdateLead, users, apiUrl
 }: LeadDetailPanelProps) => {
-  const [activeDetailTab, setActiveDetailTab] = React.useState<'ACTIVITY' | 'TASKS' | 'ATTACHMENTS' | 'HANDOFF' | 'HISTORY'>('ACTIVITY');
-  const [activityFilter, setActivityFilter] = React.useState<Activity['type'] | 'ALL'>('ALL');
+  const [activeDetailTab, setActiveDetailTab] = React.useState<'ACTIVITY' | 'TASKS' | 'ATTACHMENTS' | 'HANDOFF'>('ACTIVITY');
+  const [activityFilter, setActivityFilter] = React.useState<string>('ALL');
+
+  const [localLead, setLocalLead] = React.useState<Partial<Lead>>({});
+  const [isSaving, setIsSaving] = React.useState(false);
+
+  React.useEffect(() => {
+    if (selectedLead) {
+      setLocalLead({
+        companyName: selectedLead.companyName || '',
+        companyWebsite: selectedLead.companyWebsite || '',
+        companyLocation: selectedLead.companyLocation || '',
+        location: selectedLead.location || '',
+        product: selectedLead.product || '',
+        remarks: selectedLead.remarks || '',
+      });
+    }
+  }, [selectedLead?.id]);
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      await onUpdateLead(selectedLead.id, localLead);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   if (!selectedLead) return null;
 
@@ -100,7 +136,7 @@ export const LeadDetailPanel = ({
                 </div>
                 <div className="space-y-4">
                   <div className="flex items-start gap-3">
-                    <ExternalLink size={16} className="text-slate-400 mt-1" />
+                    <UserCircle size={16} className="text-slate-400 mt-1" />
                     <div>
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">LinkedIn</p>
                       <p className="text-sm font-semibold text-slate-900 truncate max-w-[150px]">
@@ -127,27 +163,29 @@ export const LeadDetailPanel = ({
               <div className="p-6 border-b border-slate-100 bg-slate-50/30">
                 <div className="grid grid-cols-2 gap-6">
                   {[
-                    { label: 'Lead Location', val: selectedLead.location },
-                    { label: 'Company Name', val: selectedLead.companyName },
-                    { label: 'Product', val: selectedLead.product },
-                    { label: 'Company Location', val: selectedLead.companyLocation },
-                    { label: 'State / City', val: selectedLead.state || selectedLead.city ? `${selectedLead.state || ''}${selectedLead.state && selectedLead.city ? ', ' : ''}${selectedLead.city || ''}` : null },
-                  ].map(({ label, val }) => (
+                    { label: 'Lead Location', key: 'location' },
+                    { label: 'Company Name', key: 'companyName' },
+                    { label: 'Product', key: 'product' },
+                    { label: 'Company Location', key: 'companyLocation' },
+                  ].map(({ label, key }) => (
                     <div key={label}>
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{label}</p>
-                      <p className="text-sm font-semibold text-slate-900">{val || 'Not set'}</p>
+                      <input 
+                        className="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+                        value={(localLead as any)[key] || ''}
+                        onChange={(e) => setLocalLead(prev => ({ ...prev, [key]: e.target.value }))}
+                        placeholder={`Enter ${label}...`}
+                      />
                     </div>
                   ))}
                   <div>
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Company Website</p>
-                    <p className="text-sm font-semibold text-slate-900">
-                      {selectedLead.companyWebsite ? (
-                        <a href={selectedLead.companyWebsite.startsWith('http') ? selectedLead.companyWebsite : `https://${selectedLead.companyWebsite}`}
-                          target="_blank" rel="noopener noreferrer" className="text-brand-600 hover:underline">
-                          {selectedLead.companyWebsite}
-                        </a>
-                      ) : 'Not set'}
-                    </p>
+                    <input 
+                      className="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm font-semibold text-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+                      value={localLead.companyWebsite || ''}
+                      onChange={(e) => setLocalLead(prev => ({ ...prev, companyWebsite: e.target.value }))}
+                      placeholder="Enter website..."
+                    />
                   </div>
                 </div>
               </div>
@@ -176,16 +214,17 @@ export const LeadDetailPanel = ({
                       value={selectedLead.assignedToId}
                       onChange={(e) => onReassign(selectedLead.id, e.target.value)}
                     >
-                      {MOCK_USERS.filter(u => {
-                        if (currentUser.role === 'SUPER_ADMIN' || currentUser.role === 'SALES_ADMIN') return true;
-                        if (currentUser.role === 'TEAM_LEAD') return u.teamId === currentUser.teamId;
+                      {users.filter(u => {
+                        if (currentUser.role === 'SUPER_ADMIN') return ['SALES_ADMIN', 'TEAM_LEAD', 'BDE'].includes(u.role);
+                        if (currentUser.role === 'SALES_ADMIN') return ['TEAM_LEAD', 'BDE'].includes(u.role);
+                        if (currentUser.role === 'TEAM_LEAD') return u.role === 'BDE' && u.teamId === currentUser.teamId;
                         return false;
                       }).map(user => (
                         <option key={user.id} value={user.id}>{user.name} ({user.role.replace('_', ' ')})</option>
                       ))}
                     </select>
                     <div className="w-10 h-10 rounded-full border border-slate-200 flex items-center justify-center bg-slate-50 overflow-hidden">
-                      <img src={MOCK_USERS.find(u => u.id === selectedLead.assignedToId)?.avatar} alt="Assigned" className="w-full h-full object-cover" />
+                      <img src={users.find(u => u.id === selectedLead.assignedToId)?.avatar || ''} alt="Assigned" className="w-full h-full object-cover" />
                     </div>
                   </div>
                 </div>
@@ -235,12 +274,12 @@ export const LeadDetailPanel = ({
 
               {/* Activity Tabs */}
               <div className="p-6">
-                <div className="flex items-center gap-6 border-b border-slate-100 mb-6">
-                  {(['ACTIVITY', 'TASKS', 'ATTACHMENTS', 'HISTORY'] as const).map(tab => (
+                <div className="flex items-center gap-6 border-b border-slate-100 mb-6 font-bold">
+                  {(['ACTIVITY', 'TASKS', 'ATTACHMENTS'] as const).map(tab => (
                     <button key={tab} onClick={() => setActiveDetailTab(tab)}
-                      className={cn("pb-3 text-sm font-bold transition-all relative",
+                      className={cn("pb-3 text-sm transition-all relative",
                         activeDetailTab === tab ? "text-brand-600" : "text-slate-400 hover:text-slate-600")}>
-                      {tab === 'ACTIVITY' ? 'Activity History' : tab === 'TASKS' ? 'Create Tasks' : tab === 'ATTACHMENTS' ? 'Upload Files' : 'History'}
+                      {tab === 'ACTIVITY' ? 'Activity History' : tab === 'TASKS' ? 'Create Tasks' : 'Upload Files'}
                       {activeDetailTab === tab && <motion.div layoutId="tab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-600" />}
                     </button>
                   ))}
@@ -278,30 +317,37 @@ export const LeadDetailPanel = ({
                           <button key={f} onClick={() => setActivityFilter(f)}
                             className={cn("px-3 py-1 text-[10px] font-bold uppercase tracking-widest rounded-full whitespace-nowrap",
                               activityFilter === f ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200")}>
-                            {f === 'ALL' ? 'All' : f === 'STAGE_CHANGE' ? 'Status Changes' : f === 'NOTE' ? 'Notes' : f === 'TASK' ? 'Tasks' : 'Attachments'}
+                            {f === 'ALL' ? 'All' : f === 'STAGE_CHANGE' ? 'Status Changes' : f === 'NOTE' ? 'Notes' : f === 'TASK' ? 'Tasks' : 'Files'}
                           </button>
                         ))}
                       </div>
                       <div className="relative space-y-6 before:absolute before:left-4 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-100">
-                        {activities.filter(a => a.leadId === selectedLead.id && (activityFilter === 'ALL' || a.type === activityFilter)).map(activity => (
+                        {activities.filter(a => a.leadId === selectedLead.id && (
+                          activityFilter === 'ALL' ||
+                          // Attachments filter captures both upload and delete events
+                          (activityFilter === 'ATTACHMENT' && ((a.type as string) === 'ATTACHMENT' || (a.type as string) === 'ATTACHMENT_DELETED')) ||
+                          (a.type as string) === activityFilter
+                        )).map(activity => (
                           <div key={activity.id} className="relative pl-10">
                             <div className={cn("absolute left-0 w-8 h-8 rounded-full flex items-center justify-center ring-4 ring-white z-10",
-                              activity.type === 'STAGE_CHANGE' ? "bg-blue-50 text-blue-600" :
-                              activity.type === 'TASK' ? "bg-amber-50 text-amber-600" :
-                              activity.type === 'ATTACHMENT' ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-500")}>
-                              {activity.type === 'STAGE_CHANGE' ? <ArrowRight size={14} /> :
-                               activity.type === 'TASK' ? <CheckSquare size={14} /> :
-                               activity.type === 'ATTACHMENT' ? <Paperclip size={14} /> : <FileText size={14} />}
+                              (activity.type as string) === 'STAGE_CHANGE' ? "bg-blue-50 text-blue-600" :
+                              (activity.type as string) === 'TASK' ? "bg-amber-50 text-amber-600" :
+                              (activity.type as string) === 'ATTACHMENT' ? "bg-emerald-50 text-emerald-600" :
+                              (activity.type as string) === 'ATTACHMENT_DELETED' ? "bg-rose-50 text-rose-500" : "bg-slate-100 text-slate-500")}>
+                              {(activity.type as string) === 'STAGE_CHANGE' ? <ArrowRight size={14} /> :
+                               (activity.type as string) === 'TASK' ? <CheckSquare size={14} /> :
+                               (activity.type as string) === 'ATTACHMENT' ? <Paperclip size={14} /> :
+                               (activity.type as string) === 'ATTACHMENT_DELETED' ? <Trash2 size={14} /> : <FileText size={14} />}
                             </div>
                             <div className="p-4 bg-white border border-slate-100 rounded-xl shadow-sm">
                               <div className="flex items-center justify-between mb-2">
                                 <div className="flex items-center gap-2">
-                                  <span className="text-xs font-bold text-slate-900">{MOCK_USERS.find(u => u.id === activity.createdBy)?.name}</span>
+                                  <span className="text-xs font-bold text-slate-900">{users.find(u => u.id === activity.createdBy)?.name || 'System'}</span>
                                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1.5 py-0.5 bg-slate-50 rounded">{activity.type.replace('_', ' ')}</span>
                                 </div>
                                 <span className="text-[10px] text-slate-400">{formatDate(activity.createdAt)}</span>
                               </div>
-                              <p className="text-sm text-slate-600">{activity.content}</p>
+                              <p className="text-sm text-slate-600 wrap-break-word overflow-hidden whitespace-pre-wrap">{activity.content}</p>
                               {activity.metadata?.fileName && (
                                 <div className="mt-3 p-2 bg-slate-50 border border-slate-100 rounded-lg flex items-center justify-between">
                                   <div className="flex items-center gap-2">
@@ -402,77 +448,98 @@ export const LeadDetailPanel = ({
                   {activeDetailTab === 'ATTACHMENTS' && (
                     <div className="space-y-4">
                       <input type="file" id="file-upload" className="hidden"
-                        accept=".pdf,.ppt,.pptx,.xls,.xlsx,.doc,.docx" onChange={onFileUpload} />
+                        accept=".pdf,.ppt,.pptx,.xls,.xlsx,.doc,.docx,.csv" onChange={onFileUpload} />
                       <div onClick={() => !isUploading && document.getElementById('file-upload')?.click()}
                         className={cn("p-8 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center text-slate-400 hover:border-brand-300 transition-all group cursor-pointer",
                           isUploading && "opacity-50 cursor-not-allowed")}>
                         {isUploading ? (
                           <div className="flex flex-col items-center">
                             <div className="w-8 h-8 border-4 border-brand-600 border-t-transparent rounded-full animate-spin mb-2" />
-                            <p className="text-sm font-bold text-slate-900">Uploading...</p>
+                            <p className="text-sm font-bold text-slate-900">Uploading to database...</p>
                           </div>
                         ) : (
                           <>
                             <Paperclip size={32} className="mb-2 group-hover:text-brand-600 transition-colors" />
                             <p className="text-sm font-bold text-slate-900">Click to upload or drag and drop</p>
-                            <p className="text-xs">PDF, PPT, Excel, Docs up to 10MB</p>
+                            <p className="text-xs">PDF, PPT, Excel, Word, CSV up to 10MB</p>
                           </>
                         )}
                       </div>
-                      {activities.filter(a => a.leadId === selectedLead.id && a.type === 'ATTACHMENT').map(activity => {
-                        const fileName = activity.metadata?.fileName || 'Document.pdf';
-                        const ext = fileName.split('.').pop()?.toLowerCase();
-                        const iconColor = ['xls', 'xlsx', 'csv'].includes(ext || '') ? "bg-emerald-50 text-emerald-600" :
-                          ['ppt', 'pptx'].includes(ext || '') ? "bg-orange-50 text-orange-600" :
-                          ['doc', 'docx'].includes(ext || '') ? "bg-blue-50 text-blue-600" : "bg-red-50 text-red-600";
-                        const Icon = ['xls', 'xlsx', 'csv'].includes(ext || '') ? FileSpreadsheet : FileText;
-                        return (
-                          <div key={activity.id} className="p-4 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center", iconColor)}><Icon size={20} /></div>
-                              <div>
-                                <p className="text-sm font-bold text-slate-900">{fileName}</p>
-                                <p className="text-[10px] text-slate-400 font-bold uppercase">{activity.metadata?.size || '2.4 MB'} • Added {formatDate(activity.createdAt)}</p>
+                      {attachments.length === 0 ? (
+                        <p className="text-center text-sm text-slate-400 py-4">No files attached yet.</p>
+                      ) : (
+                        attachments.map(att => {
+                          const ext = att.fileName.split('.').pop()?.toLowerCase();
+                          const iconColor = ['xls', 'xlsx', 'csv'].includes(ext || '') ? "bg-emerald-50 text-emerald-600" :
+                            ['ppt', 'pptx'].includes(ext || '') ? "bg-orange-50 text-orange-600" :
+                            ['doc', 'docx'].includes(ext || '') ? "bg-blue-50 text-blue-600" : "bg-red-50 text-red-600";
+                          const Icon = ['xls', 'xlsx', 'csv'].includes(ext || '') ? FileSpreadsheet : FileText;
+                          const fileSizeLabel = att.fileSize < 1024 * 1024
+                            ? `${(att.fileSize / 1024).toFixed(1)} KB`
+                            : `${(att.fileSize / (1024 * 1024)).toFixed(1)} MB`;
+                          return (
+                            <div key={att.id} className="p-4 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center", iconColor)}><Icon size={20} /></div>
+                                <div>
+                                  <p className="text-sm font-bold text-slate-900">{att.fileName}</p>
+                                  <p className="text-[10px] text-slate-400 font-bold uppercase">
+                                    {fileSizeLabel} • {att.uploadedBy.name} • {new Date(att.createdAt).toLocaleDateString()}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      const token = localStorage.getItem('lendkraft_token');
+                                      console.log('[LeadDetailPanel] Downloading file, token present:', !!token);
+                                      if (!token) {
+                                        alert('Session expired. Please log in again.');
+                                        return;
+                                      }
+                                      const response = await fetch(`${apiUrl}/attachments/${att.id}/download?token=${token}`, {
+                                        headers: {
+                                          'Authorization': `Bearer ${token}`
+                                        }
+                                      });
+                                      
+                                      if (!response.ok) throw new Error('Download failed');
+                                      
+                                      const blob = await response.blob();
+                                      const url = window.URL.createObjectURL(blob);
+                                      const a = document.createElement('a');
+                                      a.href = url;
+                                      a.download = att.fileName;
+                                      document.body.appendChild(a);
+                                      a.click();
+                                      window.URL.revokeObjectURL(url);
+                                      document.body.removeChild(a);
+                                    } catch (error) {
+                                      console.error('Download error:', error);
+                                      alert('Failed to download file. Please try again.');
+                                    }
+                                  }}
+                                  className="p-2 text-slate-400 hover:text-brand-600 transition-colors"
+                                  title="Download"
+                                >
+                                  <Download size={18} />
+                                </button>
+                                <button
+                                  onClick={() => onDeleteAttachment(att.id)}
+                                  className="p-2 text-slate-400 hover:text-red-500 transition-colors"
+                                  title="Delete"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
                               </div>
                             </div>
-                            <button className="p-2 text-slate-400 hover:text-brand-600"><Download size={18} /></button>
-                          </div>
-                        );
-                      })}
+                          );
+                        })
+                      )}
                     </div>
                   )}
 
-                  {/* History */}
-                  {activeDetailTab === 'HISTORY' && (
-                    <div className="space-y-6">
-                      <div className="relative">
-                        <div className="absolute left-4 top-0 bottom-0 w-px bg-slate-100" />
-                        <div className="space-y-8">
-                          {activities
-                            .filter(a => a.leadId === selectedLead.id && a.type === 'STAGE_CHANGE')
-                            .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
-                            .map((activity, idx, arr) => (
-                              <div key={activity.id} className="relative pl-10">
-                                <div className={cn("absolute left-0 w-8 h-8 rounded-full border-4 border-white flex items-center justify-center shadow-sm z-10",
-                                  idx === arr.length - 1 ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-400")}>
-                                  <Clock size={14} />
-                                </div>
-                                <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
-                                  <p className="text-sm font-bold text-slate-900 mb-1">{activity.content}</p>
-                                  <div className="flex items-center gap-2">
-                                    <p className="text-[10px] font-medium text-slate-400">{formatDateTime(activity.createdAt)}</p>
-                                    <span className="text-slate-300">•</span>
-                                    <p className="text-[10px] font-bold text-brand-600 uppercase tracking-widest">
-                                      {MOCK_USERS.find(u => u.id === activity.createdBy)?.name}
-                                    </p>
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                        </div>
-                      </div>
-                    </div>
-                  )}
 
                   {/* Handoff */}
                   {activeDetailTab === 'HANDOFF' && (
@@ -512,13 +579,17 @@ export const LeadDetailPanel = ({
                     <Trash2 size={20} />
                   </button>
                 )}
-                <button className="p-2 text-slate-400 hover:text-brand-600 transition-colors">
-                  <ExternalLink size={20} />
-                </button>
               </div>
               <div className="flex items-center gap-3">
                 <button onClick={onClose} className="px-6 py-2 text-sm font-bold text-slate-600 hover:text-slate-900 transition-all">Close</button>
-                <button className="px-6 py-2 bg-slate-900 text-white text-sm font-bold rounded-lg shadow-lg hover:bg-slate-800 transition-all">Save Changes</button>
+                <button 
+                  onClick={handleSave}
+                  disabled={isSaving}
+                  className="px-6 py-2 bg-slate-900 text-white text-sm font-bold rounded-lg shadow-lg hover:bg-slate-800 transition-all disabled:opacity-50 flex items-center gap-2"
+                >
+                  {isSaving && <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />}
+                  {isSaving ? 'Saving...' : 'Save Changes'}
+                </button>
               </div>
             </div>
           </motion.div>

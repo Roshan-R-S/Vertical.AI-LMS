@@ -1,11 +1,7 @@
 import { Activity, Lead, Task, TeamTarget, User, UserTarget } from './types';
 
 export const MOCK_USERS: User[] = [
-  { id: 'u1', name: 'Roshan RS', email: 'roshan@vertical.ai', role: 'SUPER_ADMIN', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Roshan' },
-  { id: 'u2', name: 'Sarah Sales', email: 'sarah@vertical.ai', role: 'SALES_ADMIN', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah' },
-  { id: 'u3', name: 'Mike Manager', email: 'mike@vertical.ai', role: 'TEAM_LEAD', teamId: 't1', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Mike' },
-  { id: 'u4', name: 'Alex Exec', email: 'alex@vertical.ai', role: 'BDE', teamId: 't1', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Alex' },
-  { id: 'u5', name: 'Jane Doe', email: 'jane@vertical.ai', role: 'BDE', teamId: 't1', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Jane' },
+  
 ];
 
 export const MOCK_LEADS: Lead[] = [

@@ -22,6 +22,7 @@ export interface User {
   role: Role;
   teamId?: string;
   avatar?: string;
+  canBulkUpload: boolean;
 }
 
 export interface Lead {

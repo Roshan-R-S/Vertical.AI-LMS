@@ -1,0 +1,44 @@
+{
+  "timestamp": "2026-03-31T05:48:59.491Z",
+  "stageFilter": "OVERDUE",
+  "findAllFilters": {
+    "stage": "OVERDUE",
+    "assignedToId": "cmn7c6onr0001gkn0k00w7p0d",
+    "skip": 0,
+    "take": 25
+  },
+  "statsFilters": {
+    "assignedToId": "cmn7c6onr0001gkn0k00w7p0d"
+  },
+  "returnedTotal": 227,
+  "stats": {
+    "totalLeads": 227,
+    "totalValue": 0,
+    "meetingsCount": 11,
+    "overdueCount": 2,
+    "industries": [
+      "Manufacturing",
+      "Real Estate",
+      "IT Services",
+      "Pharma",
+      "Construction",
+      "Healthcare",
+      "Finance",
+      "Retail",
+      "Textiles",
+      "FMCG",
+      "Automotive",
+      "Education",
+      "Logistics",
+      "Information Technology"
+    ],
+    "sources": [
+      "Credai - Real Estate Leads",
+      "Real Estate 50+",
+      "Tourism",
+      "Insurance",
+      "Bulk Upload",
+      "LinkedIn"
+    ]
+  }
+}
