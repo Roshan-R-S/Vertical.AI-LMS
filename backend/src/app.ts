@@ -13,6 +13,8 @@ import analyticsRouter from './modules/analytics/analytics.router';
 import tasksRouter from './modules/tasks/tasks.router';
 import attachmentsRouter from './modules/attachments/attachments.router';
 import auditLogsRouter from './modules/audit-logs/audit-logs.router';
+import clientsRouter from './modules/clients/clients.router';
+import invoicesRouter from './modules/invoices/invoices.router';
 
 const app = express();
 
@@ -47,6 +49,8 @@ app.use('/api/v1', attachmentsRouter);
 app.use('/api/v1/users', usersRouter);
 app.use('/api/v1/analytics', analyticsRouter);
 app.use('/api/v1/audit-logs', auditLogsRouter);
+app.use('/api/v1/clients', clientsRouter);
+app.use('/api/v1/invoices', invoicesRouter);
 
 app.use(errorMiddleware);
 

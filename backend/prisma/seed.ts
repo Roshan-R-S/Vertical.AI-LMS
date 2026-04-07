@@ -15,9 +15,6 @@ const prisma = new PrismaClient({ adapter });
 
 async function main() {
   const excelPath = path.resolve(__dirname, '../Copy of Zoominfo - 1014 Leads.xlsx');
-  console.log('🌱 Starting comprehensive seed from:', excelPath);
-
-  const workbook = XLSX.readFile(excelPath);
   
   // 1. Create default users for each role
   const roles = ['SUPER_ADMIN', 'SALES_ADMIN', 'TEAM_LEAD', 'BDE'] as const;
@@ -62,33 +59,79 @@ async function main() {
   let totalImported = 0;
   let totalSkipped = 0;
 
-  for (const sheetName of workbook.SheetNames) {
-    const data: any[] = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName!]!);
-    console.log(`\n📄 Processing sheet: "${sheetName}" (${data.length} rows)`);
+  let workbook: XLSX.WorkBook | null = null;
+  try {
+    workbook = XLSX.readFile(excelPath);
+  } catch (err) {
+    console.warn('⚠️  Excel file not found, skipping lead import.');
+  }
+  
+  if (workbook) {
+    for (const sheetName of workbook.SheetNames) {
+      const data: any[] = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName!]!);
+      console.log(`\n📄 Processing sheet: "${sheetName}" (${data.length} rows)`);
 
-    let sheetImported = 0;
-    let sheetSkipped = 0;
+      let sheetImported = 0;
+      let sheetSkipped = 0;
 
-    for (const row of data) {
-      try {
-        const leadData = mapRowToLead(row, sheetName, defaultUser.id, allBDEs);
-        await prisma.lead.create({ data: leadData });
-        sheetImported++;
-      } catch (err: any) {
-        sheetSkipped++;
-        console.error(`   ❌ Skip row in "${sheetName}": ${err.message || 'Unknown error'}`);
-        // Log the row for debugging if needed
-        // console.debug('      Row data:', JSON.stringify(row));
+      for (const row of data) {
+        try {
+          const leadData = mapRowToLead(row, sheetName, defaultUser.id, allBDEs);
+          await prisma.lead.create({ data: leadData });
+          sheetImported++;
+        } catch (err: any) {
+          sheetSkipped++;
+          console.error(`   ❌ Skip row in "${sheetName}": ${err.message || 'Unknown error'}`);
+        }
       }
+      console.log(`   ✅ Imported ${sheetImported} leads. ⚠️ Skipped ${sheetSkipped} leads.`);
+      totalImported += sheetImported;
+      totalSkipped += sheetSkipped;
     }
-    console.log(`   ✅ Imported ${sheetImported} leads. ⚠️ Skipped ${sheetSkipped} leads.`);
-    totalImported += sheetImported;
-    totalSkipped += sheetSkipped;
   }
 
   console.log(`\n🎯 SEED SUMMARY:`);
   console.log(`   - Total Imported: ${totalImported}`);
   console.log(`   - Total Skipped:  ${totalSkipped}`);
+
+  // 2. Create Mock Clients and Invoices
+  console.log('\n💼 Seeding mock clients and invoices...');
+  const mockClients = [
+    { name: 'John Smith', company: 'TechCorp Solutions', email: 'john@techcorp.com', phone: '+91 9876543210', amcStatus: 'ACTIVE' },
+    { name: 'Alice Green', company: 'Green Energy Ltd', email: 'alice@greenenergy.in', phone: '+91 8887776665', amcStatus: 'ACTIVE' },
+  ];
+
+  for (const clientData of mockClients) {
+    const client = await prisma.client.upsert({
+      where: { email: clientData.email },
+      update: {},
+      create: {
+        ...clientData,
+        onboardingDate: new Date('2024-01-15'),
+      },
+    });
+
+    // Add a couple of invoices for each client
+    await prisma.invoice.createMany({
+      data: [
+        {
+          clientId: client.id,
+          amount: 500000,
+          status: 'PAID',
+          date: new Date('2024-01-20'),
+          dueDate: new Date('2024-02-20'),
+        },
+        {
+          clientId: client.id,
+          amount: 1200000,
+          status: 'PENDING',
+          date: new Date('2024-02-25'),
+          dueDate: new Date('2024-03-25'),
+        },
+      ],
+    });
+  }
+
   console.log(`\n✨ DONE.`);
 }
 

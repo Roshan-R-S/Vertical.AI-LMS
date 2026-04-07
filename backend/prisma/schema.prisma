@@ -121,6 +121,35 @@ model Lead {
   @@map("leads")
 }
 
+model Client {
+  id              String    @id @default(cuid())
+  name            String
+  company         String
+  email           String    @unique
+  phone           String
+  onboardingDate  DateTime  @default(now())
+  amcStatus       String    @default("ACTIVE") // ACTIVE, EXPIRED, PENDING
+  invoices        Invoice[]
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@map("clients")
+}
+
+model Invoice {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  amount    Float
+  status    String   @default("PENDING") // PAID, PENDING, OVERDUE
+  date      DateTime @default(now())
+  dueDate   DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("invoices")
+}
+
 model Activity {
   id        String   @id @default(cuid())
   leadId    String

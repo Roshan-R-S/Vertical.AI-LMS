@@ -139,3 +139,23 @@ export const VALID_TRANSITIONS: Record<LeadStage, LeadStage[]> = {
   DND: ['DEFAULT', 'LOST'],
   SWITCHED_OFF: ['DNP', 'CALL_BACK', 'DEFAULT', 'LOST'],
 };
+
+export interface Client {
+  id: string;
+  name: string;
+  company: string;
+  email: string;
+  phone: string;
+  onboardingDate: string;
+  amcStatus: 'ACTIVE' | 'EXPIRED' | 'PENDING';
+}
+
+export interface Invoice {
+  id: string;
+  clientId: string;
+  amount: number;
+  status: 'PAID' | 'PENDING' | 'OVERDUE';
+  date: string;
+  dueDate: string;
+  client?: Client;
+}
