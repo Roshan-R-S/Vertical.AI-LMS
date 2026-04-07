@@ -2,31 +2,57 @@ import React, { useState, useEffect } from 'react';
 import { MoreVertical, UserPlus, Mail, Phone, Calendar } from 'lucide-react';
 import { cn, formatDate } from '../lib/utils';
 import { Client } from '../types';
+import { AddClientModal } from './AddClientModal';
 
 export const ClientsPage = () => {
   const [clients, setClients] = useState<Client[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const fetchClients = async () => {
+    try {
+      const token = localStorage.getItem('lendkraft_token');
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/clients`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setClients(data.clients || []);
+      }
+    } catch (err) {
+      console.error('Error fetching clients:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchClients = async () => {
-      try {
-        const token = localStorage.getItem('lendkraft_token');
-        const res = await fetch(`${import.meta.env.VITE_API_URL}/clients`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const data = await res.json();
-        if (res.ok) {
-          setClients(data.clients || []);
-        }
-      } catch (err) {
-        console.error('Error fetching clients:', err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     fetchClients();
   }, []);
+
+  const handleAddClient = async (clientData: any) => {
+    setIsSubmitting(true);
+    try {
+      const token = localStorage.getItem('lendkraft_token');
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/clients`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}` 
+        },
+        body: JSON.stringify(clientData)
+      });
+      if (res.ok) {
+        await fetchClients();
+        setIsModalOpen(false);
+      }
+    } catch (err) {
+      console.error('Error adding client:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -37,7 +63,10 @@ export const ClientsPage = () => {
             {clients.length} Total
           </span>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 bg-brand-600 text-white text-sm font-semibold rounded-lg shadow-lg shadow-brand-200 hover:bg-brand-700 transition-all active:scale-95">
+        <button 
+          onClick={() => setIsModalOpen(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-brand-600 text-white text-sm font-semibold rounded-lg shadow-lg shadow-brand-200 hover:bg-brand-700 transition-all active:scale-95"
+        >
           <UserPlus size={16} /> Add Client
         </button>
       </div>
@@ -116,6 +145,13 @@ export const ClientsPage = () => {
           </tbody>
         </table>
       </div>
+
+      <AddClientModal 
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSubmit={handleAddClient}
+        isSubmitting={isSubmitting}
+      />
     </div>
   );
 };
