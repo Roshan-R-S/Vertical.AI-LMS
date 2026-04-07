@@ -4,7 +4,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  
 }
 
 enum Role {
@@ -46,14 +45,29 @@ model User {
   canBulkUpload Boolean      @default(false)
   teamId       String?
   avatar       String?
+  resetToken   String?       @unique
+  resetTokenExpiry DateTime?
   leads        Lead[]        @relation("AssignedLeads")
   activities   Activity[]
+  auditLogs    AuditLog[]
   tasks        Task[]
   attachments  Attachment[]
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 
   @@map("users")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  action     String   
+  entityType String   // e.g., LEAD, USER, SETTING, TASK
+  entityId   String?
+  details    String?  
+  createdAt  DateTime @default(now())
+  @@map("audit_logs")
 }
 
 model RegistrationRequest {
@@ -68,7 +82,6 @@ model RegistrationRequest {
   expiresAt     DateTime
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
-
   @@map("registration_requests")
 }
 
@@ -96,12 +109,13 @@ model Lead {
   teamId          String
   nextFollowUp    DateTime?
   lastFollowUp    DateTime?
+  meetingNotified Boolean      @default(false)
   activities      Activity[]
   tasks           Task[]
   attachments     Attachment[]
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
-
+  
   @@index([stage])
   @@index([assignedToId])
   @@map("leads")

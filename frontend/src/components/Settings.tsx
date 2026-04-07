@@ -6,22 +6,51 @@ import {
 } from 'lucide-react';
 import { cn, formatDate, formatDateTime } from '../lib/utils';
 import { User as UserType, CustomFieldDefinition, AuditLogEntry } from '../types';
+import { requestPasswordReset } from '../lib/api';
 
 interface SettingsProps {
   user: UserType;
   users: UserType[];
-  auditLogs: AuditLogEntry[];
-  addAuditLog: (action: string, entityType: AuditLogEntry['entityType'], entityId?: string, details?: string) => void;
   onUpdateUser: (id: string, data: Partial<UserType>) => Promise<void>;
 }
 
-export const Settings = ({ user, users, auditLogs, addAuditLog, onUpdateUser }: SettingsProps) => {
+export const Settings = ({ user, users, onUpdateUser }: SettingsProps) => {
   const [activeSection, setActiveSection] = useState('profile');
   const [profileEmail, setProfileEmail] = useState(user.email);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [auditSearch, setAuditSearch] = useState('');
   const [auditFilter, setAuditFilter] = useState<AuditLogEntry['entityType'] | 'ALL'>('ALL');
+  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
+  const [loadingLogs, setLoadingLogs] = useState(false);
   const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
+
+  React.useEffect(() => {
+    if (activeSection === 'audit-log') {
+      const fetchLogs = async () => {
+        setLoadingLogs(true);
+        try {
+          const token = localStorage.getItem('lendkraft_token');
+          const res = await fetch(`${import.meta.env.VITE_API_URL}/audit-logs?entityType=${auditFilter}&limit=100`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (res.ok) {
+            const json = await res.json();
+            const mappedLogs = (json.data || []).map((log: any) => ({
+              ...log,
+              userName: log.user?.name || 'Unknown',
+              timestamp: log.createdAt
+            }));
+            setAuditLogs(mappedLogs);
+          }
+        } catch (err) {
+          console.error('Error fetching audit logs:', err);
+        } finally {
+          setLoadingLogs(false);
+        }
+      };
+      fetchLogs();
+    }
+  }, [activeSection, auditFilter]);
 
   const isValidEmail = (email: string) => {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -71,7 +100,7 @@ export const Settings = ({ user, users, auditLogs, addAuditLog, onUpdateUser }: 
         <button 
           onClick={() => {
             if (emailError) return;
-            addAuditLog('SAVE_SETTINGS', 'SETTING', undefined, 'User saved settings changes');
+            // The backend update user call will now handle the audit logging
           }}
           disabled={!!emailError}
           className={cn(
@@ -153,9 +182,13 @@ export const Settings = ({ user, users, auditLogs, addAuditLog, onUpdateUser }: 
                 <div className="pt-6 border-t border-slate-100">
                   <h4 className="text-sm font-bold text-slate-900 mb-4">Security</h4>
                   <button 
-                    onClick={() => {
-                      addAuditLog('PASSWORD_RESET_REQUEST', 'USER', user.id, 'User requested password reset');
-                      alert('Password reset link has been sent to your email.');
+                    onClick={async () => {
+                      try {
+                        await requestPasswordReset(user.email);
+                        alert('Password reset link has been sent to your email.');
+                      } catch (err: any) {
+                        alert(err.message || 'Failed to send password reset link');
+                      }
                     }}
                     className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-200 transition-all"
                   >
@@ -206,23 +239,34 @@ export const Settings = ({ user, users, auditLogs, addAuditLog, onUpdateUser }: 
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50">
-                      {filteredLogs.map((log) => (
+                      {loadingLogs ? (
+                        <tr>
+                          <td colSpan={4} className="py-12 text-center text-slate-400">
+                            <Clock size={20} className="animate-spin mx-auto mb-2" />
+                            <span className="text-sm font-medium">Loading audit logs...</span>
+                          </td>
+                        </tr>
+                      ) : filteredLogs.map((log) => (
                         <tr key={log.id} className="hover:bg-slate-50/50 transition-colors">
-                          <td className="py-3 px-4 text-xs text-slate-500 font-mono">{formatDateTime(log.timestamp)}</td>
+                          <td className="py-3 px-4 text-xs text-slate-500 font-mono whitespace-nowrap">{formatDateTime(log.timestamp)}</td>
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-2">
                               <div className="w-6 h-6 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center text-[10px] font-bold">
                                 {log.userName.charAt(0)}
                               </div>
-                              <span className="text-xs font-bold text-slate-900">{log.userName}</span>
+                              <span className="text-xs font-bold text-slate-900 whitespace-nowrap">{log.userName}</span>
                             </div>
                           </td>
                           <td className="py-3 px-4">
-                            <span className="px-2 py-1 bg-slate-100 text-slate-600 rounded text-[10px] font-bold uppercase tracking-wider">
+                            <span className="px-2 py-1 bg-slate-100 text-slate-600 rounded text-[10px] font-bold uppercase tracking-wider whitespace-nowrap">
                               {log.action}
                             </span>
                           </td>
-                          <td className="py-3 px-4 text-xs text-slate-600 max-w-xs truncate">{log.details}</td>
+                          <td className="py-3 px-4 text-xs text-slate-600 min-w-[200px]">
+                            <div className="bg-slate-50 p-2 rounded border border-slate-100 break-all leading-relaxed">
+                              {log.details}
+                            </div>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -297,7 +341,6 @@ export const Settings = ({ user, users, auditLogs, addAuditLog, onUpdateUser }: 
                                   const bde = users.find(u => u.email === bdeToAssign && u.role === 'BDE');
                                   if (bde) {
                                     await onUpdateUser(bde.id, { teamId: teamLead.teamId });
-                                    addAuditLog('ASSIGN_BDE_TO_TEAM', 'USER', bde.id, `Assigned ${bde.name} to ${teamLead.name}'s team`);
                                   } else {
                                     alert("BDE not found or user is not a BDE.");
                                   }

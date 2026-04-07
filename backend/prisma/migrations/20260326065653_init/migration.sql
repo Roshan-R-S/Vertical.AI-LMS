@@ -23,7 +23,8 @@ CREATE TABLE "users" (
     CONSTRAINT "users_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
+-- CreateTable 
+
 CREATE TABLE "registration_requests" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
@@ -41,6 +42,7 @@ CREATE TABLE "registration_requests" (
 );
 
 -- CreateTable
+
 CREATE TABLE "leads" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
@@ -70,6 +72,7 @@ CREATE TABLE "leads" (
 );
 
 -- CreateTable
+
 CREATE TABLE "activities" (
     "id" TEXT NOT NULL,
     "leadId" TEXT NOT NULL,

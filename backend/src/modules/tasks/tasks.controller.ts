@@ -6,7 +6,7 @@ import { asyncHandler } from '../../utils/asyncHandler';
 export const TasksController = {
   getTasks: asyncHandler(async (req: Request, res: Response) => {
     const { leadId } = req.query;
-    const tasks = await TasksService.getTasks(leadId as string);
+    const tasks = await TasksService.getTasks(leadId as string, (req as any).user);
     res.json(new ApiResponse(200, tasks));
   }),
 
@@ -14,19 +14,19 @@ export const TasksController = {
     const task = await TasksService.createTask({
       ...req.body,
       createdBy: (req as any).user.id,
-    });
+    }, (req as any).user);
     res.status(201).json(new ApiResponse(201, task, 'Task created successfully'));
   }),
 
   updateTask: asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
-    const task = await TasksService.updateTask(id as string, req.body);
+    const task = await TasksService.updateTask(id as string, req.body, (req as any).user);
     res.json(new ApiResponse(200, task, 'Task updated successfully'));
   }),
 
   deleteTask: asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
-    await TasksService.deleteTask(id as string);
+    await TasksService.deleteTask(id as string, (req as any).user);
     res.json(new ApiResponse(200, null, 'Task deleted successfully'));
   }),
 };

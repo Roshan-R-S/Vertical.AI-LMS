@@ -1,10 +1,12 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../../prisma';
-import { sendApprovalEmail } from '../../services/mailer';
+import { sendApprovalEmail, sendPasswordResetEmail } from '../../services/mailer';
+import crypto from 'crypto';
 import { Role } from '@prisma/client';
+import { logAudit } from '../audit-logs/audit-logs.service';
 
-const JWT_SECRET = process.env.JWT_ACCESS_SECRET || 'fallback-secret';
+import { config } from '../../config';
 
 export class AuthService {
   static async register(email: string, passwordHash: string, name: string, role: Role) {
@@ -16,7 +18,7 @@ export class AuthService {
     if (existingRequest) throw new Error('A registration request is already pending for this email.');
 
     // 2. Generate a unique approval token
-    const approvalToken = jwt.sign({ email, type: 'APPROVAL' }, JWT_SECRET, { expiresIn: '48h' });
+    const approvalToken = jwt.sign({ email, type: 'APPROVAL' }, config.jwt.secret, { expiresIn: '48h' });
 
     // 3. Resolve Team Lead to notify
     const teamLead = await this.findTeamLeadToNotify();
@@ -44,7 +46,7 @@ export class AuthService {
     // 1. Verify token
     let decoded: any;
     try {
-      decoded = jwt.verify(token, JWT_SECRET);
+      decoded = jwt.verify(token, config.jwt.secret);
     } catch (err) {
       throw new Error('Approval link has expired or is invalid.');
     }
@@ -75,13 +77,15 @@ export class AuthService {
       data: { status: 'APPROVED' },
     });
 
+    await logAudit(user.id, 'USER_REGISTER_APPROVED', 'USER', user.id, `Registration approved for ${user.email}`);
+
     return user;
   }
 
   static async deny(token: string) {
     // 1. Verify token
     try {
-      jwt.verify(token, JWT_SECRET);
+      jwt.verify(token, config.jwt.secret);
     } catch (err) {
       throw new Error('Link has expired or is invalid.');
     }
@@ -99,6 +103,8 @@ export class AuthService {
       where: { id: request.id },
       data: { status: 'DENIED' },
     });
+
+    await logAudit('system', 'USER_REGISTER_DENIED', 'USER', undefined, `Registration denied for ${request.email}`);
 
     return { message: 'Registration request denied.' };
   }
@@ -120,11 +126,60 @@ export class AuthService {
     // 4. Generate JWT
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
-      JWT_SECRET,
-      { expiresIn: (process.env.JWT_ACCESS_EXPIRES_IN as any) || '15m' }
+      config.jwt.secret,
+      { expiresIn: config.jwt.expiresIn as any }
     );
 
+    await logAudit(user.id, 'USER_LOGIN', 'USER', user.id, `User ${user.email} logged in`);
+
     return { token, user: { id: user.id, name: user.name, email: user.email, role: user.role } };
+  }
+
+  static async requestPasswordReset(email: string) {
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user || !user.isActive) {
+      return { message: 'If that email exists, a password reset link has been sent.' };
+    }
+
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetTokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
+    const resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    await prisma.user.update({
+      where: { email },
+      data: { resetToken: resetTokenHash, resetTokenExpiry },
+    });
+
+    await sendPasswordResetEmail(email, user.name, resetToken);
+    return { message: 'If that email exists, a password reset link has been sent.' };
+  }
+
+  static async resetPassword(token: string, passwordRaw: string) {
+    const resetTokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+    const user = await prisma.user.findFirst({
+      where: {
+        resetToken: resetTokenHash,
+        resetTokenExpiry: { gt: new Date() },
+      },
+    });
+
+    if (!user) {
+      throw new Error('Invalid or expired password reset token.');
+    }
+
+    const passwordHash = await bcrypt.hash(passwordRaw, 10);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordHash,
+        resetToken: null,
+        resetTokenExpiry: null,
+      },
+    });
+
+    return { message: 'Password has been successfully reset.' };
   }
 
   static async findUserById(userId: string) {

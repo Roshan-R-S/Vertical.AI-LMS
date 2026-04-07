@@ -60,34 +60,48 @@ async function main() {
   const defaultUser = allBDEs[0]!;
 
   let totalImported = 0;
+  let totalSkipped = 0;
 
   for (const sheetName of workbook.SheetNames) {
     const data: any[] = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName!]!);
     console.log(`\n📄 Processing sheet: "${sheetName}" (${data.length} rows)`);
 
     let sheetImported = 0;
+    let sheetSkipped = 0;
+
     for (const row of data) {
       try {
         const leadData = mapRowToLead(row, sheetName, defaultUser.id, allBDEs);
         await prisma.lead.create({ data: leadData });
         sheetImported++;
-      } catch (err) {
-        // Skip rows with missing critical data if necessary
-        // console.error(`Error in sheet ${sheetName}:`, err.message);
+      } catch (err: any) {
+        sheetSkipped++;
+        console.error(`   ❌ Skip row in "${sheetName}": ${err.message || 'Unknown error'}`);
+        // Log the row for debugging if needed
+        // console.debug('      Row data:', JSON.stringify(row));
       }
     }
-    console.log(`   ✅ Imported ${sheetImported} leads.`);
+    console.log(`   ✅ Imported ${sheetImported} leads. ⚠️ Skipped ${sheetSkipped} leads.`);
     totalImported += sheetImported;
+    totalSkipped += sheetSkipped;
   }
 
-  console.log(`\n🎯 TOTAL SEEDED: ${totalImported} leads.`);
+  console.log(`\n🎯 SEED SUMMARY:`);
+  console.log(`   - Total Imported: ${totalImported}`);
+  console.log(`   - Total Skipped:  ${totalSkipped}`);
+  console.log(`\n✨ DONE.`);
 }
 
 function mapRowToLead(row: any, sheetName: string, defaultUserId: string, bdeUsers: any[]) {
   // Normalize fields based on varying headers
   const name = row['Name'] || row['SPOC Name'] || row[' Company '] || 'Unknown';
-  const phone = row['Mobile No'] || row['Phone No '] || row['Contact number'] || row['Phone Number 1'] || row['SPOC Contact'] || row['Board No'] || '';
-  const email = row['Email'] ? String(row['Email']) : null;
+  const phone = String(row['Mobile No'] || row['Phone No '] || row['Contact number'] || row['Phone Number 1'] || row['SPOC Contact'] || row['Board No'] || '').trim();
+  
+  if (!phone || phone === 'undefined' || phone === 'null' || phone === '0') {
+    throw new Error(`Critical missing data: Phone number is empty or invalid.`);
+  }
+
+  const email = row['Email'] ? String(row['Email']).trim() : null;
   const company = row['Company'] || row['Company Name'] || row[' Company '] || sheetName;
   const designation = row['Designation'] || row['Job Title'] || '';
   const remarks = row['Remarks'] || '';

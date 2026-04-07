@@ -28,6 +28,7 @@ router.use(authMiddleware);
  *         description: Success
  */
 router.get('/', LeadsController.getLeads);
+router.get('/activities', LeadsController.getAllActivities);
 
 /**
  * @openapi

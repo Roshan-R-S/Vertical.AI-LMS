@@ -1,11 +1,22 @@
 import { prisma } from '../../prisma';
 
-export const getDashboardStats = async (userId: string, role: string) => {
+export const getDashboardStats = async (userId: string, role: string, teamId: string | null) => {
   const isAdmin = ['SUPER_ADMIN', 'SALES_ADMIN'].includes(role);
-  const whereClause = isAdmin ? {} : { assignedToId: userId };
+  
+  let whereClause: any = {};
+  if (!isAdmin) {
+    if (role === 'TEAM_LEAD') {
+      whereClause.teamId = teamId;
+    } else {
+      whereClause.assignedToId = userId;
+    }
+  }
 
   const [
     totalLeads,
+    totalValue,
+    revenue,
+    overdueCount,
     leadsByStage,
     leadsByExecutive,
     recentActivities,
@@ -13,6 +24,27 @@ export const getDashboardStats = async (userId: string, role: string) => {
   ] = await Promise.all([
     // Total leads count
     prisma.lead.count({ where: whereClause }),
+
+    // Total Pipeline Value
+    prisma.lead.aggregate({
+      where: whereClause,
+      _sum: { value: true }
+    }).then(res => res._sum.value || 0),
+
+    // Total Revenue (Payment Completed)
+    prisma.lead.aggregate({
+      where: { ...whereClause, stage: 'PAYMENT_COMPLETED' },
+      _sum: { value: true }
+    }).then(res => res._sum.value || 0),
+
+    // Overdue Leads
+    prisma.lead.count({
+      where: {
+        ...whereClause,
+        nextFollowUp: { lt: new Date() },
+        stage: { notIn: ['PAYMENT_COMPLETED', 'HANDED_OVER', 'NOT_INTERESTED', 'DND', 'LOST'] }
+      }
+    }),
 
     // Leads grouped by stage
     prisma.lead.groupBy({
@@ -36,10 +68,13 @@ export const getDashboardStats = async (userId: string, role: string) => {
         })
       : [],
 
-    // Recent 10 activities
+    // Recent 10 activities (scoped)
     prisma.activity.findMany({
       take: 10,
       orderBy: { createdAt: 'desc' },
+      where: {
+        lead: whereClause,
+      },
       include: {
         lead: {
           select: { id: true, name: true, companyName: true },
@@ -68,6 +103,9 @@ export const getDashboardStats = async (userId: string, role: string) => {
 
   return {
     totalLeads,
+    totalValue,
+    totalRevenue: revenue,
+    overdueCount,
     leadsByStage: leadsByStage.map((s) => ({
       stage: s.stage,
       count: s._count._all,

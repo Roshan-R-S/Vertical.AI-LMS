@@ -3,7 +3,7 @@ import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
 import { motion, AnimatePresence } from 'motion/react';
 import { STAGE_CONFIG, User, Activity, Task, LeadStage, Lead, UserTarget, TeamTarget, CustomFieldDefinition, AuditLogEntry } from './types';
-import { MOCK_ACTIVITIES, MOCK_TASKS, INITIAL_CUSTOM_FIELDS, INITIAL_AUDIT_LOGS, MOCK_USER_TARGETS, MOCK_TEAM_TARGETS } from './mockData';
+import { MOCK_ACTIVITIES, MOCK_TASKS, INITIAL_CUSTOM_FIELDS, MOCK_USER_TARGETS, MOCK_TEAM_TARGETS } from './mockData';
 import { cn, formatCurrency, formatDate, formatDateTime } from './lib/utils';
 
 import { LoginPage } from './components/LoginPage';
@@ -23,11 +23,15 @@ import { Settings as SettingsPage } from './components/Settings';
 
 import { useAuth } from './contexts/AuthContext';
 import { RegisterPage } from './components/RegisterPage';
+import { ForgotPassword } from './components/ForgotPassword';
+import { ResetPassword } from './components/ResetPassword';
 
 export default function App() {
-  const { user: currentUser, logout, loading: authLoading } = useAuth();
+  const { user: currentUser, token, logout, loading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState('leads');
-  const [authView, setAuthView] = useState<'login' | 'register'>('login');
+  const [authView, setAuthView] = useState<'login' | 'register' | 'forgot_password' | 'reset_password'>(
+    window.location.pathname === '/reset-password' ? 'reset_password' : 'login'
+  );
 
   // Set active tab based on role
   React.useEffect(() => {
@@ -44,7 +48,6 @@ export default function App() {
   const [tasks, setTasks] = useState<Task[]>(MOCK_TASKS);
   const [attachments, setAttachments] = useState<any[]>([]);
   const [customFields, setCustomFields] = useState<CustomFieldDefinition[]>(INITIAL_CUSTOM_FIELDS);
-  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>(INITIAL_AUDIT_LOGS);
   const [userTargets, setUserTargets] = useState<UserTarget[]>(MOCK_USER_TARGETS);
   const [teamTargets, setTeamTargets] = useState<TeamTarget[]>(MOCK_TEAM_TARGETS);
 
@@ -187,14 +190,6 @@ export default function App() {
   const [notifiedTaskIds, setNotifiedTaskIds] = useState<Set<string>>(new Set());
   const [notifiedOverdueLeadIds, setNotifiedOverdueLeadIds] = useState<Set<string>>(new Set());
 
-  const addAuditLog = React.useCallback((action: string, entityType: AuditLogEntry['entityType'], entityId?: string, details = '') => {
-    setAuditLogs(prev => [{
-      id: `log-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      userId: currentUser?.id || 'system', userName: currentUser?.name || 'System',
-      action, entityType, entityId, details, timestamp: new Date().toISOString()
-    }, ...prev]);
-  }, [currentUser]);
-
   // Refs for intervals
   const tasksRef = useRef(tasks); tasksRef.current = tasks;
   const leadsRef = useRef(leads); leadsRef.current = leads;
@@ -224,11 +219,10 @@ export default function App() {
         const assignee = users.find(u => u.id === lead.assignedToId);
         setNotifications(prev => [{ id: `n-overdue-${Date.now()}-${lead.id}`, title: 'Lead Overdue', message: `Lead ${lead.name} (Assigned to: ${assignee?.name || 'Unassigned'}) is overdue.`, type: 'REMINDER' }, ...prev]);
         setNotifiedOverdueLeadIds(prev => { const next = new Set(prev); next.add(lead.id); return next; });
-        addAuditLog('LEAD_OVERDUE', 'LEAD', lead.id, `Lead ${lead.name} is overdue for follow-up.`);
       });
     }, 60000);
     return () => clearInterval(interval);
-  }, [notifiedOverdueLeadIds, addAuditLog, users]);
+  }, [notifiedOverdueLeadIds, users]);
 
   // --- Helpers ---
   const isTaskOverdue = (task: Task) => task.status !== 'COMPLETED' && new Date(task.dueDate) < new Date();
@@ -274,7 +268,6 @@ export default function App() {
         const json = await res.json();
         const newActivity = json.data;
         setActivities(prev => [newActivity, ...prev]);
-        addAuditLog('ADD_NOTE', 'LEAD', leadId, `Added note: ${content.substring(0, 50)}...`);
       }
     } catch (err) {
       console.error('Error adding note:', err);
@@ -292,7 +285,6 @@ export default function App() {
       if (res.ok) {
         setLeads(prev => prev.map(l => l.id === leadId ? { ...l, nextFollowUp: date } : l));
         if (selectedLead?.id === leadId) setSelectedLead(prev => prev ? { ...prev, nextFollowUp: date } : null);
-        addAuditLog('SET_FOLLOWUP', 'LEAD', leadId, `Scheduled follow-up for ${formatDate(date)}`);
       }
     } catch (err) {
       console.error('Error setting follow-up:', err);
@@ -340,6 +332,27 @@ export default function App() {
     }
   }, [selectedLead?.id]);
 
+  // Fetch global activities for Stage History page
+  React.useEffect(() => {
+    if (activeTab === 'stage-history') {
+      const fetchGlobalActivities = async () => {
+        const token = localStorage.getItem('lendkraft_token');
+        try {
+          const res = await fetch(`${import.meta.env.VITE_API_URL}/leads/activities?type=STAGE_CHANGE,LEAD_CREATED&limit=200`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (res.ok) {
+            const json = await res.json();
+            setActivities(json.data || []);
+          }
+        } catch (err) {
+          console.error('Error fetching global activities:', err);
+        }
+      };
+      fetchGlobalActivities();
+    }
+  }, [activeTab]);
+
   const handleAddTask = async (leadId: string, title: string, dueDate: string, priority: 'LOW' | 'MEDIUM' | 'HIGH', reminderAt?: string) => {
     if (!title.trim()) return;
     const token = localStorage.getItem('lendkraft_token');
@@ -367,8 +380,6 @@ export default function App() {
           const actJson = await actRes.json();
           setActivities(actJson.data || []);
         }
-        
-        addAuditLog('ADD_TASK', 'LEAD', leadId, `Created task: ${title}`);
       }
     } catch (err) {
       console.error('Error adding task:', err);
@@ -431,7 +442,6 @@ export default function App() {
       if (res.ok) {
         setLeads(prev => prev.map(l => l.id === leadId ? { ...l, ...data, updatedAt: new Date().toISOString() } : l));
         if (selectedLead?.id === leadId) setSelectedLead(prev => prev ? { ...prev, ...data } : null);
-        addAuditLog('UPDATE_LEAD', 'LEAD', leadId, 'Updated lead details');
       }
     } catch (err) {
       console.error('Error updating lead:', err);
@@ -454,7 +464,6 @@ export default function App() {
       if (res.ok) {
         const json = await res.json();
         setAttachments(prev => [json.data, ...prev]);
-        addAuditLog('ADD_ATTACHMENT', 'LEAD', selectedLead.id, `Attached file: ${file.name}`);
         // Re-fetch activities so the ATTACHMENT entry appears in Activity History
         const actRes = await fetch(`${import.meta.env.VITE_API_URL}/leads/${selectedLead.id}/activities`, {
           headers: { Authorization: `Bearer ${token}` },
@@ -525,8 +534,6 @@ export default function App() {
       if (res.ok) {
         setLeads(prev => prev.map(l => l.id === leadId ? { ...l, assignedToId: newUserId, updatedAt: new Date().toISOString() } : l));
         if (selectedLead?.id === leadId) setSelectedLead(prev => prev ? { ...prev, assignedToId: newUserId } : null);
-        const newUser = users.find(u => u.id === newUserId);
-        addAuditLog('REASSIGN_LEAD', 'LEAD', leadId, `Reassigned to ${newUser?.name || 'Unknown'}`);
       }
     } catch (err) {
       console.error('Error reassigning lead:', err);
@@ -572,7 +579,6 @@ export default function App() {
         const json = await res.json();
         const newLead = json.data;
         setLeads(prev => [newLead, ...prev]);
-        addAuditLog('CREATE_LEAD', 'LEAD', newLead.id, `Created lead: ${newLead.name}`);
         setIsAddModalOpen(false);
       }
     } catch (err) {
@@ -602,8 +608,6 @@ export default function App() {
           const actJson = await actRes.json();
           setActivities(actJson.data || []);
         }
-        
-        addAuditLog('UPDATE_STAGE', 'LEAD', leadId, `Status changed from ${oldStage} to ${newStage}`);
       }
     } catch (err) {
       console.error('Error updating stage:', err);
@@ -621,7 +625,6 @@ export default function App() {
       if (res.ok) {
         setLeads(prev => prev.filter(l => l.id !== id));
         setSelectedLead(null);
-        addAuditLog('DELETE_LEAD', 'LEAD', id, `Deleted lead: ${lead?.name}`);
       }
     } catch (err) {
       console.error('Error deleting lead:', err);
@@ -678,7 +681,6 @@ export default function App() {
 
       if (!res.ok) throw new Error('Failed to bulk upload leads');
 
-      addAuditLog('BULK_CREATE_LEAD', 'LEAD', 'multiple', `Bulk uploaded ${mappedLeads.length} leads`);
       setIsBulkModalOpen(false);
       setNotifications(prev => [{ id: Date.now().toString(), title: 'Bulk Upload Success', message: `Successfully uploaded ${mappedLeads.length} leads.`, type: 'INFO' }, ...prev]);
       
@@ -722,12 +724,10 @@ export default function App() {
 
   const handleUpdateTeamTarget = (target: TeamTarget) => {
     setTeamTargets(prev => prev.find(t => t.id === target.id) ? prev.map(t => t.id === target.id ? target : t) : [...prev, target]);
-    addAuditLog('UPDATE_TEAM_TARGET', 'SETTING', target.id, `Updated team target for ${target.month}`);
   };
 
   const handleUpdateUserTarget = (target: UserTarget) => {
     setUserTargets(prev => prev.find(t => t.id === target.id) ? prev.map(t => t.id === target.id ? target : t) : [...prev, target]);
-    addAuditLog('UPDATE_USER_TARGET', 'SETTING', target.id, `Updated user target for ${target.userId} in ${target.month}`);
   };
 
   const handleUpdateUser = async (id: string, data: Partial<User>) => {
@@ -743,7 +743,6 @@ export default function App() {
       });
       if (res.ok) {
         setUsers(prev => prev.map(u => u.id === id ? { ...u, ...data } : u));
-        addAuditLog('UPDATE_USER', 'USER', id, `Updated user: ${id}`);
       }
     } catch (err) {
       console.error('Error updating user:', err);
@@ -760,7 +759,6 @@ export default function App() {
       });
       if (res.ok) {
         setUsers(prev => prev.filter(u => u.id !== id));
-        addAuditLog('DELETE_USER', 'USER', id, `Deleted user: ${id}`);
       }
     } catch (err) {
       console.error('Error deleting user:', err);
@@ -775,9 +773,20 @@ export default function App() {
   );
 
   if (!currentUser) {
-    return authView === 'login' 
-      ? <LoginPage onSwitchToRegister={() => setAuthView('register')} /> 
-      : <RegisterPage onSwitchToLogin={() => setAuthView('login')} />;
+    if (authView === 'reset_password') {
+      const token = new URLSearchParams(window.location.search).get('token') || '';
+      return <ResetPassword token={token} onBackToLogin={() => {
+        window.history.pushState({}, '', '/');
+        setAuthView('login');
+      }} />;
+    }
+    if (authView === 'forgot_password') {
+      return <ForgotPassword onBackToLogin={() => setAuthView('login')} />;
+    }
+    if (authView === 'register') {
+      return <RegisterPage onSwitchToLogin={() => setAuthView('login')} />;
+    }
+    return <LoginPage onSwitchToRegister={() => setAuthView('register')} onForgotPassword={() => setAuthView('forgot_password')} />;
   }
 
   return (
@@ -807,7 +816,7 @@ export default function App() {
         />
 
         <div className="flex-1 overflow-y-auto p-4 lg:p-8">
-          {activeTab === 'dashboard' && <Dashboard leads={leads} />}
+          {activeTab === 'dashboard' && <Dashboard token={token} />}
 
           {activeTab === 'leads' && (
             <LeadsPage
@@ -836,7 +845,7 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'stage-history' && <StageHistoryPage leads={leads} activities={activities} />}
+          {activeTab === 'stage-history' && <StageHistoryPage users={users} />}
           {activeTab === 'clients' && <ClientsPage />}
           {activeTab === 'reports' && <ReportsPage />}
           {activeTab === 'users' && (
@@ -851,8 +860,6 @@ export default function App() {
             <SettingsPage 
               user={currentUser} 
               users={users} 
-              auditLogs={auditLogs} 
-              addAuditLog={addAuditLog} 
               onUpdateUser={handleUpdateUser}
             />
           )}
@@ -886,6 +893,7 @@ export default function App() {
             isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)}
             onSubmit={handleAddLead} users={users} customFields={customFields}
             currentUser={currentUser} emailError={emailError} setEmailError={setEmailError}
+            leadStats={leadStats}
           />
           <TargetManagementModal
             isOpen={isTargetModalOpen} onClose={() => setIsTargetModalOpen(false)}

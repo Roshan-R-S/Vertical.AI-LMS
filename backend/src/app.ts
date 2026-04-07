@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
+import helmet from 'helmet';
+import { config } from './config';
 import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './config/swagger';
 import { errorMiddleware } from './middleware/error.middleware';
@@ -10,10 +12,15 @@ import usersRouter from './modules/users/users.router';
 import analyticsRouter from './modules/analytics/analytics.router';
 import tasksRouter from './modules/tasks/tasks.router';
 import attachmentsRouter from './modules/attachments/attachments.router';
+import auditLogsRouter from './modules/audit-logs/audit-logs.router';
 
 const app = express();
 
-app.use(cors());
+app.use(helmet());
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  credentials: true
+}));
 app.use(morgan('dev'));
 app.use(express.json());
 
@@ -39,6 +46,7 @@ app.use('/api/v1/leads', leadsRouter);
 app.use('/api/v1', attachmentsRouter);
 app.use('/api/v1/users', usersRouter);
 app.use('/api/v1/analytics', analyticsRouter);
+app.use('/api/v1/audit-logs', auditLogsRouter);
 
 app.use(errorMiddleware);
 

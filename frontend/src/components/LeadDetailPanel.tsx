@@ -279,7 +279,7 @@ export const LeadDetailPanel = ({
                     <button key={tab} onClick={() => setActiveDetailTab(tab)}
                       className={cn("pb-3 text-sm transition-all relative",
                         activeDetailTab === tab ? "text-brand-600" : "text-slate-400 hover:text-slate-600")}>
-                      {tab === 'ACTIVITY' ? 'Activity History' : tab === 'TASKS' ? 'Create Tasks' : 'Upload Files'}
+                      {tab === 'ACTIVITY' ? 'Activity History' : tab === 'TASKS' ? 'Create Tasks' : 'File Management'}
                       {activeDetailTab === tab && <motion.div layoutId="tab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-600" />}
                     </button>
                   ))}
@@ -498,7 +498,7 @@ export const LeadDetailPanel = ({
                                         alert('Session expired. Please log in again.');
                                         return;
                                       }
-                                      const response = await fetch(`${apiUrl}/attachments/${att.id}/download?token=${token}`, {
+                                      const response = await fetch(`${apiUrl}/attachments/${att.id}/download`, {
                                         headers: {
                                           'Authorization': `Bearer ${token}`
                                         }
@@ -525,13 +525,15 @@ export const LeadDetailPanel = ({
                                 >
                                   <Download size={18} />
                                 </button>
-                                <button
-                                  onClick={() => onDeleteAttachment(att.id)}
-                                  className="p-2 text-slate-400 hover:text-red-500 transition-colors"
-                                  title="Delete"
-                                >
-                                  <Trash2 size={16} />
-                                </button>
+                                {['SUPER_ADMIN', 'SALES_ADMIN', 'TEAM_LEAD'].includes(currentUser.role) && (
+                                  <button
+                                    onClick={() => onDeleteAttachment(att.id)}
+                                    className="p-2 text-slate-400 hover:text-red-500 transition-colors"
+                                    title="Delete"
+                                  >
+                                    <Trash2 size={16} />
+                                  </button>
+                                )}
                               </div>
                             </div>
                           );

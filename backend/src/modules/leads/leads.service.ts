@@ -1,5 +1,8 @@
 import { LeadStage } from '@prisma/client';
 import { LeadRepo } from './leads.repository';
+import { prisma } from '../../prisma';
+import { sendMeetingScheduledEmail } from '../../services/mailer';
+import { logAudit } from '../audit-logs/audit-logs.service';
 
 export const getLeads = async (query: any, user: any) => {
   const { stage, assignedToId, teamId, search, industry, source, page = 1, limit = 20 } = query;
@@ -44,17 +47,6 @@ export const getLeads = async (query: any, user: any) => {
     LeadRepo.getStats(statsFilters),
   ]);
 
-  try {
-    require('fs').writeFileSync('service_debug.json', JSON.stringify({
-      timestamp: new Date().toISOString(),
-      stageFilter: query.stage,
-      findAllFilters,
-      statsFilters,
-      returnedTotal: stats.totalLeads,
-      stats
-    }, null, 2));
-  } catch (e) {}
-
   return {
     data: leads,
     meta: {
@@ -67,14 +59,25 @@ export const getLeads = async (query: any, user: any) => {
   };
 };
 
-export const getLeadById = async (id: string) => {
+export const getLeadById = async (id: string, user: any) => {
   const lead = await LeadRepo.findById(id);
   if (!lead) throw new Error('Lead not found');
+
+  // Verify access
+  if (user.role === 'BDE' && lead.assignedToId !== user.id) {
+    throw new Error('Access denied to this lead.');
+  }
+  if (user.role === 'TEAM_LEAD' && lead.teamId !== user.teamId) {
+    throw new Error('Access denied to this lead.');
+  }
+
   return lead;
 };
 
-export const createLead = async (data: any) => {
-  return LeadRepo.create(data);
+export const createLead = async (data: any, user: any) => {
+  const lead = await LeadRepo.create(data);
+  await logAudit(user.id, 'LEAD_CREATE', 'LEAD', lead.id, `Lead ${lead.name} created`);
+  return lead;
 };
 
 export const bulkCreateLeads = async (data: any[], user: any) => {
@@ -83,18 +86,55 @@ export const bulkCreateLeads = async (data: any[], user: any) => {
     teamId: lead.teamId || user.teamId || 'default-team',
     assignedToId: lead.assignedToId || user.id,
   }));
-  return LeadRepo.createMany(enrichedData);
+  const result = await LeadRepo.createMany(enrichedData);
+  await logAudit(user.id, 'LEAD_BULK_CREATE', 'LEAD', undefined, `Bulk created ${data.length} leads`);
+  return result;
 };
 
-export const updateLead = async (id: string, data: any) => {
+export const updateLead = async (id: string, data: any, user: any) => {
   const lead = await LeadRepo.findById(id);
   if (!lead) throw new Error('Lead not found');
-  return LeadRepo.update(id, data);
+
+  // Verify access
+  if (user.role === 'BDE' && lead.assignedToId !== user.id) {
+    throw new Error('Access denied to this lead.');
+  }
+  if (user.role === 'TEAM_LEAD' && lead.teamId !== user.teamId) {
+    throw new Error('Access denied to this lead.');
+  }
+  
+  const updatedLead = await LeadRepo.update(id, data);
+
+  await logAudit(user.id, 'LEAD_UPDATE', 'LEAD', updatedLead.id, `Lead updated: ${Object.keys(data).join(', ')}`);
+
+  // If nextFollowUp changed while the lead is in MEETING_SCHEDULED stage, it's a reschedule
+  if (data.nextFollowUp && lead.nextFollowUp?.getTime() !== new Date(data.nextFollowUp).getTime()) {
+    if (updatedLead.stage === 'MEETING_SCHEDULED' && updatedLead.nextFollowUp && lead.assignedTo?.email) {
+      await sendMeetingScheduledEmail(
+        lead.assignedTo.email,
+        lead.assignedTo.name,
+        updatedLead.name,
+        updatedLead.nextFollowUp
+      );
+    }
+  }
+
+  return updatedLead;
 };
 
-export const deleteLead = async (id: string) => {
+export const deleteLead = async (id: string, user: any) => {
   const lead = await LeadRepo.findById(id);
   if (!lead) throw new Error('Lead not found');
+
+  // Verify access
+  if (user.role === 'BDE' && lead.assignedToId !== user.id) {
+    throw new Error('Access denied to this lead.');
+  }
+  if (user.role === 'TEAM_LEAD' && lead.teamId !== user.teamId) {
+    throw new Error('Access denied to this lead.');
+  }
+
+  await logAudit(user.id, 'LEAD_DELETE', 'LEAD', id, `Lead ${lead.name} deleted`);
   return LeadRepo.delete(id);
 };
 
@@ -102,16 +142,87 @@ export const updateStage = async (
   id: string,
   stage: LeadStage,
   executorId: string,
+  user: any,
   remarks?: string
 ) => {
   const lead = await LeadRepo.findById(id);
   if (!lead) throw new Error('Lead not found');
-  return LeadRepo.updateStage(id, stage, executorId, remarks);
+
+  // Verify access
+  if (user.role === 'BDE' && lead.assignedToId !== user.id) {
+    throw new Error('Access denied to this lead.');
+  }
+  if (user.role === 'TEAM_LEAD' && lead.teamId !== user.teamId) {
+    throw new Error('Access denied to this lead.');
+  }
+
+  const [updatedLead, activity] = await LeadRepo.updateStage(id, stage, executorId, remarks);
+
+  await logAudit(user.id, 'LEAD_STAGE_CHANGE', 'LEAD', updatedLead.id, `Stage changed to ${stage}${remarks ? `: ${remarks}` : ''}`);
+
+  // If stage changed to MEETING_SCHEDULED, notify BDE
+  if (stage === 'MEETING_SCHEDULED' && lead.stage !== 'MEETING_SCHEDULED') {
+    if (updatedLead.nextFollowUp && lead.assignedTo?.email) {
+      await sendMeetingScheduledEmail(
+        lead.assignedTo.email,
+        lead.assignedTo.name,
+        updatedLead.name,
+        updatedLead.nextFollowUp
+      );
+    }
+  }
+
+  return [updatedLead, activity];
 };
 
-export const getActivities = async (leadId: string) => {
+export const getAllActivities = async (query: any, user: any) => {
+  const { type, limit = 100 } = query;
+  console.log('[Debug] getAllActivities called for user:', user?.id, user?.role, 'type filter:', type);
+
+  const where: any = {};
+
+  // Handle type filter (supports comma-separated values, e.g. "STAGE_CHANGE,LEAD_CREATED")
+  if (type && type !== 'ALL') {
+    const types = String(type).split(',').map((t: string) => t.trim()).filter(Boolean);
+    if (types.length > 0) {
+      where.type = { in: types };
+    }
+  }
+
+  // Role-based scoping — admins see all
+  if (user?.role === 'BDE') {
+    where.lead = { assignedToId: user.id };
+  } else if (user?.role === 'TEAM_LEAD' && user.teamId) {
+    where.lead = { teamId: user.teamId };
+  }
+
+  const activities = await prisma.activity.findMany({
+    where,
+    take: Number(limit) || 100,
+    orderBy: { createdAt: 'desc' },
+    include: {
+      lead: {
+        select: { id: true, name: true, companyName: true },
+      },
+    },
+  });
+
+  console.log('[Debug] getAllActivities returning:', activities.length, 'activities');
+  return activities;
+};
+
+export const getActivities = async (leadId: string, user: any) => {
   const lead = await LeadRepo.findById(leadId);
   if (!lead) throw new Error('Lead not found');
+
+  // Verify access
+  if (user.role === 'BDE' && lead.assignedToId !== user.id) {
+    throw new Error('Access denied to this lead.');
+  }
+  if (user.role === 'TEAM_LEAD' && lead.teamId !== user.teamId) {
+    throw new Error('Access denied to this lead.');
+  }
+
   return LeadRepo.getActivities(leadId);
 };
 
@@ -119,9 +230,19 @@ export const addActivity = async (
   leadId: string,
   type: string,
   content: string,
-  createdBy: string
+  createdBy: string,
+  user: any
 ) => {
   const lead = await LeadRepo.findById(leadId);
   if (!lead) throw new Error('Lead not found');
+
+  // Verify access
+  if (user.role === 'BDE' && lead.assignedToId !== user.id) {
+    throw new Error('Access denied to this lead.');
+  }
+  if (user.role === 'TEAM_LEAD' && lead.teamId !== user.teamId) {
+    throw new Error('Access denied to this lead.');
+  }
+
   return LeadRepo.addActivity(leadId, type, content, createdBy);
 };

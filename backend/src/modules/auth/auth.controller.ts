@@ -7,6 +7,10 @@ export class AuthController {
     try {
       const { email, password, name, role } = req.body;
       
+      if (!password || password.length < 8) {
+        throw new Error('Password must be at least 8 characters long.');
+      }
+      
       // Hash password before passing to service
       const salt = await bcrypt.genSalt(10);
       const passwordHash = await bcrypt.hash(password, salt);
@@ -76,6 +80,32 @@ export class AuthController {
       res.json(user);
     } catch (error: any) {
       res.status(404).json({ error: error.message });
+    }
+  }
+
+  static async forgotPassword(req: Request, res: Response) {
+    try {
+      const { email } = req.body;
+      if (!email) throw new Error('Email is required.');
+      const result = await AuthService.requestPasswordReset(email);
+      res.json(result);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  }
+
+  static async resetPassword(req: Request, res: Response) {
+    try {
+      const { token, newPassword } = req.body;
+      if (!token || !newPassword) throw new Error('Token and new password are required.');
+      
+      if (newPassword.length < 8) {
+        throw new Error('New password must be at least 8 characters long.');
+      }
+      const result = await AuthService.resetPassword(token, newPassword);
+      res.json(result);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
     }
   }
 }

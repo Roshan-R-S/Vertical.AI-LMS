@@ -165,12 +165,50 @@ export const LeadRepo = {
       },
     }),
 
-  create: (data: any) => prisma.lead.create({ data }),
+  create: async (data: any) => {
+    return prisma.$transaction(async (tx) => {
+      const lead = await tx.lead.create({ data });
+      await tx.activity.create({
+        data: {
+          leadId: lead.id,
+          type: 'LEAD_CREATED',
+          content: 'Lead created in system',
+          createdBy: data.assignedToId,
+        },
+      });
+      return lead;
+    });
+  },
 
-  createMany: (data: any[]) => prisma.lead.createMany({ data }),
+  createMany: async (leads: any[]) => {
+    return prisma.$transaction(async (tx) => {
+      const results = [];
+      for (const leadData of leads) {
+        const lead = await tx.lead.create({ data: leadData });
+        await tx.activity.create({
+          data: {
+            leadId: lead.id,
+            type: 'LEAD_CREATED',
+            content: 'Lead created via bulk upload',
+            createdBy: leadData.assignedToId,
+          },
+        });
+        results.push(lead);
+      }
+      return results;
+    });
+  },
 
-  update: (id: string, data: any) =>
-    prisma.lead.update({ where: { id }, data }),
+  update: (id: string, data: any) => {
+    const isMeetingRescheduled = data.nextFollowUp !== undefined;
+    return prisma.lead.update({
+      where: { id },
+      data: {
+        ...data,
+        ...(isMeetingRescheduled ? { meetingNotified: false } : {}),
+      },
+    });
+  },
 
   delete: (id: string) => prisma.lead.delete({ where: { id } }),
 
@@ -183,7 +221,11 @@ export const LeadRepo = {
     return prisma.$transaction([
       prisma.lead.update({
         where: { id },
-        data: { stage, lastFollowUp: new Date() },
+        data: { 
+          stage, 
+          lastFollowUp: new Date(),
+          ...(stage === 'MEETING_SCHEDULED' ? { meetingNotified: false } : {}),
+        },
       }),
       prisma.activity.create({
         data: {

@@ -16,7 +16,7 @@ export const getLeads = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const getLeadById = asyncHandler(async (req: Request, res: Response) => {
-  const lead = await LeadsService.getLeadById(req.params['id'] as string);
+  const lead = await LeadsService.getLeadById(req.params['id'] as string, (req as any).user);
   if (!lead) {
     throw new ApiError(404, "Lead not found");
   }
@@ -25,7 +25,7 @@ export const getLeadById = asyncHandler(async (req: Request, res: Response) => {
 
 export const createLead = asyncHandler(async (req: Request, res: Response) => {
   const data = createLeadSchema.parse(req.body);
-  const lead = await LeadsService.createLead(data);
+  const lead = await LeadsService.createLead(data, (req as any).user);
   res.status(201).json(new ApiResponse(201, lead, "Lead created successfully"));
 });
 
@@ -37,12 +37,12 @@ export const bulkCreate = asyncHandler(async (req: Request, res: Response) => {
 
 export const updateLead = asyncHandler(async (req: Request, res: Response) => {
   const data = updateLeadSchema.parse(req.body);
-  const lead = await LeadsService.updateLead(req.params['id'] as string, data);
+  const lead = await LeadsService.updateLead(req.params['id'] as string, data, (req as any).user);
   res.status(200).json(new ApiResponse(200, lead, "Lead updated successfully"));
 });
 
 export const deleteLead = asyncHandler(async (req: Request, res: Response) => {
-  await LeadsService.deleteLead(req.params['id'] as string);
+  await LeadsService.deleteLead(req.params['id'] as string, (req as any).user);
   res.status(200).json(new ApiResponse(200, null, "Lead deleted successfully"));
 });
 
@@ -53,13 +53,24 @@ export const updateStage = asyncHandler(async (req: Request, res: Response) => {
     req.params['id'] as string,
     stage,
     userId,
+    (req as any).user,
     remarks
   );
   res.status(200).json(new ApiResponse(200, result, "Stage updated successfully"));
 });
 
+export const getAllActivities = asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const activities = await LeadsService.getAllActivities(req.query, (req as any).user);
+    res.status(200).json(new ApiResponse(200, activities, "Global activities fetched successfully"));
+  } catch (err: any) {
+    console.error('[Error] getAllActivities failed:', err);
+    throw err; // Re-throw to let asyncHandler handle the error status
+  }
+});
+
 export const getActivities = asyncHandler(async (req: Request, res: Response) => {
-  const activities = await LeadsService.getActivities(req.params['id'] as string);
+  const activities = await LeadsService.getActivities(req.params['id'] as string, (req as any).user);
   res.status(200).json(new ApiResponse(200, activities, "Activities fetched successfully"));
 });
 
@@ -70,7 +81,8 @@ export const addActivity = asyncHandler(async (req: Request, res: Response) => {
     req.params['id'] as string,
     type,
     content,
-    userId
+    userId,
+    (req as any).user
   );
   res.status(201).json(new ApiResponse(201, activity, "Activity added successfully"));
 });

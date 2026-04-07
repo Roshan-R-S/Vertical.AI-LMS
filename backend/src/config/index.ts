@@ -7,8 +7,10 @@ export const config = {
   port: parseInt(process.env.PORT || '5000', 10),
   databaseUrl: process.env.DATABASE_URL,
   jwt: {
-    secret: process.env.JWT_ACCESS_SECRET || 'fallback-secret',
-    expiresIn: process.env.JWT_ACCESS_EXPIRES_IN || '15m',
+    secret: process.env.JWT_ACCESS_SECRET || (() => { 
+      throw new Error('CRITICAL: JWT_ACCESS_SECRET is not defined in .env! This is required for security.'); 
+    })(),
+    expiresIn: process.env.JWT_ACCESS_EXPIRES_IN || '24h',
   },
   smtp: {
     host: process.env.SMTP_HOST,

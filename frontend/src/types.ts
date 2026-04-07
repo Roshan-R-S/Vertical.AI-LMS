@@ -75,7 +75,7 @@ export interface AuditLogEntry {
 export interface Activity {
   id: string;
   leadId: string;
-  type: 'NOTE' | 'TASK' | 'ATTACHMENT' | 'STAGE_CHANGE';
+  type: 'NOTE' | 'TASK' | 'ATTACHMENT' | 'STAGE_CHANGE' | 'LEAD_CREATED';
   content: string;
   createdBy: string;
   createdAt: string;

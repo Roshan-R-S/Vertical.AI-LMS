@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   BarChart, 
   Bar, 
@@ -12,30 +12,73 @@ import {
 } from 'recharts';
 import { TrendingUp, Target, Users, IndianRupee, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { formatCurrency, cn } from '../lib/utils';
-import { Lead } from '../types';
 
-export const Dashboard = ({ leads }: { leads: Lead[] }) => {
-  const overdueCount = leads.filter(lead => 
-    lead.nextFollowUp && 
-    !['PAYMENT_COMPLETED', 'HANDED_OVER', 'NOT_INTERESTED', 'DND', 'LOST'].includes(lead.stage) &&
-    new Date(lead.nextFollowUp) < new Date()
-  ).length;
+export const Dashboard = ({ token }: { token: string | null }) => {
+  const [stats, setStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (token) fetchStats();
+  }, [token]);
+
+  const fetchStats = async () => {
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/analytics/dashboard`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setStats(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch dashboard stats', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading || !stats) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-500"></div>
+      </div>
+    );
+  }
+
+  // Map backend stages to chart-friendly names
+  const stageMap: Record<string, string> = {
+    'DEFAULT': 'Overdue',
+    'YET_TO_CALL': 'New',
+    'MEETING_SCHEDULED': 'Interested',
+    'MEETING_POSTPONED': 'Interested',
+    'PROPOSAL_SHARED': 'Proposal',
+    'PAYMENT_COMPLETED': 'Closed',
+    'LOST': 'Lost',
+    'DNP': 'DNP',
+    'NOT_INTERESTED': 'Not Interested'
+  };
+
+  const groupedByLabel = stats.leadsByStage.reduce((acc: any, curr: any) => {
+    const label = stageMap[curr.stage] || curr.stage;
+    acc[label] = (acc[label] || 0) + curr.count;
+    return acc;
+  }, {});
 
   const STAGE_DATA = [
-    { name: 'Overdue', value: overdueCount },
-    { name: 'New', value: leads.filter(l => l.stage === 'YET_TO_CALL').length },
-    { name: 'Interested', value: leads.filter(l => ['MEETING_SCHEDULED', 'MEETING_POSTPONED'].includes(l.stage)).length },
-    { name: 'Proposal', value: leads.filter(l => l.stage === 'PROPOSAL_SHARED').length },
-    { name: 'Closed', value: leads.filter(l => l.stage === 'PAYMENT_COMPLETED').length },
-    { name: 'Lost', value: leads.filter(l => l.stage === 'LOST').length },
-    { name: 'DNP', value: leads.filter(l => l.stage === 'DNP').length },
-    { name: 'Not Interested', value: leads.filter(l => l.stage === 'NOT_INTERESTED').length },
+    { name: 'Overdue', value: stats.overdueCount || 0 },
+    { name: 'New', value: groupedByLabel['New'] || 0 },
+    { name: 'Interested', value: groupedByLabel['Interested'] || 0 },
+    { name: 'Proposal', value: groupedByLabel['Proposal'] || 0 },
+    { name: 'Closed', value: groupedByLabel['Closed'] || 0 },
+    { name: 'Lost', value: groupedByLabel['Lost'] || 0 },
+    { name: 'DNP', value: groupedByLabel['DNP'] || 0 },
+    { name: 'Not Interested', value: groupedByLabel['Not Interested'] || 0 },
   ].filter(d => d.value > 0);
 
-  const revenue = leads.filter(l => l.stage === 'PAYMENT_COMPLETED').reduce((acc, l) => acc + l.value, 0);
-  const pipelineValue = leads.reduce((acc, l) => acc + l.value, 0);
-  const conversionRate = leads.length ? ((leads.filter(l => l.stage === 'PAYMENT_COMPLETED').length / leads.length) * 100).toFixed(1) : 0;
-  const activeLeadsCount = leads.filter(l => !['PAYMENT_COMPLETED', 'HANDED_OVER', 'NOT_INTERESTED', 'DND', 'LOST'].includes(l.stage)).length;
+  const revenue = stats.totalRevenue || 0;
+  const pipelineValue = stats.totalValue || 0;
+  const conversionRate = stats.totalLeads ? ((groupedByLabel['Closed'] || 0) / stats.totalLeads * 100).toFixed(1) : 0;
+  const activeLeadsCount = stats.totalLeads - (groupedByLabel['Closed'] || 0) - (groupedByLabel['Lost'] || 0) - (groupedByLabel['Not Interested'] || 0);
 
   const REVENUE_DATA = [
     { month: 'Oct', revenue: 400000 },

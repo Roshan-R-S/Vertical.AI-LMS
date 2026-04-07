@@ -4,7 +4,7 @@ import * as AnalyticsService from './analytics.service';
 export const getDashboard = async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
-    const stats = await AnalyticsService.getDashboardStats(user.id, user.role);
+    const stats = await AnalyticsService.getDashboardStats(user.id, user.role, user.teamId);
     res.json(stats);
   } catch (err: any) {
     res.status(500).json({ error: err.message });

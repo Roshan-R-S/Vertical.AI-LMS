@@ -1,6 +1,15 @@
 import { Router } from 'express';
+import { rateLimit } from 'express-rate-limit';
 import { AuthController } from './auth.controller';
 import { authMiddleware } from '../../middleware/auth.middleware';
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { error: 'Too many authentication attempts, please try again after 15 minutes' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 const router = Router();
 
@@ -14,7 +23,7 @@ const router = Router();
  *       201:
  *         description: Registered successfully
  */
-router.post('/register', AuthController.register);
+router.post('/register', authLimiter, AuthController.register);
 
 /**
  * @openapi
@@ -26,7 +35,7 @@ router.post('/register', AuthController.register);
  *       200:
  *         description: Login successful
  */
-router.post('/login', AuthController.login);
+router.post('/login', authLimiter, AuthController.login);
 
 /**
  * @openapi
@@ -44,5 +53,8 @@ router.get('/me', authMiddleware, AuthController.getMe);
 
 router.get('/approve', AuthController.approve);
 router.get('/deny', AuthController.deny);
+
+router.post('/forgot-password', authLimiter, AuthController.forgotPassword);
+router.post('/reset-password', authLimiter, AuthController.resetPassword);
 
 export default router;

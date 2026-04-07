@@ -14,10 +14,11 @@ interface AddLeadModalProps {
   currentUser: User;
   emailError: string | null;
   setEmailError: (err: string | null) => void;
+  leadStats: { industries: string[], sources: string[] };
 }
 
 export const AddLeadModal = ({
-  isOpen, onClose, onSubmit, users, customFields, currentUser, emailError, setEmailError
+  isOpen, onClose, onSubmit, users, customFields, currentUser, emailError, setEmailError, leadStats
 }: AddLeadModalProps) => (
   <AnimatePresence>
     {isOpen && (
@@ -81,21 +82,25 @@ export const AddLeadModal = ({
               {/* Industry */}
               <div className="col-span-2 sm:col-span-1 space-y-2">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Industry</label>
-                <select name="industry" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20">
-                  {['Information Technology', 'BFSI', 'BPO', 'Education', 'Logistics', 'Renewable Energy', 'Manufacturing'].map(i => (
-                    <option key={i} value={i}>{i}</option>
+                <input name="industry" list="industry-options" placeholder="Select or type new..."
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20" />
+                <datalist id="industry-options">
+                  {Array.from(new Set(['Information Technology', 'BFSI', 'BPO', 'Education', 'Logistics', 'Renewable Energy', 'Manufacturing', ...(leadStats?.industries || [])])).map(i => (
+                    <option key={i} value={i} />
                   ))}
-                </select>
+                </datalist>
               </div>
 
               {/* Source */}
               <div className="col-span-2 sm:col-span-1 space-y-2">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Lead Source</label>
-                <select name="source" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20">
-                  {['Website', 'LinkedIn', 'Referral', 'Cold Call', 'Email Campaign', 'Google Ads'].map(s => (
-                    <option key={s} value={s}>{s}</option>
+                <input name="source" list="source-options" placeholder="Select or type new..."
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20" />
+                <datalist id="source-options">
+                  {Array.from(new Set(['Website', 'LinkedIn', 'Referral', 'Cold Call', 'Email Campaign', 'Google Ads', ...(leadStats?.sources || [])])).map(s => (
+                    <option key={s} value={s} />
                   ))}
-                </select>
+                </datalist>
               </div>
 
               {/* Assigned To */}

@@ -11,8 +11,6 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction) 
 
   if (authHeader && authHeader.startsWith('Bearer ')) {
     token = authHeader.split(' ')[1];
-  } else if (queryToken) {
-    token = queryToken;
   }
 
   if (!token) {
@@ -23,7 +21,8 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction) 
     const decoded = jwt.verify(token, config.jwt.secret);
     (req as any).user = decoded;
     next();
-  } catch (error) {
+  } catch (error: any) {
+    console.log(`[AuthMiddleware] Error: ${error.message}`);
     res.status(401).json({ error: 'Invalid or expired token.' });
   }
 };

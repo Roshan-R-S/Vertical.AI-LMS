@@ -3,6 +3,7 @@ import { Role, User } from '../types';
 
 interface AuthContextType {
   user: User | null;
+  token: string | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<User>;
   register: (email: string, password: string, name: string, role: Role) => Promise<{ message: string }>;
@@ -15,6 +16,7 @@ const API_URL = import.meta.env.VITE_API_URL;
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -23,6 +25,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     if (savedUser && token) {
       setUser(JSON.parse(savedUser));
+      setToken(token);
     }
     setLoading(false);
   }, []);
@@ -45,6 +48,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { token, user: loggedInUser } = data;
       
       setUser(loggedInUser);
+      setToken(token);
       localStorage.setItem('lendkraft_user', JSON.stringify(loggedInUser));
       localStorage.setItem('lendkraft_token', token);
       
@@ -77,12 +81,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = () => {
     setUser(null);
+    setToken(null);
     localStorage.removeItem('lendkraft_user');
     localStorage.removeItem('lendkraft_token');
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, token, loading, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   );

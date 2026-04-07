@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { cn } from '../lib/utils';
 import { InteractiveVisuals } from './InteractiveVisuals';
 
-export const LoginPage = ({ onSwitchToRegister }: { onSwitchToRegister: () => void }) => {
+export const LoginPage = ({ onSwitchToRegister, onForgotPassword }: { onSwitchToRegister: () => void, onForgotPassword: () => void }) => {
   const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -75,7 +75,7 @@ export const LoginPage = ({ onSwitchToRegister }: { onSwitchToRegister: () => vo
               <div className="space-y-2">
                 <div className="flex items-center justify-between ml-1">
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Password</label>
-                  <button type="button" className="text-xs font-bold text-brand-500 hover:text-brand-400">Forgot?</button>
+                  <button type="button" onClick={onForgotPassword} className="text-xs font-bold text-brand-500 hover:text-brand-400">Forgot?</button>
                 </div>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-4 flex items-center text-slate-500 group-focus-within:text-brand-500 transition-colors">

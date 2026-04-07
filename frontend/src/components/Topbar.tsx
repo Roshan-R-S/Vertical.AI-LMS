@@ -1,10 +1,17 @@
-import React from 'react';
 import {
-  Search, Bell, Plus, ChevronDown, X, FileSpreadsheet, UserCircle, LayoutDashboard
+  Bell,
+  ChevronDown,
+  FileSpreadsheet,
+  LayoutDashboard,
+  Plus,
+  Search,
+  UserCircle,
+  X
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
-import { User } from '../types';
+import { AnimatePresence, motion } from 'motion/react';
+import React from 'react';
 import { cn } from '../lib/utils';
+import { User } from '../types';
 
 interface Notification {
   id: string;
@@ -98,7 +105,7 @@ export const Topbar = ({
           className="flex items-center gap-2 px-4 py-2 bg-brand-600 text-white text-sm font-bold rounded-xl hover:bg-brand-500 shadow-lg shadow-brand-500/20 transition-all active:scale-95 group"
         >
           <Plus size={18} className="group-hover:rotate-90 transition-transform" />
-          <span className="hidden sm:inline">New Action</span>
+          <span className="hidden sm:inline">Add Lead</span>
           <ChevronDown size={14} className={cn("transition-transform opacity-60", isNewLeadDropdownOpen && "rotate-180")} />
         </button>
         <AnimatePresence>
