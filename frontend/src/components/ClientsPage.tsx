@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { MoreVertical, UserPlus, Mail, Phone, Calendar } from 'lucide-react';
-import { cn, formatDate } from '../lib/utils';
-import { Client } from '../types';
-import { AddClientModal } from './AddClientModal';
+import { cn, formatDate } from '@lib/utils';
+import { Client } from '@/types';
+import { AddClientModal } from '@components/AddClientModal';
 
 export const ClientsPage = () => {
   const [clients, setClients] = useState<Client[]>([]);

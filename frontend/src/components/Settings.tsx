@@ -4,9 +4,9 @@ import {
   Settings as SettingsIcon, Save, Lock, Mail, Phone, 
   Plus, Trash2, List, Clock, Search, Filter, Database, X
 } from 'lucide-react';
-import { cn, formatDate, formatDateTime } from '../lib/utils';
-import { User as UserType, CustomFieldDefinition, AuditLogEntry } from '../types';
-import { requestPasswordReset } from '../lib/api';
+import { cn, formatDate, formatDateTime } from '@lib/utils';
+import { User as UserType, CustomFieldDefinition, AuditLogEntry } from '@/types';
+import { requestPasswordReset } from '@lib/api';
 
 interface SettingsProps {
   user: UserType;

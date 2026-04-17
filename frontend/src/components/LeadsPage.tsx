@@ -4,10 +4,10 @@ import {
   Filter, Download, Search, MoreVertical, X, ChevronDown
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Lead, LeadStage, User } from '../types';
-import { STAGE_CONFIG } from '../types';
-import { cn, formatCurrency, formatDate, formatDateTime } from '../lib/utils';
-import { StatCard } from './StatCard';
+import { Lead, LeadStage, User } from '@/types';
+import { STAGE_CONFIG } from '@/types';
+import { cn, formatCurrency, formatDate, formatDateTime } from '@lib/utils';
+import { StatCard } from '@components/StatCard';
 
 const QUICK_STAGES: (LeadStage | 'OVERDUE')[] = [
   'OVERDUE',

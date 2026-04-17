@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { formatCurrency, cn, formatDate } from '../lib/utils';
-import { Invoice, Client } from '../types';
-import { AddInvoiceModal } from './AddInvoiceModal';
+import { formatCurrency, cn, formatDate } from '@lib/utils';
+import { Invoice, Client } from '@/types';
+import { AddInvoiceModal } from '@components/AddInvoiceModal';
 
 export const ReportsPage = () => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);

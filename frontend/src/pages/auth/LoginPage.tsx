@@ -3,7 +3,7 @@ import { motion } from 'motion/react';
 import React, { useState } from 'react';
 import { useAuth } from '@contexts/AuthContext';
 import { cn } from '@lib/utils';
-import { InteractiveVisuals } from '@components/InteractiveVisuals';
+import { InteractiveVisuals } from '@components/ui/InteractiveVisuals';
 
 export const LoginPage = ({ onSwitchToRegister, onForgotPassword }: { onSwitchToRegister: () => void, onForgotPassword: () => void }) => {
   const { login } = useAuth();
@@ -29,10 +29,8 @@ export const LoginPage = ({ onSwitchToRegister, onForgotPassword }: { onSwitchTo
     <div className="flex min-h-screen bg-slate-50 overflow-hidden font-sans">
       <InteractiveVisuals />
 
-      {/* Right Panel: Login Form */}
       <div className="flex-1 flex items-center justify-center p-8 bg-white relative border-l border-slate-200 shadow-2xl">
         <div className="w-full max-w-sm">
-          {/* Mobile Logo */}
           <div className="lg:hidden text-brand-600 font-bold text-2xl mb-12 text-center">Vertical.AI</div>
 
           <motion.div
@@ -121,7 +119,6 @@ export const LoginPage = ({ onSwitchToRegister, onForgotPassword }: { onSwitchTo
           </motion.div>
         </div>
 
-        {/* Bottom Footer Info */}
         <div className="absolute bottom-8 text-center w-full max-w-sm left-1/2 -translate-x-1/2">
           <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] mb-1">
             Secure Enterprise Access

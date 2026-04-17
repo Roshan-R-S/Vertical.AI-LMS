@@ -59,7 +59,6 @@ export const Topbar = ({
     </div>
 
     <div className="flex items-center gap-2 lg:gap-5">
-      {/* Notifications */}
       <div className="relative group">
         <button className="relative p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 rounded-xl transition-all">
           <Bell size={20} />
@@ -98,7 +97,6 @@ export const Topbar = ({
 
       <div className="h-6 w-px bg-white/10 hidden sm:block" />
 
-      {/* New Lead Dropdown */}
       <div className="relative">
         <button
           onClick={() => setIsNewLeadDropdownOpen(!isNewLeadDropdownOpen)}

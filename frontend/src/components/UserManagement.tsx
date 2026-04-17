@@ -1,8 +1,8 @@
 import React from 'react';
-import { User, Role } from '../types';
-import { MOCK_USERS } from '../mockData';
+import { User, Role } from '@/types';
+import { MOCK_USERS } from '@/mockData';
 import { UserPlus, MoreVertical, Shield, Mail, Trash2, Edit2 } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { cn } from '@lib/utils';
 
 interface UserManagementProps {
   users: User[];

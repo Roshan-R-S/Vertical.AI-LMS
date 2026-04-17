@@ -57,7 +57,6 @@ export const Sidebar = ({
       "fixed inset-y-0 left-0 w-64 bg-white/80 backdrop-blur-2xl border-r border-slate-200/60 flex flex-col z-40 transition-transform duration-300 lg:relative lg:translate-x-0",
       isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
     )}>
-      {/* Brand Section */}
       <div className="p-6 flex items-center justify-between lg:justify-start gap-3">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-brand-600 rounded-xl flex items-center justify-center shadow-lg shadow-brand-600/20">
@@ -76,7 +75,6 @@ export const Sidebar = ({
         </button>
       </div>
 
-      {/* Navigation Section */}
       <nav className="flex-1 px-4 py-4 space-y-1">
         {(currentUser.role === 'SUPER_ADMIN' || currentUser.role === 'SALES_ADMIN' || currentUser.role === 'TEAM_LEAD') && (
           <SidebarItem icon={LayoutDashboard} label="Dashboard" active={activeTab === 'dashboard'} onClick={() => nav('dashboard')} />
@@ -103,7 +101,6 @@ export const Sidebar = ({
         )}
       </nav>
 
-      {/* User Session Footer */}
       <div className="p-4 border-t border-white/5">
         <div className="flex items-center gap-3 p-3 rounded-2xl bg-white border border-slate-200/50 shadow-sm">
           <div className="relative">

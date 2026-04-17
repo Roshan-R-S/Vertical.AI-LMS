@@ -11,7 +11,7 @@ import {
   Line
 } from 'recharts';
 import { TrendingUp, Target, Users, IndianRupee, ArrowUpRight, ArrowDownRight } from 'lucide-react';
-import { formatCurrency, cn } from '../lib/utils';
+import { formatCurrency, cn } from '@lib/utils';
 
 export const Dashboard = ({ token }: { token: string | null }) => {
   const [stats, setStats] = useState<any>(null);

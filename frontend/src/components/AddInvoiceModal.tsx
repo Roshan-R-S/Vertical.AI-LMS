@@ -1,7 +1,7 @@
 import React from 'react';
 import { X, Receipt, Calendar, CreditCard } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Client } from '../types';
+import { Client } from '@/types';
 
 interface AddInvoiceModalProps {
   isOpen: boolean;

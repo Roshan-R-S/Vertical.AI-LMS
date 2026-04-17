@@ -12,7 +12,10 @@ export default defineConfig(({mode}) => {
     },
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, '.'),
+        '@': path.resolve(__dirname, 'src'),
+        '@components': path.resolve(__dirname, 'src/components'),
+        '@contexts': path.resolve(__dirname, 'src/contexts'),
+        '@lib': path.resolve(__dirname, 'src/lib'),
       },
     },
     // Pre-bundle all major dependencies so Vite doesn't discover them lazily

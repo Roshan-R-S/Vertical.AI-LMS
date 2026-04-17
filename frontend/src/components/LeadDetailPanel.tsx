@@ -5,10 +5,10 @@ import {
   FileSpreadsheet
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Lead, LeadStage, Activity, Task, User } from '../types';
-import { STAGE_CONFIG } from '../types';
-import { CustomFieldDefinition } from '../types';
-import { cn, formatCurrency, formatDate, formatDateTime } from '../lib/utils';
+import { Lead, LeadStage, Activity, Task, User } from '@/types';
+import { STAGE_CONFIG } from '@/types';
+import { CustomFieldDefinition } from '@/types';
+import { cn, formatCurrency, formatDate, formatDateTime } from '@lib/utils';
 
 interface LeadDetailPanelProps {
   selectedLead: Lead | null;

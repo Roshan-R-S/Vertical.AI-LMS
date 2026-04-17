@@ -1,9 +1,9 @@
 import React from 'react';
 import { X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { User } from '../types';
-import { CustomFieldDefinition } from '../types';
-import { cn } from '../lib/utils';
+import { User } from '@/types';
+import { CustomFieldDefinition } from '@/types';
+import { cn } from '@lib/utils';
 
 interface AddLeadModalProps {
   isOpen: boolean;

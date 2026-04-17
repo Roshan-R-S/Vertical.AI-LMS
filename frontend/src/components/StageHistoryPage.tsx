@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Download, Clock, Loader, Search, X, Calendar, User as UserIcon, Building2, Info, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { User } from '../types';
-import { formatDateTime, cn } from '../lib/utils';
+import { User } from '@/types';
+import { formatDateTime, cn } from '@lib/utils';
 
 interface ActivityRecord {
   id: string;

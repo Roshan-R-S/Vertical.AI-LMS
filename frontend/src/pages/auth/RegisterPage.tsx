@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useAuth } from '@contexts/AuthContext';
 import { cn } from '@lib/utils';
 import { Role } from '@/types';
-import { InteractiveVisuals } from '@components/InteractiveVisuals';
+import { InteractiveVisuals } from '@components/ui/InteractiveVisuals';
 
 export const RegisterPage = ({ onSwitchToLogin }: { onSwitchToLogin: () => void }) => {
   const { register } = useAuth();
@@ -38,7 +38,6 @@ export const RegisterPage = ({ onSwitchToLogin }: { onSwitchToLogin: () => void 
 
       <div className="flex-1 flex items-center justify-center p-8 bg-white relative border-l border-slate-200 shadow-2xl">
         <div className="w-full max-w-sm">
-          {/* Mobile Logo */}
           <div className="lg:hidden text-brand-600 font-bold text-2xl mb-12 text-center">Vertical.AI</div>
 
           <motion.div

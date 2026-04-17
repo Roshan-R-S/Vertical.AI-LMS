@@ -2,9 +2,9 @@ import React from 'react';
 import { useState } from 'react';
 import { Target, CheckCircle, Trophy, Star, TrendingUp, Users, Settings, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Lead, User, UserTarget, TeamTarget } from '../types';
-import { formatCurrency } from '../lib/utils';
-import { cn } from '../lib/utils';
+import { Lead, User, UserTarget, TeamTarget } from '@/types';
+import { formatCurrency } from '@lib/utils';
+import { cn } from '@lib/utils';
 import { X } from 'lucide-react';
 
 // ---- TargetManagementModal ----

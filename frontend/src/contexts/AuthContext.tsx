@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { Role, User } from '../types';
+import { Role, User } from '@/types';
 
 interface AuthContextType {
   user: User | null;
