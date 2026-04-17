@@ -26,9 +26,13 @@ export const initCronJobs = () => {
         console.log(`[Cron] Found ${overdueMeetings.length} overdue meetings. Sending automated emails...`);
         
         for (const lead of overdueMeetings) {
-          if (lead.assignedTo?.email) {
-            await sendMeetingDueEmail(lead.assignedTo.email, lead.assignedTo.name, lead.name);
-            await logAudit('system', 'AUTO_MEETING_REMINDER', 'LEAD', lead.id, `Automated meeting reminder sent for lead ${lead.name}`);
+          try {
+            if (lead.assignedTo?.email) {
+              await sendMeetingDueEmail(lead.assignedTo.email, lead.assignedTo.name, lead.name);
+              await logAudit('system', 'AUTO_MEETING_REMINDER', 'LEAD', lead.id, `Automated meeting reminder sent for lead ${lead.name}`);
+            }
+          } catch (itemError) {
+            console.error(`[Cron] Error processing reminder for lead ${lead.id}:`, itemError);
           }
         }
 

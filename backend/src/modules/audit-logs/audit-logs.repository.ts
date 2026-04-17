@@ -1,8 +1,18 @@
 import { prisma } from '../../prisma';
 
 export const AuditLogRepo = {
-  async create(data: { userId: string, action: string, entityType: string, entityId?: string, details?: string }) {
-    return prisma.auditLog.create({ data });
+  async create(data: { userId: string | null, action: string, entityType: string, entityId?: string, details?: string }) {
+    const finalUserId = (data.userId === 'system' || data.userId === null) ? null : data.userId;
+    
+    return prisma.auditLog.create({ 
+      data: {
+        action: data.action,
+        entityType: data.entityType,
+        entityId: data.entityId,
+        details: data.details,
+        userId: finalUserId
+      } as any
+    });
   },
 
   async findAll(query: any) {

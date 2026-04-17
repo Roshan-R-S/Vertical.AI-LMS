@@ -1,6 +1,6 @@
 import { AuditLogRepo } from './audit-logs.repository';
 
-export const logAudit = async (userId: string, action: string, entityType: string, entityId?: string, details?: string) => {
+export const logAudit = async (userId: string | null, action: string, entityType: string, entityId?: string, details?: string) => {
   try {
     return await AuditLogRepo.create({ userId, action, entityType, entityId, details });
   } catch (err) {
