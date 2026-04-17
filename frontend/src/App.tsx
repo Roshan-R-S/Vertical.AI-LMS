@@ -653,10 +653,10 @@ export default function App() {
       );
 
       return {
-        name: row['Lead Name'] || row['name'] || 'Unknown',
-        phone: String(row['Mobile Number'] || row['phone'] || ''),
+        name: row['Lead Name'] || row['Name'] || row['name'] || row['SPOC Name'] || row['Company Name'] || 'Unknown',
+        phone: String(row['Mobile Number'] || row['Mobile No'] || row['Phone'] || row['phone'] || row['Contact number'] || ''),
         email: row['Email'] || row['email'] || '',
-        designation: row['Designation'] || row['designation'] || '',
+        designation: row['Designation'] || row['designation'] || row['Job Title'] || '',
         industry: row['Industry'] || row['industry'] || '',
         product: row['Product'] || row['product'] || '',
         state: row['State'] || row['state'] || '',
