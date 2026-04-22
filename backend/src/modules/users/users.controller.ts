@@ -16,12 +16,18 @@ export const getUserById = asyncHandler(async (req: Request, res: Response) => {
 
 export const createUser = asyncHandler(async (req: Request, res: Response) => {
   const data = createUserSchema.parse(req.body);
+  if (req.file) {
+    data.avatar = `/uploads/avatars/${req.file.filename}`;
+  }
   const user = await UsersService.createUser(data);
   res.status(201).json(new ApiResponse(201, user, "User created successfully"));
 });
 
 export const updateUser = asyncHandler(async (req: Request, res: Response) => {
   const data = updateUserSchema.parse(req.body);
+  if (req.file) {
+    data.avatar = `/uploads/avatars/${req.file.filename}`;
+  }
   const user = await UsersService.updateUser(req.params['id'] as string, data);
   res.status(200).json(new ApiResponse(200, user, "User updated successfully"));
 });
@@ -34,4 +40,19 @@ export const deleteUser = asyncHandler(async (req: Request, res: Response) => {
 export const toggleUserActive = asyncHandler(async (req: Request, res: Response) => {
   const user = await UsersService.toggleUserActive(req.params['id'] as string);
   res.status(200).json(new ApiResponse(200, user, "User status toggled successfully"));
+});
+
+export const uploadAvatar = asyncHandler(async (req: Request, res: Response) => {
+  console.log(`[UsersController] uploadAvatar hit for ID: ${req.params['id']}`);
+  if (!req.file) {
+    throw new Error('No image file provided');
+  }
+  
+  // Create relative URL for the uploaded file
+  const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+  
+  // Update the user
+  const user = await UsersService.updateUser(req.params['id'] as string, { avatar: avatarUrl });
+  
+  res.status(200).json(new ApiResponse(200, { avatarUrl }, "Avatar uploaded successfully"));
 });

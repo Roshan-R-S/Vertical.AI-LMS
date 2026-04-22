@@ -1,4 +1,5 @@
 import express from 'express';
+import path from 'path';
 import cors from 'cors';
 import morgan from 'morgan';
 import helmet from 'helmet';
@@ -18,13 +19,23 @@ import invoicesRouter from './modules/invoices/invoices.router';
 
 const app = express();
 
-app.use(helmet());
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:3000',
   credentials: true
 }));
 app.use(morgan('dev'));
 app.use(express.json());
+
+// Serve static uploads (avatars, etc)
+console.log('[App] Serving static files from:', path.join(process.cwd(), 'uploads'));
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads'), {
+  setHeaders: (res) => {
+    res.set('Cross-Origin-Resource-Policy', 'cross-origin');
+  }
+}));
 
 // API Documentation
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
@@ -51,6 +62,11 @@ app.use('/api/v1/analytics', analyticsRouter);
 app.use('/api/v1/audit-logs', auditLogsRouter);
 app.use('/api/v1/clients', clientsRouter);
 app.use('/api/v1/invoices', invoicesRouter);
+
+app.use((req, res, next) => {
+  console.log(`[App] No route matched: ${req.method} ${req.originalUrl}`);
+  next();
+});
 
 app.use(errorMiddleware);
 

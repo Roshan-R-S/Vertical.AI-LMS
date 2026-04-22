@@ -1,4 +1,4 @@
-# Backend Implementation Plan — Vertical.AI CRM
+# Backend Implementation Plan - Vertical.AI CRM
 
 ## Overview
 Build a production-ready REST API for the existing frontend using **Node.js + Express + Prisma + PostgreSQL**. The backend is designed using a 5-layer architecture with JWT auth, role-based access, and a seeder to import the 1014-row Excel file.
@@ -7,7 +7,7 @@ Build a production-ready REST API for the existing frontend using **Node.js + Ex
 
 ## Phase 1 — Project Setup & Database
 
-### Step 1.1 — Initialize the Project
+### Step 1.1 - Initialize the Project
 Inside `e:\lendkraft-lms\backend`, scaffold the project:
 ```bash
 npm init -y
@@ -17,7 +17,7 @@ npx prisma init
 npx tsc --init
 ```
 
-### Step 1.2 — Configure `tsconfig.json`
+### Step 1.2 - Configure `tsconfig.json`
 ```json
 {
   "compilerOptions": {
@@ -32,7 +32,7 @@ npx tsc --init
 }
 ```
 
-### Step 1.3 — Configure `.env`
+### Step 1.3 - Configure `.env`
 ```
 DATABASE_URL="postgresql://USER:PASS@localhost:5432/verticalai_crm"
 JWT_SECRET="your-secret-key-here"
@@ -40,7 +40,7 @@ JWT_EXPIRES_IN="7d"
 PORT=5000
 ```
 
-### Step 1.4 — Prisma Schema (Aligned to Frontend Types)
+### Step 1.4 - Prisma Schema (Aligned to Frontend Types)
 
 > [!IMPORTANT]
 > The Roles are **SUPER_ADMIN, SALES_ADMIN, TEAM_LEAD, BDE** — matching the frontend `Role` type in `types.ts`.

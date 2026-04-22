@@ -5,6 +5,7 @@ export const LeadRepo = {
   findAll: (filters: {
     stage?: LeadStage | 'OVERDUE';
     assignedToId?: string;
+    createdById?: string;
     teamId?: string;
     search?: string;
     industry?: string;
@@ -12,7 +13,7 @@ export const LeadRepo = {
     skip?: number;
     take?: number;
   }) => {
-    const { stage, assignedToId, teamId, search, industry, source, skip = 0, take = 20 } = filters;
+    const { stage, assignedToId, createdById, teamId, search, industry, source, skip = 0, take = 20 } = filters;
     
     const isOverdueFilter = stage === 'OVERDUE';
     const actualStage = isOverdueFilter ? undefined : stage;
@@ -21,6 +22,7 @@ export const LeadRepo = {
       where: {
         ...(actualStage && { stage: actualStage as LeadStage }),
         ...(assignedToId && { assignedToId }),
+        ...(createdById && { createdById }),
         ...(teamId && { teamId }),
         ...(industry && { industry }),
         ...(source && { source }),
@@ -41,6 +43,7 @@ export const LeadRepo = {
       },
       include: {
         assignedTo: { select: { id: true, name: true, email: true, role: true } },
+        creator: { select: { id: true, name: true, role: true } },
       },
       orderBy: { updatedAt: 'desc' },
       skip,
@@ -51,12 +54,13 @@ export const LeadRepo = {
   count: (filters: {
     stage?: LeadStage | 'OVERDUE';
     assignedToId?: string;
+    createdById?: string;
     teamId?: string;
     search?: string;
     industry?: string;
     source?: string;
   }) => {
-    const { stage, assignedToId, teamId, search, industry, source } = filters;
+    const { stage, assignedToId, createdById, teamId, search, industry, source } = filters;
     
     const isOverdueFilter = stage === 'OVERDUE';
     const actualStage = isOverdueFilter ? undefined : stage;
@@ -65,6 +69,7 @@ export const LeadRepo = {
       where: {
         ...(actualStage && { stage: actualStage as LeadStage }),
         ...(assignedToId && { assignedToId }),
+        ...(createdById && { createdById }),
         ...(teamId && { teamId }),
         ...(industry && { industry }),
         ...(source && { source }),
@@ -88,16 +93,18 @@ export const LeadRepo = {
 
   getStats: async (filters: {
     assignedToId?: string;
+    createdById?: string;
     teamId?: string;
     search?: string;
     industry?: string;
     source?: string;
   }) => {
-    const { assignedToId, teamId, search, industry, source } = filters;
+    const { assignedToId, createdById, teamId, search, industry, source } = filters;
 
     // 1. Shared scope constraints (role-based)
     const scope: any = {
       ...(assignedToId && { assignedToId }),
+      ...(createdById && { createdById }),
       ...(teamId && { teamId }),
     };
 
@@ -161,6 +168,7 @@ export const LeadRepo = {
       where: { id },
       include: {
         assignedTo: { select: { id: true, name: true, email: true, role: true } },
+        creator: { select: { id: true, name: true, role: true } },
         activities: { orderBy: { createdAt: 'desc' } },
       },
     }),
@@ -173,7 +181,7 @@ export const LeadRepo = {
           leadId: lead.id,
           type: 'LEAD_CREATED',
           content: 'Lead created in system',
-          createdBy: data.assignedToId,
+          createdBy: data.createdById || data.assignedToId,
         },
       });
       return lead;
@@ -190,7 +198,7 @@ export const LeadRepo = {
             leadId: lead.id,
             type: 'LEAD_CREATED',
             content: 'Lead created via bulk upload',
-            createdBy: leadData.assignedToId,
+            createdBy: leadData.createdById || leadData.assignedToId,
           },
         });
         results.push(lead);

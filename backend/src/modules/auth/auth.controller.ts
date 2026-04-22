@@ -5,17 +5,30 @@ import bcrypt from 'bcryptjs';
 export class AuthController {
   static async register(req: Request, res: Response) {
     try {
-      const { email, password, name, role } = req.body;
+      const { email, password, name, role, firstName, lastName, username, phone, profession } = req.body;
       
-      if (!password || password.length < 8) {
-        throw new Error('Password must be at least 8 characters long.');
+      if (role !== 'CHANNEL_PARTNER') {
+        if (!password || password.length < 8) {
+          throw new Error('Password must be at least 8 characters long.');
+        }
       }
       
-      // Hash password before passing to service
-      const salt = await bcrypt.genSalt(10);
-      const passwordHash = await bcrypt.hash(password, salt);
+      // Hash password if provided
+      let passwordHash = "";
+      if (password) {
+        const salt = await bcrypt.genSalt(10);
+        passwordHash = await bcrypt.hash(password, salt);
+      } else if (role === 'CHANNEL_PARTNER') {
+        // Fallback for partner if they didn't provide one initially
+        const salt = await bcrypt.genSalt(10);
+        passwordHash = await bcrypt.hash('TEMP_PWD_HOLDER', salt);
+      } else {
+        throw new Error('Password is required.');
+      }
 
-      const result = await AuthService.register(email, passwordHash, name, role);
+      const result = await AuthService.register(email, passwordHash, name, role, { 
+        firstName, lastName, username, phone, profession 
+      });
       res.status(202).json(result); 
     } catch (error: any) {
       res.status(400).json({ error: error.message });
@@ -30,7 +43,7 @@ export class AuthController {
       const user = await AuthService.approve(token as string);
       res.send(`
         <div style="font-family: sans-serif; text-align: center; padding: 50px;">
-          <h1 style="color: #10b981;">✅ Access Granted</h1>
+          <h1 style="color: #10b981;">Access Granted</h1>
           <p>The account for <strong>${user.name}</strong> has been activated.</p>
           <p>An email has been sent to the user.</p>
         </div>
@@ -38,7 +51,7 @@ export class AuthController {
     } catch (error: any) {
       res.status(400).send(`
         <div style="font-family: sans-serif; text-align: center; padding: 50px;">
-          <h1 style="color: #ef4444;">❌ Error</h1>
+          <h1 style="color: #ef4444;">Error</h1>
           <p>${error.message}</p>
         </div>
       `);
@@ -53,7 +66,7 @@ export class AuthController {
       const result = await AuthService.deny(token as string);
       res.send(`
         <div style="font-family: sans-serif; text-align: center; padding: 50px;">
-          <h1 style="color: #64748b;">❌ Access Denied</h1>
+          <h1 style="color: #64748b;">Access Denied</h1>
           <p>${result.message}</p>
         </div>
       `);
@@ -64,8 +77,13 @@ export class AuthController {
 
   static async login(req: Request, res: Response) {
     try {
-      const { email, password } = req.body;
-      const result = await AuthService.login(email, password);
+      // Support 'identifier' (Email or Username) or 'email' (for backward compatibility)
+      const { identifier, email, password } = req.body;
+      const targetIdentifier = identifier || email;
+      
+      if (!targetIdentifier) throw new Error('Email or Username is required.');
+
+      const result = await AuthService.login(targetIdentifier, password);
       res.json(result);
     } catch (error: any) {
       res.status(401).json({ error: error.message });
@@ -103,6 +121,26 @@ export class AuthController {
         throw new Error('New password must be at least 8 characters long.');
       }
       const result = await AuthService.resetPassword(token, newPassword);
+      res.json(result);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  }
+
+  static async changePassword(req: Request, res: Response) {
+    try {
+      const userId = (req as any).user.id;
+      const { currentPassword, newPassword } = req.body;
+      
+      if (!currentPassword || !newPassword) {
+        throw new Error('Current and new passwords are required.');
+      }
+      
+      if (newPassword.length < 8) {
+        throw new Error('New password must be at least 8 characters long.');
+      }
+
+      const result = await AuthService.changePassword(userId, currentPassword, newPassword);
       res.json(result);
     } catch (error: any) {
       res.status(400).json({ error: error.message });

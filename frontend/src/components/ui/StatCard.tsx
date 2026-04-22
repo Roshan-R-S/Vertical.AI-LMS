@@ -8,7 +8,7 @@ export const StatCard = ({ label, value, icon: Icon, color, trend }: {
   color: string;
   trend?: string;
 }) => (
-  <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+  <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-sm">
     <div className="flex justify-between items-start mb-4">
       <div className={cn("p-2 rounded-lg", color)}>
         <Icon size={20} className="text-white" />

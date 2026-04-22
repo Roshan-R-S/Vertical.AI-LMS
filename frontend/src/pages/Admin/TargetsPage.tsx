@@ -1,10 +1,10 @@
 import React from 'react';
 import { useState } from 'react';
-import { Target, CheckCircle, Trophy, Star, TrendingUp, Users, Settings, AlertCircle } from 'lucide-react';
+import { Target, CheckCircle, Trophy, Star, TrendingUp, Users, Settings, AlertCircle, Calendar } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Lead, User, UserTarget, TeamTarget } from '@/types';
-import { formatCurrency } from '@lib/utils';
-import { cn } from '@lib/utils';
+import { formatCurrency, cn } from '@lib/utils';
+import { DateRangeFilter, DateFilterType } from '@components/DateRangeFilter';
 import { X } from 'lucide-react';
 
 // ---- TargetManagementModal ----
@@ -24,8 +24,8 @@ export const TargetManagementModal = ({
   onUpdateTeamTarget, onUpdateUserTarget
 }: TargetManagementModalProps) => {
   const [activeTab, setActiveTab] = useState<'TEAM' | 'INDIVIDUAL'>('TEAM');
-  const teamTarget = teamTargets.find(t => t.month === targetMonth) ||
-    { id: `tt-${Date.now()}`, teamId: 't1', targetValue: 0, targetLeads: 0, month: targetMonth };
+  const teamTarget = teamTargets.find(t => t.month === targetMonth.substring(0, 7)) ||
+    { id: `tt-${Date.now()}`, teamId: 't1', targetValue: 0, targetLeads: 0, month: targetMonth.substring(0, 7) };
 
   return (
     <AnimatePresence>
@@ -35,19 +35,19 @@ export const TargetManagementModal = ({
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+            className="bg-white w-full max-w-2xl rounded-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
           >
             <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
               <div>
                 <h3 className="text-xl font-bold text-slate-900">Manage Sales Targets</h3>
-                <p className="text-xs text-slate-500 font-medium">Set and allocate targets for {targetMonth}</p>
+                <p className="text-xs text-slate-500 font-medium">Set and allocate targets for {targetMonth.substring(0, 7)}</p>
               </div>
-              <button onClick={onClose} className="p-2 hover:bg-white rounded-xl transition-colors text-slate-400 hover:text-slate-600 shadow-sm border border-transparent hover:border-slate-200">
+              <button onClick={onClose} className="p-2 hover:bg-white rounded-lg transition-colors text-slate-400 hover:text-slate-600 shadow-sm border border-transparent hover:border-slate-200">
                 <X size={20} />
               </button>
             </div>
 
-            <div className="flex p-2 bg-slate-100/50 m-6 rounded-xl">
+            <div className="flex p-2 bg-slate-100/50 m-6 rounded-lg">
               <button
                 onClick={() => setActiveTab('TEAM')}
                 className={cn("flex-1 py-2 text-xs font-bold rounded-lg transition-all",
@@ -70,7 +70,7 @@ export const TargetManagementModal = ({
                         type="number"
                         defaultValue={teamTarget.targetValue}
                         onBlur={(e) => onUpdateTeamTarget({ ...teamTarget, targetValue: Number(e.target.value) })}
-                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 font-bold"
+                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 font-bold"
                       />
                     </div>
                     <div className="space-y-2">
@@ -79,22 +79,22 @@ export const TargetManagementModal = ({
                         type="number"
                         defaultValue={teamTarget.targetLeads}
                         onBlur={(e) => onUpdateTeamTarget({ ...teamTarget, targetLeads: Number(e.target.value) })}
-                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 font-bold"
+                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 font-bold"
                       />
                     </div>
                   </div>
-                  <div className="p-4 bg-brand-50 rounded-2xl border border-brand-100">
+                  <div className="p-4 bg-brand-50 rounded-lg border border-brand-100">
                     <div className="flex items-start gap-3">
                       <div className="p-2 bg-white rounded-lg text-brand-600 shadow-sm"><Target size={18} /></div>
                       <div>
                         <h4 className="text-sm font-bold text-brand-900">Allocation Summary</h4>
                         <p className="text-xs text-brand-700 mt-1">
-                          Total individual targets allocated: {formatCurrency(userTargets.filter(t => t.month === targetMonth).reduce((acc, t) => acc + t.targetValue, 0))}
+                          Total individual targets allocated: {formatCurrency(userTargets.filter(t => t.month === targetMonth.substring(0, 7)).reduce((acc, t) => acc + t.targetValue, 0))}
                         </p>
                         <div className="mt-2 w-full h-1.5 bg-brand-200 rounded-full overflow-hidden">
                           <div
                             className="h-full bg-brand-600"
-                            style={{ width: `${Math.min((userTargets.filter(t => t.month === targetMonth).reduce((acc, t) => acc + t.targetValue, 0) / (teamTarget.targetValue || 1)) * 100, 100)}%` }}
+                            style={{ width: `${Math.min((userTargets.filter(t => t.month === targetMonth.substring(0, 7)).reduce((acc, t) => acc + t.targetValue, 0) / (teamTarget.targetValue || 1)) * 100, 100)}%` }}
                           />
                         </div>
                       </div>
@@ -104,10 +104,10 @@ export const TargetManagementModal = ({
               ) : (
                 <div className="space-y-4">
                   {users.filter(u => u.role === 'BDE').map(user => {
-                    const userTarget = userTargets.find(t => t.userId === user.id && t.month === targetMonth) ||
-                      { id: `ut-${Date.now()}-${user.id}`, userId: user.id, targetValue: 0, targetLeads: 0, month: targetMonth };
+                    const userTarget = userTargets.find(t => t.userId === user.id && t.month === targetMonth.substring(0, 7)) ||
+                      { id: `ut-${Date.now()}-${user.id}`, userId: user.id, targetValue: 0, targetLeads: 0, month: targetMonth.substring(0, 7) };
                     return (
-                      <div key={user.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between gap-4">
+                      <div key={user.id} className="p-4 bg-slate-50 rounded-lg border border-slate-200 flex items-center justify-between gap-4">
                         <div className="flex items-center gap-3">
                           <img src={user.avatar} className="w-10 h-10 rounded-full border border-white shadow-sm" />
                           <div>
@@ -143,7 +143,7 @@ export const TargetManagementModal = ({
             </div>
 
             <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex justify-end">
-              <button onClick={onClose} className="px-6 py-2 bg-slate-900 text-white text-sm font-bold rounded-xl hover:bg-slate-800 transition-all shadow-lg shadow-slate-200">Done</button>
+              <button onClick={onClose} className="px-6 py-2 bg-slate-900 text-white text-sm font-bold rounded-lg hover:bg-slate-800 transition-all shadow-lg shadow-slate-200">Done</button>
             </div>
           </motion.div>
         </div>
@@ -160,19 +160,54 @@ interface TargetsPageProps {
   userTargets: UserTarget[];
   currentUser: User;
   onOpenTargetModal: () => void;
+  targetMonth: string;
+  onMonthChange: (month: string) => void;
 }
 
-export const TargetsPage = ({ leads, users, teamTargets, userTargets, currentUser, onOpenTargetModal }: TargetsPageProps) => {
-  const closedLeadsValue = leads.filter(l => l.stage === 'PAYMENT_COMPLETED').reduce((acc, l) => acc + l.value, 0);
-  const teamTargetValue = teamTargets.filter(t => t.month === '2024-03').reduce((acc, t) => acc + t.targetValue, 0);
-  const canManage = currentUser.role === 'SUPER_ADMIN' || currentUser.role === 'SALES_ADMIN' || currentUser.role === 'TEAM_LEAD';
+export const TargetsPage = ({ 
+  leads, users, teamTargets, userTargets, currentUser, onOpenTargetModal,
+  targetMonth, onMonthChange 
+}: TargetsPageProps) => {
+  const [dateRange, setDateRange] = useState<DateFilterType>('ALL');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+
+  const filteredLeads = leads.filter(lead => {
+    const leadDate = new Date(lead.createdAt);
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    
+    if (dateRange === 'TODAY') return leadDate >= today;
+    if (dateRange === 'YESTERDAY') {
+      const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
+      return leadDate >= yesterday && leadDate < today;
+    }
+    if (dateRange === 'LAST_7_DAYS') {
+      const last7 = new Date(today); last7.setDate(last7.getDate() - 7);
+      return leadDate >= last7;
+    }
+    if (dateRange === 'CUSTOM') {
+      return (!startDate || leadDate >= new Date(startDate)) && (!endDate || leadDate <= new Date(endDate + 'T23:59:59'));
+    }
+    return true;
+  });
+
+  const closedLeadsValue = filteredLeads.filter(l => l.stage === 'PAYMENT_COMPLETED').reduce((acc, l) => acc + l.value, 0);
+  const teamTargetValue = teamTargets.filter(t => t.month === targetMonth.substring(0, 7)).reduce((acc, t) => acc + t.targetValue, 0);
+  const canManage = currentUser.role === 'SUPER_ADMIN' || currentUser.role === 'SALES_HEAD' || currentUser.role === 'TEAM_LEAD';
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <h2 className="text-2xl font-bold text-slate-900">Sales Targets &amp; Performance</h2>
         <div className="flex items-center gap-3">
-          <div className="text-sm font-medium text-slate-500 bg-slate-100 px-3 py-1 rounded-full">Month: March 2024</div>
+          <DateRangeFilter 
+            value={dateRange}
+            onChange={setDateRange}
+            startDate={startDate}
+            onStartDateChange={setStartDate}
+            endDate={endDate}
+            onEndDateChange={setEndDate}
+          />
           {canManage && (
             <button onClick={onOpenTargetModal} className="flex items-center gap-2 px-4 py-2 bg-brand-600 text-white text-xs font-bold rounded-lg hover:bg-brand-700 transition-all shadow-lg shadow-brand-100">
               <Settings size={14} />Manage Targets
@@ -183,12 +218,11 @@ export const TargetsPage = ({ leads, users, teamTargets, userTargets, currentUse
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* Team Target Card */}
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+        <div className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <div className="p-2 bg-brand-50 text-brand-600 rounded-lg"><Target size={20} /></div>
             <div className="flex flex-col items-end">
               <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Team Target</span>
-              {canManage && <button onClick={onOpenTargetModal} className="text-[8px] font-bold text-brand-600 hover:text-brand-700 uppercase tracking-widest mt-1">Edit</button>}
             </div>
           </div>
           <div className="text-2xl font-bold text-slate-900">{formatCurrency(teamTargetValue)}</div>
@@ -202,24 +236,24 @@ export const TargetsPage = ({ leads, users, teamTargets, userTargets, currentUse
         </div>
 
         {/* Closed Leads */}
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+        <div className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg"><CheckCircle size={20} /></div>
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Closed Leads</span>
           </div>
-          <div className="text-2xl font-bold text-slate-900">{leads.filter(l => l.stage === 'PAYMENT_COMPLETED').length}</div>
+          <div className="text-2xl font-bold text-slate-900">{filteredLeads.filter(l => l.stage === 'PAYMENT_COMPLETED').length}</div>
           <div className="mt-1 text-xs text-slate-500">Target: {teamTargets.filter(t => t.month === '2024-03').reduce((acc, t) => acc + t.targetLeads, 0)} leads</div>
         </div>
 
         {/* Top Performer by Value */}
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+        <div className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <div className="p-2 bg-purple-50 text-purple-600 rounded-lg"><Trophy size={20} /></div>
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Top Performer (Value)</span>
           </div>
           {(() => {
             const stats = users.filter(u => u.role === 'BDE').map(user => ({
-              user, totalValue: leads.filter(l => l.assignedToId === user.id && l.stage === 'PAYMENT_COMPLETED').reduce((acc, l) => acc + l.value, 0)
+              user, totalValue: filteredLeads.filter(l => l.assignedToId === user.id && l.stage === 'PAYMENT_COMPLETED').reduce((acc, l) => acc + l.value, 0)
             }));
             const top = [...stats].sort((a, b) => b.totalValue - a.totalValue)[0];
             return (
@@ -235,14 +269,14 @@ export const TargetsPage = ({ leads, users, teamTargets, userTargets, currentUse
         </div>
 
         {/* Sales Volume Leader */}
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+        <div className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <div className="p-2 bg-blue-50 text-blue-600 rounded-lg"><Star size={20} /></div>
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Sales Volume Leader</span>
           </div>
           {(() => {
             const stats = users.filter(u => u.role === 'BDE').map(user => ({
-              user, count: leads.filter(l => l.assignedToId === user.id && l.stage === 'PAYMENT_COMPLETED').length
+              user, count: filteredLeads.filter(l => l.assignedToId === user.id && l.stage === 'PAYMENT_COMPLETED').length
             }));
             const top = [...stats].sort((a, b) => b.count - a.count)[0];
             return (
@@ -260,13 +294,13 @@ export const TargetsPage = ({ leads, users, teamTargets, userTargets, currentUse
 
       {/* Insights + Individual BDE Targets */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+        <div className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm">
           <h3 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
             <TrendingUp size={16} className="text-emerald-500" />Consistency Insights
           </h3>
           {(() => {
             const stats = users.filter(u => u.role === 'BDE').map(user => {
-              const totalValue = leads.filter(l => l.assignedToId === user.id && l.stage === 'PAYMENT_COMPLETED').reduce((acc, l) => acc + l.value, 0);
+              const totalValue = filteredLeads.filter(l => l.assignedToId === user.id && l.stage === 'PAYMENT_COMPLETED').reduce((acc, l) => acc + l.value, 0);
               const target = userTargets.find(t => t.userId === user.id && t.month === '2024-03');
               const achievementPercent = target ? (totalValue / target.targetValue) * 100 : 0;
               return { user, totalValue, achievementPercent };
@@ -306,20 +340,15 @@ export const TargetsPage = ({ leads, users, teamTargets, userTargets, currentUse
           })()}
         </div>
 
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+        <div className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
               <Users size={16} className="text-brand-500" />Individual BDE Targets
             </h3>
-            {canManage && (
-              <button onClick={onOpenTargetModal} className="text-[10px] font-bold text-brand-600 hover:text-brand-700 uppercase tracking-widest">
-                Edit All
-              </button>
-            )}
           </div>
           <div className="space-y-3">
             {users.filter(u => u.role === 'BDE').map(user => {
-              const totalValue = leads.filter(l => l.assignedToId === user.id && l.stage === 'PAYMENT_COMPLETED').reduce((acc, l) => acc + l.value, 0);
+              const totalValue = filteredLeads.filter(l => l.assignedToId === user.id && l.stage === 'PAYMENT_COMPLETED').reduce((acc, l) => acc + l.value, 0);
               const target = userTargets.find(t => t.userId === user.id && t.month === '2024-03');
               const achievementPercent = target ? (totalValue / target.targetValue) * 100 : 0;
               return (

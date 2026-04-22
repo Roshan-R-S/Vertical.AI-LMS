@@ -7,6 +7,7 @@ export const createLeadSchema = z.object({
   designation: z.string().optional(),
   industry: z.string().optional(),
   source: z.string().optional(),
+  callType: z.string().optional(),
   value: z.number().optional(),
   remarks: z.string().optional(),
   linkedIn: z.string().optional(),

@@ -51,7 +51,7 @@ export const Topbar = ({
         <input
           type="text"
           placeholder="Search global workspace..."
-          className="w-full pl-10 pr-4 py-2 bg-slate-100/50 border border-slate-200/60 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500/50 transition-all"
+          className="w-full pl-10 pr-4 py-2 bg-slate-100/50 border border-slate-200/60 rounded-lg text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500/50 transition-all"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
         />
@@ -60,13 +60,13 @@ export const Topbar = ({
 
     <div className="flex items-center gap-2 lg:gap-5">
       <div className="relative group">
-        <button className="relative p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 rounded-xl transition-all">
+        <button className="relative p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 rounded-lg transition-all">
           <Bell size={20} />
           {notifications.length > 0 && (
             <span className="absolute top-2 right-2 w-2 h-2 bg-brand-500 rounded-full border-2 border-white" />
           )}
         </button>
-        <div className="absolute right-0 mt-2 w-72 sm:w-80 glass-card rounded-2xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 p-2 border border-slate-200/60">
+        <div className="absolute right-0 mt-2 w-72 sm:w-80 surface-card rounded-lg shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 p-2 border border-slate-200/60">
           <div className="p-3 border-b border-slate-100 flex items-center justify-between">
             <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Notifications</h3>
             <button onClick={() => setNotifications([])} className="text-[10px] font-bold text-brand-600 hover:text-brand-500">Clear All</button>
@@ -79,7 +79,7 @@ export const Topbar = ({
               </div>
             ) : (
               notifications.map(n => (
-                <div key={n.id} className="p-3 bg-slate-50 hover:bg-slate-100/80 rounded-xl border border-slate-200/40 relative group/n transition-colors">
+                <div key={n.id} className="p-3 bg-slate-50 hover:bg-slate-100/80 rounded-lg border border-slate-200/40 relative group/n transition-colors">
                   <p className="text-[10px] font-bold text-brand-600 uppercase tracking-widest mb-1">{n.title}</p>
                   <p className="text-xs text-slate-700 font-medium leading-relaxed">{n.message}</p>
                   <button
@@ -100,7 +100,7 @@ export const Topbar = ({
       <div className="relative">
         <button
           onClick={() => setIsNewLeadDropdownOpen(!isNewLeadDropdownOpen)}
-          className="flex items-center gap-2 px-4 py-2 bg-brand-600 text-white text-sm font-bold rounded-xl hover:bg-brand-500 shadow-lg shadow-brand-500/20 transition-all active:scale-95 group"
+          className="flex items-center gap-2 px-4 py-2 bg-brand-600 text-white text-sm font-bold rounded-lg hover:bg-brand-500 shadow-lg shadow-brand-500/20 transition-all active:scale-95 group"
         >
           <Plus size={18} className="group-hover:rotate-90 transition-transform" />
           <span className="hidden sm:inline">Add Lead</span>
@@ -114,11 +114,11 @@ export const Topbar = ({
                 initial={{ opacity: 0, y: 10, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                className="absolute right-0 mt-2 w-56 glass-card rounded-2xl shadow-2xl z-50 overflow-hidden border border-white/10 p-1"
+                className="absolute right-0 mt-2 w-56 surface-card rounded-lg shadow-2xl z-50 overflow-hidden border border-white/10 p-1"
               >
                 <button
                   onClick={() => { setIsAddModalOpen(true); setIsNewLeadDropdownOpen(false); }}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-600 hover:text-brand-600 hover:bg-slate-50 rounded-xl transition-all text-left"
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-600 hover:text-brand-600 hover:bg-slate-50 rounded-lg transition-all text-left"
                 >
                   <div className="w-8 h-8 rounded-lg bg-brand-500/10 flex items-center justify-center">
                     <UserCircle size={18} className="text-brand-500" />
@@ -128,7 +128,7 @@ export const Topbar = ({
                 {(currentUser.role !== 'BDE' || currentUser.canBulkUpload) && (
                   <button
                     onClick={() => { setIsBulkModalOpen(true); setIsNewLeadDropdownOpen(false); }}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-600 hover:text-brand-600 hover:bg-slate-50 rounded-xl transition-all text-left"
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-600 hover:text-brand-600 hover:bg-slate-50 rounded-lg transition-all text-left"
                   >
                     <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
                       <FileSpreadsheet size={18} className="text-emerald-500" />

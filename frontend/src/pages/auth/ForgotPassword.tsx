@@ -53,7 +53,7 @@ export const ForgotPassword = ({ onBackToLogin }: ForgotPasswordProps) => {
           <p className="text-slate-400">Enter your email and we'll send you a link to reset your password.</p>
         </div>
 
-        <div className="backdrop-blur-xl bg-white/3 border border-white/8 p-8 rounded-3xl shadow-2xl relative">
+        <div className="backdrop-blur-xl bg-white/3 border border-white/8 p-8 rounded-lg shadow-2xl relative">
           {isSuccess ? (
             <div className="text-center space-y-6">
               <div className="mx-auto w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center">
@@ -67,7 +67,7 @@ export const ForgotPassword = ({ onBackToLogin }: ForgotPasswordProps) => {
               </div>
               <button
                 onClick={onBackToLogin}
-                className="w-full py-4 bg-white/5 hover:bg-white/10 text-white font-bold rounded-xl transition-all border border-white/10"
+                className="w-full py-4 bg-white/5 hover:bg-white/10 text-white font-bold rounded-lg transition-all border border-white/10"
               >
                 Back to Login
               </button>
@@ -75,7 +75,7 @@ export const ForgotPassword = ({ onBackToLogin }: ForgotPasswordProps) => {
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
               {error && (
-                <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+                <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
                   {error}
                 </div>
               )}
@@ -91,7 +91,7 @@ export const ForgotPassword = ({ onBackToLogin }: ForgotPasswordProps) => {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="block w-full pl-11 pr-4 py-4 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-transparent transition-all"
+                    className="block w-full pl-11 pr-4 py-4 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-transparent transition-all"
                     placeholder="you@company.com"
                   />
                 </div>
@@ -101,7 +101,7 @@ export const ForgotPassword = ({ onBackToLogin }: ForgotPasswordProps) => {
                 <button
                   type="submit"
                   disabled={isLoading || !email}
-                  className="w-full relative group overflow-hidden rounded-xl"
+                  className="w-full relative group overflow-hidden rounded-lg"
                 >
                   <div className="absolute inset-0 bg-linear-to-r from-brand-600 to-indigo-600 group-hover:opacity-90 transition-opacity" />
                   <div className="relative flex items-center justify-center py-4 text-white font-bold tracking-wide">

@@ -5,6 +5,6 @@ import { roleMiddleware } from '../../middleware/role.middleware';
 
 const router = Router();
 
-router.get('/', authMiddleware, roleMiddleware(['SUPER_ADMIN', 'SALES_ADMIN', 'TEAM_LEAD']), getAuditLogs);
+router.get('/', authMiddleware, roleMiddleware(['SUPER_ADMIN', 'SALES_HEAD', 'TEAM_LEAD']), getAuditLogs);
 
 export default router;

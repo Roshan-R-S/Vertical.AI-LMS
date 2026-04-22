@@ -1,4 +1,4 @@
-export type Role = 'SUPER_ADMIN' | 'SALES_ADMIN' | 'TEAM_LEAD' | 'BDE';
+export type Role = 'SUPER_ADMIN' | 'SALES_HEAD' | 'TEAM_LEAD' | 'BDE' | 'CHANNEL_PARTNER';
 
 export type LeadStage = 
   | 'DEFAULT'
@@ -10,6 +10,7 @@ export type LeadStage =
   | 'DND'
   | 'SWITCHED_OFF'
   | 'MEETING_SCHEDULED'
+  | 'MEETING_COMPLETED'
   | 'MEETING_POSTPONED'
   | 'PROPOSAL_SHARED'
   | 'HANDED_OVER'
@@ -23,6 +24,14 @@ export interface User {
   teamId?: string;
   avatar?: string;
   canBulkUpload: boolean;
+  mustResetPassword?: boolean;
+  username?: string;
+  phone?: string;
+  profession?: string;
+  notifyEmail: boolean;
+  notifyPush: boolean;
+  notifyTasks: boolean;
+  notifyAssignments: boolean;
 }
 
 export interface Lead {
@@ -51,6 +60,7 @@ export interface Lead {
   lastFollowUp?: string;
   nextFollowUp?: string;
   customFields?: Record<string, any>;
+  callType?: string;
 }
 
 export interface CustomFieldDefinition {
@@ -118,9 +128,10 @@ export const STAGE_CONFIG: Record<LeadStage, { label: string; color: string }> =
   DND: { label: 'DND', color: 'bg-gray-100 text-gray-700' },
   SWITCHED_OFF: { label: 'Switched Off', color: 'bg-zinc-100 text-zinc-700' },
   MEETING_SCHEDULED: { label: 'Meeting Scheduled', color: 'bg-purple-100 text-purple-700' },
+  MEETING_COMPLETED: { label: 'Meeting Completed', color: 'bg-emerald-100 text-emerald-700' },
   MEETING_POSTPONED: { label: 'Meeting Postponed', color: 'bg-orange-100 text-orange-700' },
   PROPOSAL_SHARED: { label: 'Proposal Shared', color: 'bg-indigo-100 text-indigo-700' },
-  HANDED_OVER: { label: 'Handed Over', color: 'bg-emerald-100 text-emerald-700' },
+  HANDED_OVER: { label: 'Handed Over', color: 'bg-teal-100 text-teal-700' },
   PAYMENT_COMPLETED: { label: 'Payment Completed', color: 'bg-green-100 text-green-700' },
 };
 
@@ -128,7 +139,8 @@ export const VALID_TRANSITIONS: Record<LeadStage, LeadStage[]> = {
   DEFAULT: ['YET_TO_CALL', 'MEETING_SCHEDULED', 'CALL_BACK', 'NOT_INTERESTED', 'LOST'],
   LOST: ['YET_TO_CALL', 'DEFAULT'],
   YET_TO_CALL: ['MEETING_SCHEDULED', 'CALL_BACK', 'DNP', 'SWITCHED_OFF', 'NOT_INTERESTED', 'DND', 'DEFAULT', 'LOST'],
-  MEETING_SCHEDULED: ['PROPOSAL_SHARED', 'NOT_INTERESTED', 'CALL_BACK', 'DNP', 'MEETING_POSTPONED', 'DEFAULT', 'LOST'],
+  MEETING_SCHEDULED: ['MEETING_COMPLETED', 'PROPOSAL_SHARED', 'NOT_INTERESTED', 'CALL_BACK', 'DNP', 'MEETING_POSTPONED', 'DEFAULT', 'LOST'],
+  MEETING_COMPLETED: ['PROPOSAL_SHARED', 'NOT_INTERESTED', 'CALL_BACK', 'DEFAULT', 'LOST'],
   MEETING_POSTPONED: ['MEETING_SCHEDULED', 'NOT_INTERESTED', 'CALL_BACK', 'DEFAULT', 'LOST'],
   PROPOSAL_SHARED: ['PAYMENT_COMPLETED', 'NOT_INTERESTED', 'CALL_BACK', 'DEFAULT', 'LOST'],
   PAYMENT_COMPLETED: ['HANDED_OVER', 'DEFAULT', 'LOST'],

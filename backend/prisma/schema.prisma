@@ -8,9 +8,10 @@ datasource db {
 
 enum Role {
   SUPER_ADMIN
-  SALES_ADMIN
+  SALES_HEAD
   TEAM_LEAD
   BDE
+  CHANNEL_PARTNER
 }
 
 enum LeadStage {
@@ -23,6 +24,7 @@ enum LeadStage {
   DND
   SWITCHED_OFF
   MEETING_SCHEDULED
+  MEETING_COMPLETED
   MEETING_POSTPONED
   PROPOSAL_SHARED
   HANDED_OVER
@@ -36,24 +38,33 @@ enum ApprovalStatus {
 }
 
 model User {
-  id           String        @id @default(cuid())
-  name         String
-  email        String        @unique
-  passwordHash String
-  role         Role          @default(BDE)
-  isActive     Boolean       @default(false)
-  canBulkUpload Boolean      @default(false)
-  teamId       String?
-  avatar       String?
-  resetToken   String?       @unique
-  resetTokenExpiry DateTime?
-  leads        Lead[]        @relation("AssignedLeads")
-  activities   Activity[]
-  auditLogs    AuditLog[]
-  tasks        Task[]
-  attachments  Attachment[]
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  id                String        @id @default(cuid())
+  name              String
+  email             String        @unique
+  passwordHash      String
+  role              Role          @default(BDE)
+  isActive          Boolean       @default(false)
+  canBulkUpload     Boolean       @default(false)
+  mustResetPassword Boolean       @default(false)
+  username          String?       @unique
+  phone             String?
+  profession        String?
+  teamId            String?
+  avatar            String?
+  resetToken        String?       @unique
+  resetTokenExpiry  DateTime?
+  leads             Lead[]        @relation("AssignedLeads")
+  createdLeads      Lead[]        @relation("CreatedLeads")
+  activities        Activity[]
+  auditLogs         AuditLog[]
+  tasks             Task[]
+  attachments       Attachment[]
+  notifyEmail       Boolean       @default(true)
+  notifyPush        Boolean       @default(true)
+  notifyTasks       Boolean       @default(true)
+  notifyAssignments Boolean       @default(true)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
 
   @@map("users")
 }
@@ -73,6 +84,11 @@ model AuditLog {
 model RegistrationRequest {
   id            String         @id @default(cuid())
   name          String
+  firstName     String?
+  lastName      String?
+  username      String?
+  phone         String?
+  profession    String?
   email         String         @unique
   passwordHash  String
   role          Role
@@ -93,6 +109,7 @@ model Lead {
   designation     String?
   industry        String?
   source          String?
+  callType        String?
   value           Float        @default(0)
   stage           LeadStage    @default(YET_TO_CALL)
   remarks         String?
@@ -106,6 +123,8 @@ model Lead {
   city            String?
   assignedToId    String
   assignedTo      User         @relation("AssignedLeads", fields: [assignedToId], references: [id])
+  createdById     String
+  creator         User         @relation("CreatedLeads", fields: [createdById], references: [id])
   teamId          String
   nextFollowUp    DateTime?
   lastFollowUp    DateTime?
@@ -118,6 +137,7 @@ model Lead {
   
   @@index([stage])
   @@index([assignedToId])
+  @@index([createdById])
   @@map("leads")
 }
 

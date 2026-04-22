@@ -56,5 +56,6 @@ router.get('/deny', AuthController.deny);
 
 router.post('/forgot-password', authLimiter, AuthController.forgotPassword);
 router.post('/reset-password', authLimiter, AuthController.resetPassword);
+router.post('/change-password', authMiddleware, AuthController.changePassword);
 
 export default router;

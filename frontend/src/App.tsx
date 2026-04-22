@@ -6,28 +6,31 @@ import { STAGE_CONFIG, User, Activity, Task, LeadStage, Lead, UserTarget, TeamTa
 import { MOCK_ACTIVITIES, MOCK_TASKS, INITIAL_CUSTOM_FIELDS, MOCK_USER_TARGETS, MOCK_TEAM_TARGETS } from '@/mockData';
 import { cn, formatCurrency, formatDate, formatDateTime } from '@lib/utils';
 
-import { LoginPage } from '@components/LoginPage';
+import { LoginPage } from '@pages/Auth/LoginPage';
 import { Sidebar } from '@components/Sidebar';
 import { Topbar } from '@components/Topbar';
-import { Dashboard } from '@components/Dashboard';
-import { LeadsPage } from '@components/LeadsPage';
+import { Dashboard } from '@pages/Shared/Dashboard';
+import { LeadsPage } from '@pages/Shared/LeadsPage';
 import { LeadDetailPanel } from '@components/LeadDetailPanel';
-import { TargetsPage, TargetManagementModal } from '@components/TargetsPage';
-import { StageHistoryPage } from '@components/StageHistoryPage';
-import { ClientsPage } from '@components/ClientsPage';
-import { ReportsPage } from '@components/ReportsPage';
+import { TargetsPage, TargetManagementModal } from '@pages/Admin/TargetsPage';
+import { StageHistoryPage } from '@pages/Shared/StageHistoryPage';
+import { ClientsPage } from '@pages/Admin/ClientsPage';
+import { ReportsPage } from '@pages/Shared/ReportsPage';
 import { AddLeadModal } from '@components/AddLeadModal';
 import { BulkUploadModal } from '@components/BulkUploadModal';
-import { UserManagement } from '@components/UserManagement';
-import { Settings as SettingsPage } from '@components/Settings';
+import { UserManagement } from '@pages/Admin/UserManagement';
+import { Settings as SettingsPage } from '@pages/Shared/Settings';
+import { LeadDetailsPage } from '@pages/Shared/LeadDetailsPage';
+import { DateFilterType } from '@components/DateRangeFilter';
 
 import { useAuth } from '@contexts/AuthContext';
-import { RegisterPage } from '@components/RegisterPage';
-import { ForgotPassword } from '@components/ForgotPassword';
-import { ResetPassword } from '@components/ResetPassword';
+import { RegisterPage } from '@pages/Auth/RegisterPage';
+import { ForgotPassword } from '@pages/Auth/ForgotPassword';
+import { ResetPassword } from '@pages/Auth/ResetPassword';
+import { ResetPasswordFirstLogin } from '@pages/Auth/ResetPasswordFirstLogin';
 
 export default function App() {
-  const { user: currentUser, token, logout, loading: authLoading } = useAuth();
+  const { user: currentUser, token, logout, loading: authLoading, updateUser } = useAuth();
   const [activeTab, setActiveTab] = useState('leads');
   const [authView, setAuthView] = useState<'login' | 'register' | 'forgot_password' | 'reset_password'>(
     window.location.pathname === '/reset-password' ? 'reset_password' : 'login'
@@ -58,7 +61,7 @@ export default function App() {
   const [isNewLeadDropdownOpen, setIsNewLeadDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [stageFilter, setStageFilter] = useState<LeadStage | 'ALL' | 'OVERDUE'>('ALL');
-  const [dateRangeFilter, setDateRangeFilter] = useState<'ALL' | 'TODAY' | 'YESTERDAY' | 'CUSTOM'>('ALL');
+  const [dateRangeFilter, setDateRangeFilter] = useState<DateFilterType>('ALL');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [industryFilter, setIndustryFilter] = useState('ALL');
@@ -66,9 +69,10 @@ export default function App() {
   const [assigneeFilter, setAssigneeFilter] = useState('ALL');
   const [subStatusFilter, setSubStatusFilter] = useState('ALL');
   const [isMoreFiltersOpen, setIsMoreFiltersOpen] = useState(false);
-  const [pageSize, setPageSize] = useState(25);
+  const [pageSize, setPageSize] = useState(5);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalLeads, setTotalLeads] = useState(0);
+  const [filteredTotal, setFilteredTotal] = useState(0);
   const [leadStats, setLeadStats] = useState<{ 
     totalValue: number; 
     meetingsCount: number; 
@@ -134,13 +138,16 @@ export default function App() {
         }));
         setLeads(mapped);
         
-        // Ensure we use the GLOBAL total from stats for the KPI
-        if (data.data?.meta?.stats) {
-          const stats = data.data.meta.stats;
-          setLeadStats(stats);
-          setTotalLeads(stats.totalLeads); // <--- This ensures the KPI uses the non-filtered count
-        } else {
-          setTotalLeads(data.data?.meta?.total || 0);
+        // Handle totals
+        const meta = data.data?.meta;
+        if (meta) {
+          if (meta.stats) {
+            setLeadStats(meta.stats);
+            setTotalLeads(meta.stats.totalLeads);
+          } else {
+            setTotalLeads(meta.total || 0);
+          }
+          setFilteredTotal(meta.filteredTotal ?? meta.total ?? 0);
         }
       }
     } catch (err) {
@@ -171,7 +178,13 @@ export default function App() {
         });
         if (!res.ok) throw new Error('Failed to fetch users');
         const json = await res.json();
-        const apiUsers = json.data || [];
+        const apiUsers = (json.data || []).map((u: any) => {
+          const avatar = u.avatar?.startsWith('/uploads') ? `${import.meta.env.VITE_API_URL.replace('/api/v1', '')}${u.avatar}` : u.avatar;
+          if (u.avatar?.startsWith('/uploads')) {
+            console.log(`[App] Resolving user ${u.name} avatar:`, u.avatar, '=>', avatar);
+          }
+          return { ...u, avatar };
+        });
         if (apiUsers.length > 0) {
           setUsers(apiUsers);
         }
@@ -185,7 +198,7 @@ export default function App() {
 
   const [isUploading, setIsUploading] = useState(false);
   const [isTargetModalOpen, setIsTargetModalOpen] = useState(false);
-  const [targetMonth] = useState('2024-03');
+  const [targetMonth, setTargetMonth] = useState('2024-03');
   const [notifications, setNotifications] = useState<{ id: string; title: string; message: string; type: 'REMINDER' | 'INFO' }[]>([]);
   const [notifiedTaskIds, setNotifiedTaskIds] = useState<Set<string>>(new Set());
   const [notifiedOverdueLeadIds, setNotifiedOverdueLeadIds] = useState<Set<string>>(new Set());
@@ -248,11 +261,21 @@ export default function App() {
     else if (dateRangeFilter === 'YESTERDAY') {
       const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
       matchesDate = leadDate >= yesterday && leadDate < today;
+    } else if (dateRangeFilter === 'LAST_7_DAYS') {
+      const last7 = new Date(today); last7.setDate(last7.getDate() - 7);
+      matchesDate = leadDate >= last7;
     } else if (dateRangeFilter === 'CUSTOM') {
       matchesDate = (!startDate || leadDate >= new Date(startDate)) && (!endDate || leadDate <= new Date(endDate + 'T23:59:59'));
     }
     return matchesSearch && matchesStage && matchesDate && matchesIndustry && matchesSource && matchesAssignee;
   });
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    if (tab !== 'lead-details') {
+      setSelectedLead(null);
+    }
+  };
 
   // --- Handlers ---
   const handleAddNote = async (leadId: string, content: string) => {
@@ -565,6 +588,7 @@ export default function App() {
       state: formData.get('state') as string || undefined,
       city: formData.get('city') as string || undefined,
       assignedToId: formData.get('assignedToId') as string || currentUser?.id,
+      callType: formData.get('callType') as string || undefined,
       teamId: currentUser?.teamId || 'default-team',
     };
 
@@ -730,22 +754,61 @@ export default function App() {
     setUserTargets(prev => prev.find(t => t.id === target.id) ? prev.map(t => t.id === target.id ? target : t) : [...prev, target]);
   };
 
-  const handleUpdateUser = async (id: string, data: Partial<User>) => {
+  const handleUpdateUser = async (id: string, data: Partial<User> | FormData) => {
     const token = localStorage.getItem('lendkraft_token');
+    const isFormData = data instanceof FormData;
     try {
       const res = await fetch(`${import.meta.env.VITE_API_URL}/users/${id}`, {
-        method: 'PATCH',
-        headers: {
+        method: 'PUT',
+        headers: isFormData ? { Authorization: `Bearer ${token}` } : {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify(data),
+        body: isFormData ? data : JSON.stringify(data),
       });
       if (res.ok) {
-        setUsers(prev => prev.map(u => u.id === id ? { ...u, ...data } : u));
+        const json = await res.json();
+        const updatedUser = json.data;
+        
+        // Ensure absolute avatar URLs
+        if (updatedUser.avatar && updatedUser.avatar.startsWith('/uploads')) {
+          updatedUser.avatar = `${import.meta.env.VITE_API_URL.replace('/api/v1', '')}${updatedUser.avatar}`;
+        }
+        
+        setUsers(prev => prev.map(u => u.id === id ? { ...u, ...updatedUser } : u));
+        if (currentUser?.id === id) {
+          updateUser(updatedUser);
+        }
       }
     } catch (err) {
       console.error('Error updating user:', err);
+    }
+  };
+
+  
+  const handleAddUser = async (data: any | FormData) => {
+    const token = localStorage.getItem('lendkraft_token');
+    const isFormData = data instanceof FormData;
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/users`, {
+        method: 'POST',
+        headers: isFormData ? { Authorization: `Bearer ${token}` } : {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: isFormData ? data : JSON.stringify(data),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const newUser = json.data;
+        setUsers(prev => [...prev, newUser]);
+        alert('User added successfully!');
+      } else {
+        const err = await res.json();
+        alert(err.message || 'Failed to add user');
+      }
+    } catch (err) {
+      console.error('Error adding user:', err);
     }
   };
 
@@ -789,6 +852,10 @@ export default function App() {
     return <LoginPage onSwitchToRegister={() => setAuthView('register')} onForgotPassword={() => setAuthView('forgot_password')} />;
   }
 
+  if (currentUser.mustResetPassword) {
+    return <ResetPasswordFirstLogin />;
+  }
+
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden font-sans relative">
       {/* Mobile overlay */}
@@ -801,7 +868,7 @@ export default function App() {
       </AnimatePresence>
 
       <Sidebar
-        currentUser={currentUser} activeTab={activeTab} setActiveTab={setActiveTab}
+        currentUser={currentUser} activeTab={activeTab} setActiveTab={handleTabChange}
         isMobileMenuOpen={isMobileMenuOpen} setIsMobileMenuOpen={setIsMobileMenuOpen}
         onLogout={logout}
       />
@@ -829,11 +896,15 @@ export default function App() {
               assigneeFilter={assigneeFilter} setAssigneeFilter={setAssigneeFilter}
               
               isMoreFiltersOpen={isMoreFiltersOpen} setIsMoreFiltersOpen={setIsMoreFiltersOpen}
-              users={users} onSelectLead={setSelectedLead} onExport={handleExport}
+              users={users} onSelectLead={(lead) => {
+                setSelectedLead(lead);
+                setActiveTab('lead-details');
+              }} onExport={handleExport}
               isFollowUpOverdue={isFollowUpOverdue}
               pageSize={pageSize} setPageSize={setPageSize}
               currentPage={currentPage} setCurrentPage={setCurrentPage}
               totalLeads={totalLeads}
+              filteredTotal={filteredTotal}
               leadStats={leadStats}
             />
           )}
@@ -842,6 +913,8 @@ export default function App() {
             <TargetsPage
               leads={leads} users={users} teamTargets={teamTargets} userTargets={userTargets}
               currentUser={currentUser} onOpenTargetModal={() => setIsTargetModalOpen(true)}
+              targetMonth={targetMonth}
+              onMonthChange={setTargetMonth}
             />
           )}
 
@@ -854,6 +927,7 @@ export default function App() {
               currentUser={currentUser}
               onUpdateUser={handleUpdateUser}
               onDeleteUser={handleDeleteUser}
+              onAddUser={handleAddUser}
             />
           )}
           {activeTab === 'settings' && (
@@ -863,24 +937,54 @@ export default function App() {
               onUpdateUser={handleUpdateUser}
             />
           )}
+          {activeTab === 'lead-details' && selectedLead && (
+            <LeadDetailsPage
+              selectedLead={selectedLead}
+              onBack={() => handleTabChange('leads')}
+              currentUser={currentUser}
+              activities={activities}
+              tasks={tasks}
+              attachments={attachments}
+              customFields={customFields}
+              isUploading={isUploading}
+              onAddNote={handleAddNote}
+              onAddTask={handleAddTask}
+              onToggleTask={handleToggleTask}
+              onDeleteTask={handleDeleteTask}
+              onSetFollowUp={handleSetFollowUp}
+              onUpdateStage={handleUpdateStage}
+              onDeleteLead={handleDeleteLead}
+              onReassign={handleReassign}
+              onFileUpload={handleFileUpload}
+              onDeleteAttachment={handleDeleteAttachment}
+              isFollowUpOverdue={isFollowUpOverdue}
+              isTaskOverdue={isTaskOverdue}
+              onUpdateLead={handleUpdateLead}
+              users={users}
+              apiUrl={import.meta.env.VITE_API_URL}
+            />
+          )}
         </div>
 
-        {/* Lead Detail Panel */}
-        <LeadDetailPanel
-          selectedLead={selectedLead} onClose={() => setSelectedLead(null)}
-          currentUser={currentUser} activities={activities} tasks={tasks}
-          attachments={attachments}
-          customFields={customFields} isUploading={isUploading}
-          onAddNote={handleAddNote} onAddTask={handleAddTask}
-          onToggleTask={handleToggleTask} onDeleteTask={handleDeleteTask}
-          onSetFollowUp={handleSetFollowUp} onUpdateStage={handleUpdateStage}
-          onDeleteLead={handleDeleteLead} onReassign={handleReassign}
-          onFileUpload={handleFileUpload} onDeleteAttachment={handleDeleteAttachment}
-          isFollowUpOverdue={isFollowUpOverdue}
-          isTaskOverdue={isTaskOverdue} onUpdateLead={handleUpdateLead}
-          users={users}
-          apiUrl={import.meta.env.VITE_API_URL}
-        />
+        {/* Lead Detail Panel - Only show if not in lead-details tab (or keep it for quick view if needed, but the user asked for a separate page) */}
+        {activeTab !== 'lead-details' && (
+          <LeadDetailPanel
+            selectedLead={selectedLead} 
+            onClose={() => handleTabChange('leads')}
+            currentUser={currentUser} activities={activities} tasks={tasks}
+            attachments={attachments}
+            customFields={customFields} isUploading={isUploading}
+            onAddNote={handleAddNote} onAddTask={handleAddTask}
+            onToggleTask={handleToggleTask} onDeleteTask={handleDeleteTask}
+            onSetFollowUp={handleSetFollowUp} onUpdateStage={handleUpdateStage}
+            onDeleteLead={handleDeleteLead} onReassign={handleReassign}
+            onFileUpload={handleFileUpload} onDeleteAttachment={handleDeleteAttachment}
+            isFollowUpOverdue={isFollowUpOverdue}
+            isTaskOverdue={isTaskOverdue} onUpdateLead={handleUpdateLead}
+            users={users}
+            apiUrl={import.meta.env.VITE_API_URL}
+          />
+        )}
 
         {/* Modals */}
         <BulkUploadModal

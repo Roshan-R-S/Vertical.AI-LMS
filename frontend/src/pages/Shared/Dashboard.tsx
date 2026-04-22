@@ -8,22 +8,38 @@ import {
   Tooltip, 
   ResponsiveContainer, 
   LineChart,
-  Line
+  Line,
+  Cell
 } from 'recharts';
-import { TrendingUp, Target, Users, IndianRupee, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { TrendingUp, Target, Users, IndianRupee, ArrowUpRight, ArrowDownRight, Calendar, Phone, Clock } from 'lucide-react';
 import { formatCurrency, cn } from '@lib/utils';
+import { DateRangeFilter, DateFilterType } from '@components/DateRangeFilter';
 
 export const Dashboard = ({ token }: { token: string | null }) => {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
+  // Date Filters
+  const [dateRange, setDateRange] = useState<DateFilterType>('ALL');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+
   useEffect(() => {
     if (token) fetchStats();
-  }, [token]);
+  }, [token, dateRange, startDate, endDate]);
 
   const fetchStats = async () => {
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/analytics/dashboard`, {
+      const params = new URLSearchParams();
+      if (dateRange !== 'ALL') {
+        params.append('range', dateRange);
+        if (dateRange === 'CUSTOM') {
+          if (startDate) params.append('startDate', startDate);
+          if (endDate) params.append('endDate', endDate);
+        }
+      }
+
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/analytics/dashboard?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -49,13 +65,18 @@ export const Dashboard = ({ token }: { token: string | null }) => {
   const stageMap: Record<string, string> = {
     'DEFAULT': 'Overdue',
     'YET_TO_CALL': 'New',
-    'MEETING_SCHEDULED': 'Interested',
-    'MEETING_POSTPONED': 'Interested',
+    'CALL_BACK': 'Call Back',
+    'MEETING_SCHEDULED': 'Scheduled',
+    'MEETING_COMPLETED': 'Completed',
+    'MEETING_POSTPONED': 'Postponed',
     'PROPOSAL_SHARED': 'Proposal',
+    'HANDED_OVER': 'Handed Over',
     'PAYMENT_COMPLETED': 'Closed',
     'LOST': 'Lost',
     'DNP': 'DNP',
-    'NOT_INTERESTED': 'Not Interested'
+    'NOT_INTERESTED': 'Not Interested',
+    'DND': 'DND',
+    'SWITCHED_OFF': 'Switched Off'
   };
 
   const groupedByLabel = stats.leadsByStage.reduce((acc: any, curr: any) => {
@@ -67,12 +88,14 @@ export const Dashboard = ({ token }: { token: string | null }) => {
   const STAGE_DATA = [
     { name: 'Overdue', value: stats.overdueCount || 0 },
     { name: 'New', value: groupedByLabel['New'] || 0 },
-    { name: 'Interested', value: groupedByLabel['Interested'] || 0 },
+    { name: 'Follow-up', value: (groupedByLabel['Call Back'] || 0) + (groupedByLabel['Postponed'] || 0) + (groupedByLabel['Switched Off'] || 0) },
+    { name: 'Scheduled', value: groupedByLabel['Scheduled'] || 0 },
+    { name: 'Completed', value: groupedByLabel['Completed'] || 0 },
     { name: 'Proposal', value: groupedByLabel['Proposal'] || 0 },
+    { name: 'Handoff', value: groupedByLabel['Handed Over'] || 0 },
     { name: 'Closed', value: groupedByLabel['Closed'] || 0 },
-    { name: 'Lost', value: groupedByLabel['Lost'] || 0 },
+    { name: 'Lost', value: (groupedByLabel['Lost'] || 0) + (groupedByLabel['Not Interested'] || 0) + (groupedByLabel['DND'] || 0) },
     { name: 'DNP', value: groupedByLabel['DNP'] || 0 },
-    { name: 'Not Interested', value: groupedByLabel['Not Interested'] || 0 },
   ].filter(d => d.value > 0);
 
   const revenue = stats.totalRevenue || 0;
@@ -92,9 +115,19 @@ export const Dashboard = ({ token }: { token: string | null }) => {
   return (
     <div className="space-y-8 pb-12">
       {/* Header Info */}
-      <div className="flex flex-col gap-2">
-        <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Intelligence Hub</h2>
-        <p className="text-slate-500 font-medium">Real-time enterprise pipeline overview.</p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex flex-col gap-2">
+          <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Intelligence Hub</h2>
+          <p className="text-slate-500 font-medium">Real-time enterprise pipeline overview.</p>
+        </div>
+        <DateRangeFilter 
+          value={dateRange}
+          onChange={setDateRange}
+          startDate={startDate}
+          onStartDateChange={setStartDate}
+          endDate={endDate}
+          onEndDateChange={setEndDate}
+        />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -132,6 +165,37 @@ export const Dashboard = ({ token }: { token: string | null }) => {
         />
       </div>
 
+      {/* Today's Agenda row */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="surface-card p-5 rounded-lg flex items-center justify-between ">
+          <div>
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-[0.2em] mb-1">Today's Meetings</p>
+            <h4 className="text-xl font-bold text-slate-900">{stats.todayMeetings || 0}</h4>
+          </div>
+          <div className="w-10 h-10 bg-purple-50 text-purple-600 rounded-lg flex items-center justify-center">
+            <Calendar size={20} />
+          </div>
+        </div>
+        <div className="surface-card p-5 rounded-lg flex items-center justify-between ">
+          <div>
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-[0.2em] mb-1">Today's Follow-ups</p>
+            <h4 className="text-xl font-bold text-slate-900">{stats.todayFollowUps || 0}</h4>
+          </div>
+          <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center">
+            <Phone size={20} />
+          </div>
+        </div>
+        <div className="surface-card p-5 rounded-lg flex items-center justify-between ">
+          <div>
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-[0.2em] mb-1">Overdue Leads</p>
+            <h4 className="text-xl font-bold text-rose-600">{stats.overdueCount || 0}</h4>
+          </div>
+          <div className="w-10 h-10 bg-rose-50 text-rose-600 rounded-lg flex items-center justify-center">
+            <Clock size={20} />
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <ChartPanel title="Leads by Stage">
           <ResponsiveContainer width="100%" height="100%">
@@ -143,7 +207,24 @@ export const Dashboard = ({ token }: { token: string | null }) => {
                 contentStyle={{ backgroundColor: '#ffffff', borderRadius: '16px', border: '1px solid rgba(0,0,0,0.1)', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
                 cursor={{ fill: 'rgba(0,0,0,0.02)' }}
               />
-              <Bar dataKey="value" fill="#0e91e9" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                {STAGE_DATA.map((entry, index) => (
+                  <Cell 
+                    key={`cell-${index}`} 
+                    fill={
+                      entry.name === 'Overdue' ? '#f43f5e' :
+                      entry.name === 'New' ? '#0e91e9' :
+                      entry.name === 'Follow-up' ? '#8b5cf6' :
+                      entry.name === 'Scheduled' ? '#0ea5e9' :
+                      entry.name === 'Completed' ? '#10b981' :
+                      entry.name === 'Proposal' ? '#f59e0b' :
+                      entry.name === 'Handoff' ? '#6366f1' :
+                      entry.name === 'Closed' ? '#059669' :
+                      '#94a3b8'
+                    }
+                  />
+                ))}
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </ChartPanel>
@@ -167,40 +248,37 @@ export const Dashboard = ({ token }: { token: string | null }) => {
 };
 
 const StatCard = ({ icon: Icon, label, value, trend, trendType, color }: any) => (
-  <div className="glass-card p-6 rounded-2xl border border-slate-200/50 relative overflow-hidden group hover:border-brand-500/30 transition-all">
-    <div className="flex items-center justify-between mb-4 relative z-10">
+  <div className="surface-card p-6 rounded-lg ">
+    <div className="flex items-center justify-between mb-4">
       <div className={cn(
-        "p-2.5 rounded-xl transition-colors",
-        color === 'brand' ? "bg-brand-500/10 text-brand-500" :
-        color === 'purple' ? "bg-purple-500/10 text-purple-500" :
-        color === 'blue' ? "bg-blue-500/10 text-blue-500" :
-        "bg-emerald-500/10 text-emerald-500"
+        "p-2.5 rounded-lg",
+        color === 'brand' ? "bg-brand-50 text-brand-600" :
+        color === 'purple' ? "bg-purple-50 text-purple-600" :
+        color === 'blue' ? "bg-blue-50 text-blue-600" :
+        "bg-emerald-50 text-emerald-600"
       )}>
         <Icon size={20} />
       </div>
       <span className={cn(
         "flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full",
-        trendType === 'up' ? "text-emerald-400 bg-emerald-500/10" : "text-rose-400 bg-rose-500/10"
+        trendType === 'up' ? "text-emerald-600 bg-emerald-50" : "text-rose-600 bg-rose-50"
       )}>
         {trendType === 'up' ? <ArrowUpRight size={10} /> : <ArrowDownRight size={10} />}
         {trend}
       </span>
     </div>
-    <h3 className="text-2xl font-bold text-slate-900 relative z-10">{value}</h3>
-    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 relative z-10">{label}</p>
-    
-    {/* Decorative light effect */}
-    <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-brand-500/5 rounded-full blur-3xl group-hover:bg-brand-500/10 transition-colors" />
+    <h3 className="text-2xl font-black text-slate-900">{value}</h3>
+    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{label}</p>
   </div>
 );
 
 const ChartPanel = ({ title, children }: any) => (
-  <div className="glass-card p-8 rounded-2xl border border-slate-200/50 shadow-sm">
+  <div className="surface-card p-8 rounded-lg">
     <div className="flex items-center justify-between mb-8">
-      <h3 className="text-xl font-bold text-slate-900 tracking-tight">{title}</h3>
+      <h3 className="text-lg font-black text-slate-900 uppercase tracking-widest">{title}</h3>
       <div className="flex items-center gap-2">
-        <div className="w-2 h-2 rounded-full bg-brand-500 shadow-[0_0_8px_rgba(14,145,233,0.3)]" />
-        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Active Insight</span>
+        <div className="w-2 h-2 rounded-full bg-brand-500" />
+        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Live Data</span>
       </div>
     </div>
     <div className="h-80">

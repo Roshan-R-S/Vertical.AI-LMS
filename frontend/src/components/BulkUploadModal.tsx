@@ -24,7 +24,7 @@ export const BulkUploadModal = ({ isOpen, onClose, onUpload, onDownloadTemplate 
           initial={{ scale: 0.95, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.95, opacity: 0 }}
-          className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+          className="relative w-full max-w-md bg-white rounded-lg shadow-2xl overflow-hidden flex flex-col"
         >
           <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
             <h2 className="text-xl font-bold text-slate-900">Bulk Lead Upload</h2>
@@ -34,8 +34,8 @@ export const BulkUploadModal = ({ isOpen, onClose, onUpload, onDownloadTemplate 
           </div>
 
           <div className="p-8 space-y-6">
-            <div className="relative p-6 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center text-center space-y-4 hover:border-brand-300 transition-colors group">
-              <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+            <div className="relative p-6 border-2 border-dashed border-slate-200 rounded-lg flex flex-col items-center justify-center text-center space-y-4 hover:border-brand-300 transition-colors group">
+              <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
                 <Upload size={24} />
               </div>
               <div>
@@ -50,7 +50,7 @@ export const BulkUploadModal = ({ isOpen, onClose, onUpload, onDownloadTemplate 
               />
             </div>
 
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+            <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-white rounded-lg border border-slate-200 text-brand-600">

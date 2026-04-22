@@ -8,11 +8,15 @@ import { Lead, LeadStage, User } from '@/types';
 import { STAGE_CONFIG } from '@/types';
 import { cn, formatCurrency, formatDate, formatDateTime } from '@lib/utils';
 import { StatCard } from '@components/StatCard';
+import { DateRangeFilter, DateFilterType } from '@components/DateRangeFilter';
+import { Pagination } from '@components/Pagination';
+import { PageSizeSelector } from '@components/PageSizeSelector';
 
 const QUICK_STAGES: (LeadStage | 'OVERDUE')[] = [
   'OVERDUE',
   'MEETING_SCHEDULED',
   'MEETING_POSTPONED',
+  'MEETING_COMPLETED',
   'PROPOSAL_SHARED',
   'HANDED_OVER'
 ];
@@ -34,8 +38,8 @@ interface LeadsPageProps {
   currentUser: User;
   stageFilter: LeadStage | 'ALL' | 'OVERDUE';
   setStageFilter: (s: LeadStage | 'ALL' | 'OVERDUE') => void;
-  dateRangeFilter: 'ALL' | 'TODAY' | 'YESTERDAY' | 'CUSTOM';
-  setDateRangeFilter: (d: 'ALL' | 'TODAY' | 'YESTERDAY' | 'CUSTOM') => void;
+  dateRangeFilter: DateFilterType;
+  setDateRangeFilter: (d: DateFilterType) => void;
   startDate: string;
   setStartDate: (d: string) => void;
   endDate: string;
@@ -57,6 +61,7 @@ interface LeadsPageProps {
   currentPage: number;
   setCurrentPage: (page: number) => void;
   totalLeads: number;
+  filteredTotal: number;
   leadStats: { 
     totalValue: number; 
     meetingsCount: number; 
@@ -76,7 +81,7 @@ export const LeadsPage = ({
   assigneeFilter, setAssigneeFilter,
   isMoreFiltersOpen, setIsMoreFiltersOpen,
   users, onSelectLead, onExport, isFollowUpOverdue,
-  pageSize, setPageSize, currentPage, setCurrentPage, totalLeads, leadStats
+  pageSize, setPageSize, currentPage, setCurrentPage, totalLeads, filteredTotal, leadStats
 }: LeadsPageProps) => (
   <div className="space-y-6">
     {/* Stats Row */}
@@ -89,7 +94,7 @@ export const LeadsPage = ({
 
     {/* Filters & Table Wrapper */}
     <div className="space-y-4">
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
         <div className="p-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-4">
           {/* Stage Filter Tabs */}
           <div className="flex items-center gap-1 overflow-x-auto pb-2 sm:pb-0 no-scrollbar">
@@ -110,31 +115,14 @@ export const LeadsPage = ({
 
           <div className="flex items-center gap-2">
             {/* Date Range */}
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg">
-              <Calendar size={14} className="text-slate-400" />
-              <select value={dateRangeFilter} onChange={(e) => setDateRangeFilter(e.target.value as any)}
-                className="bg-transparent text-xs font-semibold text-slate-600 focus:outline-none">
-                <option value="ALL">All Time</option>
-                <option value="TODAY">Today</option>
-                <option value="YESTERDAY">Yesterday</option>
-                <option value="CUSTOM">Custom Range</option>
-              </select>
-              {dateRangeFilter === 'CUSTOM' && (
-                <div className="flex items-center gap-2 ml-2 pl-2 border-l border-slate-200">
-                  <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
-                    className="bg-transparent text-xs font-semibold text-slate-600 focus:outline-none" />
-                  <span className="text-slate-300 text-xs">-</span>
-                  <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)}
-                    className="bg-transparent text-xs font-semibold text-slate-600 focus:outline-none" />
-                </div>
-              )}
-              {dateRangeFilter !== 'ALL' && (
-                <button onClick={() => { setDateRangeFilter('ALL'); setStartDate(''); setEndDate(''); }}
-                  className="p-0.5 hover:bg-slate-200 rounded text-slate-400 ml-1">
-                  <X size={12} />
-                </button>
-              )}
-            </div>
+            <DateRangeFilter 
+              value={dateRangeFilter as DateFilterType}
+              onChange={setDateRangeFilter}
+              startDate={startDate}
+              onStartDateChange={setStartDate}
+              endDate={endDate}
+              onEndDateChange={setEndDate}
+            />
 
             {/* More Filters Toggle */}
             <button onClick={() => setIsMoreFiltersOpen(!isMoreFiltersOpen)}
@@ -149,20 +137,10 @@ export const LeadsPage = ({
               )}
             </button>
 
-            {/* Page Size Selector */}
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Show</span>
-              <select 
-                value={pageSize} 
-                onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
-                className="bg-transparent text-xs font-bold text-slate-600 focus:outline-none cursor-pointer"
-              >
-                {[10, 25, 50, 100].map(size => (
-                  <option key={size} value={size}>{size}</option>
-                ))}
-              </select>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Entries</span>
-            </div>
+            <PageSizeSelector 
+              pageSize={pageSize} 
+              onChange={(size) => { setPageSize(size); setCurrentPage(1); }} 
+            />
 
             {currentUser.role !== 'BDE' && (
               <button onClick={onExport}
@@ -212,8 +190,8 @@ export const LeadsPage = ({
                       className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-brand-500/20">
                       <option value="ALL">All Assignees</option>
                       {users.filter(u => {
-                        if (currentUser.role === 'SUPER_ADMIN') return ['SALES_ADMIN', 'TEAM_LEAD', 'BDE'].includes(u.role);
-                        if (currentUser.role === 'SALES_ADMIN') return ['TEAM_LEAD', 'BDE'].includes(u.role);
+                        if (currentUser.role === 'SUPER_ADMIN') return ['SALES_HEAD', 'TEAM_LEAD', 'BDE'].includes(u.role);
+                        if (currentUser.role === 'SALES_HEAD') return ['TEAM_LEAD', 'BDE'].includes(u.role);
                         if (currentUser.role === 'TEAM_LEAD') return u.role === 'BDE' && u.teamId === currentUser.teamId;
                         return false;
                       }).map(user => (
@@ -238,7 +216,7 @@ export const LeadsPage = ({
           <table className="w-full text-left border-collapse min-w-[1000px]">
             <thead>
               <tr className="bg-slate-50/50 border-b border-slate-100">
-                {['Lead Details', 'Status', 'Value', 'Industry', 'Assigned To', 'Next Follow-up', 'Created', ''].map(h => (
+                {['Lead Details', 'Status', 'Value', 'Industry', 'Assigned To', 'Next Follow-up', 'Created'].map(h => (
                   <th key={h} className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">{h}</th>
                 ))}
               </tr>
@@ -268,7 +246,12 @@ export const LeadsPage = ({
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
-                      <img src={users.find(u => u.id === lead.assignedToId)?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${lead.assignedToId}`} alt="" className="w-6 h-6 rounded-full border border-slate-200" />
+                      <img 
+                        src={users.find(u => u.id === lead.assignedToId)?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${lead.assignedToId}`} 
+                        alt="" 
+                        className="w-6 h-6 rounded-full border border-slate-200" 
+                        crossOrigin="anonymous"
+                      />
                       <span className="text-xs font-medium text-slate-600">{users.find(u => u.id === lead.assignedToId)?.name || 'Unassigned'}</span>
                     </div>
                   </td>
@@ -283,9 +266,6 @@ export const LeadsPage = ({
                   </td>
                   <td className="px-6 py-4">
                     <span className="text-xs text-slate-500">{formatDate(lead.createdAt)}</span>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <button className="p-1 text-slate-300 hover:text-slate-600"><MoreVertical size={16} /></button>
                   </td>
                 </tr>
               ))}
@@ -304,48 +284,16 @@ export const LeadsPage = ({
       </div>
 
       {/* Pagination Footer - Moved Outside Card */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-2">
-        <div className="flex items-center gap-4">
-          <p className="text-xs text-slate-500 font-medium">
-            Showing <span className="font-bold text-slate-900">{totalLeads === 0 ? 0 : Math.min((currentPage - 1) * pageSize + 1, totalLeads)}</span> to <span className="font-bold text-slate-900">{Math.min(currentPage * pageSize, totalLeads)}</span> of <span className="font-bold text-slate-900">{totalLeads}</span> leads
-          </p>
-        </div>
-
-        <div className="flex items-center gap-1">
-          <button 
-            disabled={currentPage === 1}
-            onClick={() => setCurrentPage(currentPage - 1)}
-            className="p-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
-          >
-            <ChevronDown className="rotate-90 text-slate-600" size={16} />
-          </button>
-          
-          <div className="flex items-center gap-1">
-            {[...Array(Math.max(0, Math.min(5, Math.ceil(totalLeads / pageSize))))].map((_, i) => {
-              const pageNum = i + 1;
-              return (
-                <button
-                  key={pageNum}
-                  onClick={() => setCurrentPage(pageNum)}
-                  className={cn("w-8 h-8 text-xs font-bold rounded-lg transition-all",
-                    currentPage === pageNum 
-                      ? "bg-brand-600 text-white shadow-md shadow-brand-100" 
-                      : "bg-white text-slate-600 hover:bg-slate-50 border border-slate-200")}
-                >
-                  {pageNum}
-                </button>
-              );
-            })}
-          </div>
-
-          <button 
-            disabled={currentPage >= Math.ceil(totalLeads / pageSize)}
-            onClick={() => setCurrentPage(currentPage + 1)}
-            className="p-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
-          >
-            <ChevronDown className="-rotate-90 text-slate-600" size={16} />
-          </button>
-        </div>
+      {/* Pagination Footer - Standardized */}
+      <div className="mt-4">
+        <Pagination 
+          currentPage={currentPage}
+          totalPages={Math.ceil(filteredTotal / pageSize)}
+          onPageChange={setCurrentPage}
+          totalEntries={filteredTotal}
+          pageSize={pageSize}
+          label="leads"
+        />
       </div>
     </div>
   </div>

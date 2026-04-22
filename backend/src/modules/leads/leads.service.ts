@@ -14,8 +14,11 @@ export const getLeads = async (query: any, user: any) => {
     scopeFilter.assignedToId = user.id;
   } else if (user.role === 'TEAM_LEAD') {
     scopeFilter.teamId = user.teamId;
+  } else if (user.role === 'CHANNEL_PARTNER') {
+    // Channel Partners only see leads they uploaded
+    scopeFilter.createdById = user.id;
   } else {
-    // Admins honour explicit filters if provided
+    // Admins/Sales Head honour explicit filters if provided
     if (assignedToId && assignedToId !== 'ALL') scopeFilter.assignedToId = assignedToId;
     if (teamId) scopeFilter.teamId = teamId;
   }
@@ -42,19 +45,21 @@ export const getLeads = async (query: any, user: any) => {
     ...attrFilter,
   };
 
-  const [leads, stats] = await Promise.all([
+  const [leads, stats, filteredTotal] = await Promise.all([
     LeadRepo.findAll(findAllFilters),
     LeadRepo.getStats(statsFilters),
+    LeadRepo.count(findAllFilters),
   ]);
 
   return {
     data: leads,
     meta: {
-      total: stats.totalLeads,
+      total: stats.totalLeads, // Global total for KPI cards
+      filteredTotal: filteredTotal, // Total after current filters (stage, etc.)
       stats,
       page: Number(page),
       limit: Number(limit),
-      totalPages: Math.ceil(stats.totalLeads / Number(limit)),
+      totalPages: Math.ceil(filteredTotal / Number(limit)),
     },
   };
 };
@@ -70,24 +75,35 @@ export const getLeadById = async (id: string, user: any) => {
   if (user.role === 'TEAM_LEAD' && lead.teamId !== user.teamId) {
     throw new Error('Access denied to this lead.');
   }
+  if (user.role === 'CHANNEL_PARTNER' && lead.createdById !== user.id) {
+    throw new Error('Access denied to this lead.');
+  }
 
   return lead;
 };
 
 export const createLead = async (data: any, user: any) => {
-  const lead = await LeadRepo.create(data);
-  await logAudit(user.id, 'LEAD_CREATE', 'LEAD', lead.id, `Lead ${lead.name} created`);
+  const enrichedData = {
+    ...data,
+    createdById: user.id,
+    // For partners, if not assigned explicitly, assign to self
+    assignedToId: data.assignedToId || user.id,
+    teamId: data.teamId || user.teamId || 'default-team',
+  };
+  const lead = await LeadRepo.create(enrichedData);
+  await logAudit(user.id, 'LEAD_CREATE', 'LEAD', lead.id, `Lead ${lead.name} created by ${user.role}`);
   return lead;
 };
 
 export const bulkCreateLeads = async (data: any[], user: any) => {
   const enrichedData = data.map(lead => ({
     ...lead,
+    createdById: user.id,
     teamId: lead.teamId || user.teamId || 'default-team',
     assignedToId: lead.assignedToId || user.id,
   }));
   const result = await LeadRepo.createMany(enrichedData);
-  await logAudit(user.id, 'LEAD_BULK_CREATE', 'LEAD', undefined, `Bulk created ${data.length} leads`);
+  await logAudit(user.id, 'LEAD_BULK_CREATE', 'LEAD', undefined, `Bulk created ${data.length} leads by ${user.role}`);
   return result;
 };
 
@@ -100,6 +116,9 @@ export const updateLead = async (id: string, data: any, user: any) => {
     throw new Error('Access denied to this lead.');
   }
   if (user.role === 'TEAM_LEAD' && lead.teamId !== user.teamId) {
+    throw new Error('Access denied to this lead.');
+  }
+  if (user.role === 'CHANNEL_PARTNER' && lead.createdById !== user.id) {
     throw new Error('Access denied to this lead.');
   }
   
@@ -133,6 +152,9 @@ export const deleteLead = async (id: string, user: any) => {
   if (user.role === 'TEAM_LEAD' && lead.teamId !== user.teamId) {
     throw new Error('Access denied to this lead.');
   }
+  if (user.role === 'CHANNEL_PARTNER' && lead.createdById !== user.id) {
+    throw new Error('Access denied to this lead.');
+  }
 
   await logAudit(user.id, 'LEAD_DELETE', 'LEAD', id, `Lead ${lead.name} deleted`);
   return LeadRepo.delete(id);
@@ -153,6 +175,9 @@ export const updateStage = async (
     throw new Error('Access denied to this lead.');
   }
   if (user.role === 'TEAM_LEAD' && lead.teamId !== user.teamId) {
+    throw new Error('Access denied to this lead.');
+  }
+  if (user.role === 'CHANNEL_PARTNER' && lead.createdById !== user.id) {
     throw new Error('Access denied to this lead.');
   }
 
@@ -181,7 +206,7 @@ export const getAllActivities = async (query: any, user: any) => {
 
   const where: any = {};
 
-  // Handle type filter (supports comma-separated values, e.g. "STAGE_CHANGE,LEAD_CREATED")
+  // Handle type filter
   if (type && type !== 'ALL') {
     const types = String(type).split(',').map((t: string) => t.trim()).filter(Boolean);
     if (types.length > 0) {
@@ -189,11 +214,13 @@ export const getAllActivities = async (query: any, user: any) => {
     }
   }
 
-  // Role-based scoping — admins see all
+  // Role-based scoping
   if (user?.role === 'BDE') {
     where.lead = { assignedToId: user.id };
   } else if (user?.role === 'TEAM_LEAD' && user.teamId) {
     where.lead = { teamId: user.teamId };
+  } else if (user?.role === 'CHANNEL_PARTNER') {
+    where.lead = { createdById: user.id };
   }
 
   const activities = await prisma.activity.findMany({
@@ -207,7 +234,6 @@ export const getAllActivities = async (query: any, user: any) => {
     },
   });
 
-  console.log('[Debug] getAllActivities returning:', activities.length, 'activities');
   return activities;
 };
 
@@ -220,6 +246,9 @@ export const getActivities = async (leadId: string, user: any) => {
     throw new Error('Access denied to this lead.');
   }
   if (user.role === 'TEAM_LEAD' && lead.teamId !== user.teamId) {
+    throw new Error('Access denied to this lead.');
+  }
+  if (user.role === 'CHANNEL_PARTNER' && lead.createdById !== user.id) {
     throw new Error('Access denied to this lead.');
   }
 
@@ -241,6 +270,9 @@ export const addActivity = async (
     throw new Error('Access denied to this lead.');
   }
   if (user.role === 'TEAM_LEAD' && lead.teamId !== user.teamId) {
+    throw new Error('Access denied to this lead.');
+  }
+  if (user.role === 'CHANNEL_PARTNER' && lead.createdById !== user.id) {
     throw new Error('Access denied to this lead.');
   }
 

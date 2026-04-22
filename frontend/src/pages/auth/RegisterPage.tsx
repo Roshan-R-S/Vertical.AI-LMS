@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useAuth } from '@contexts/AuthContext';
 import { cn } from '@lib/utils';
 import { Role } from '@/types';
-import { InteractiveVisuals } from '@components/ui/InteractiveVisuals';
+import { InteractiveVisuals } from '@components/InteractiveVisuals';
 
 export const RegisterPage = ({ onSwitchToLogin }: { onSwitchToLogin: () => void }) => {
   const { register } = useAuth();
@@ -38,6 +38,7 @@ export const RegisterPage = ({ onSwitchToLogin }: { onSwitchToLogin: () => void 
 
       <div className="flex-1 flex items-center justify-center p-8 bg-white relative border-l border-slate-200 shadow-2xl">
         <div className="w-full max-w-sm">
+          {/* Mobile Logo */}
           <div className="lg:hidden text-brand-600 font-bold text-2xl mb-12 text-center">Vertical.AI</div>
 
           <motion.div
@@ -51,7 +52,7 @@ export const RegisterPage = ({ onSwitchToLogin }: { onSwitchToLogin: () => void 
             </div>
 
             {error && (
-              <div className="flex items-center gap-3 p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-400 text-sm mb-6">
+              <div className="flex items-center gap-3 p-4 bg-rose-500/10 border border-rose-500/20 rounded-lg text-rose-400 text-sm mb-6">
                 <AlertCircle size={18} className="shrink-0" />
                 <p className="font-medium">{error}</p>
               </div>
@@ -66,7 +67,7 @@ export const RegisterPage = ({ onSwitchToLogin }: { onSwitchToLogin: () => void 
                 <p className="text-slate-500 mb-8">{message}</p>
                 <button 
                   onClick={onSwitchToLogin}
-                  className="px-8 py-3 bg-brand-600 text-white font-bold rounded-xl hover:bg-brand-500 transition-all"
+                  className="px-8 py-3 bg-brand-600 text-white font-bold rounded-lg hover:bg-brand-500 transition-all"
                 >
                   Back to Login
                 </button>
@@ -85,7 +86,7 @@ export const RegisterPage = ({ onSwitchToLogin }: { onSwitchToLogin: () => void 
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       required
-                      className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500/50 transition-all font-medium"
+                      className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500/50 transition-all font-medium"
                     />
                   </div>
                 </div>
@@ -96,11 +97,11 @@ export const RegisterPage = ({ onSwitchToLogin }: { onSwitchToLogin: () => void 
                     <select
                       value={role}
                       onChange={(e) => setRole(e.target.value as Role)}
-                      className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500/50 transition-all font-bold appearance-none cursor-pointer"
+                      className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500/50 transition-all font-bold appearance-none cursor-pointer"
                     >
                       <option value="BDE">Sales Representative (BDE)</option>
                       <option value="TEAM_LEAD">Team Leader</option>
-                      <option value="SALES_ADMIN">Sales Admin</option>
+                      <option value="SALES_HEAD">Sales Head</option>
                       <option value="SUPER_ADMIN">Super Admin</option>
                     </select>
                     <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-slate-400">
@@ -121,7 +122,7 @@ export const RegisterPage = ({ onSwitchToLogin }: { onSwitchToLogin: () => void 
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
-                      className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500/50 transition-all font-medium"
+                      className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500/50 transition-all font-medium"
                     />
                   </div>
                 </div>
@@ -138,7 +139,7 @@ export const RegisterPage = ({ onSwitchToLogin }: { onSwitchToLogin: () => void 
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
-                      className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500/50 transition-all font-medium"
+                      className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500/50 transition-all font-medium"
                     />
                   </div>
                 </div>
@@ -147,7 +148,7 @@ export const RegisterPage = ({ onSwitchToLogin }: { onSwitchToLogin: () => void 
                   type="submit" 
                   disabled={isSubmitting}
                   className={cn(
-                    "w-full py-4 rounded-xl text-sm font-bold shadow-2xl transition-all active:scale-95 flex items-center justify-center gap-2 mt-6 group",
+                    "w-full py-4 rounded-lg text-sm font-bold shadow-2xl transition-all active:scale-95 flex items-center justify-center gap-2 mt-6 group",
                     isSubmitting 
                       ? "bg-slate-800 text-slate-500 cursor-not-allowed" 
                       : "bg-brand-600 text-white hover:bg-brand-500 shadow-brand-500/20"

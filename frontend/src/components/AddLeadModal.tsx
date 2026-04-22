@@ -30,7 +30,7 @@ export const AddLeadModal = ({
         />
         <motion.div
           initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
-          className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+          className="relative w-full max-w-2xl bg-white rounded-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
         >
           <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
             <h2 className="text-xl font-bold text-slate-900">Create New Lead</h2>
@@ -56,7 +56,7 @@ export const AddLeadModal = ({
                 <div key={field.name} className="col-span-2 sm:col-span-1 space-y-2">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{field.label}</label>
                   <input name={field.name} required={field.required} placeholder={field.placeholder}
-                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20" />
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20" />
                 </div>
               ))}
 
@@ -65,7 +65,7 @@ export const AddLeadModal = ({
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Email ID</label>
                 <input
                   name="email" type="email" placeholder="contact@example.com"
-                  className={cn("w-full p-3 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20",
+                  className={cn("w-full p-3 bg-slate-50 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20",
                     emailError ? "border-red-300 text-red-600" : "border-slate-200")}
                   onChange={() => setEmailError(null)}
                 />
@@ -76,14 +76,14 @@ export const AddLeadModal = ({
               <div className="col-span-2 space-y-2">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Company Website</label>
                 <input name="companyWebsite" placeholder="https://www.example.com"
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20" />
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20" />
               </div>
 
               {/* Industry */}
               <div className="col-span-2 sm:col-span-1 space-y-2">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Industry</label>
                 <input name="industry" list="industry-options" placeholder="Select or type new..."
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20" />
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20" />
                 <datalist id="industry-options">
                   {Array.from(new Set(['Information Technology', 'BFSI', 'BPO', 'Education', 'Logistics', 'Renewable Energy', 'Manufacturing', ...(leadStats?.industries || [])])).map(i => (
                     <option key={i} value={i} />
@@ -95,10 +95,22 @@ export const AddLeadModal = ({
               <div className="col-span-2 sm:col-span-1 space-y-2">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Lead Source</label>
                 <input name="source" list="source-options" placeholder="Select or type new..."
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20" />
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20" />
                 <datalist id="source-options">
-                  {Array.from(new Set(['Website', 'LinkedIn', 'Referral', 'Cold Call', 'Email Campaign', 'Google Ads', ...(leadStats?.sources || [])])).map(s => (
+                  {Array.from(new Set(['Website', 'LinkedIn', 'Referral', 'Email Campaign', 'Google Ads', ...(leadStats?.sources || [])])).map(s => (
                     <option key={s} value={s} />
+                  ))}
+                </datalist>
+              </div>
+
+              {/* Call Type */}
+              <div className="col-span-2 sm:col-span-1 space-y-2">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Call Type</label>
+                <input name="callType" list="call-type-options" placeholder="Select or type new..."
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20" />
+                <datalist id="call-type-options">
+                  {['Cold Call', 'Warm Call', 'Follow-up Call', 'Introductory Call'].map(ct => (
+                    <option key={ct} value={ct} />
                   ))}
                 </datalist>
               </div>
@@ -107,7 +119,7 @@ export const AddLeadModal = ({
               <div className="col-span-2 sm:col-span-1 space-y-2">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Assigned To (BDE)</label>
                 <select name="assignedToId" defaultValue={currentUser?.role === 'BDE' ? currentUser.id : ''}
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20">
                   <option value="">Select BDE</option>
                   {users.filter(u => u.role === 'BDE').map(user => (
                     <option key={user.id} value={user.id}>{user.name}</option>
@@ -123,7 +135,7 @@ export const AddLeadModal = ({
                   </label>
                   {field.type === 'SELECT' ? (
                     <select name={`cf_${field.id}`} required={field.required}
-                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20">
                       <option value="">Select {field.label}</option>
                       {field.options?.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                     </select>
@@ -131,7 +143,7 @@ export const AddLeadModal = ({
                     <input name={`cf_${field.id}`}
                       type={field.type === 'NUMBER' ? 'number' : field.type === 'DATE' ? 'date' : 'text'}
                       required={field.required} placeholder={`Enter ${field.label}`}
-                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20" />
+                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20" />
                   )}
                 </div>
               ))}
@@ -139,7 +151,7 @@ export const AddLeadModal = ({
 
             <div className="mt-8 flex items-center justify-end gap-3">
               <button type="button" onClick={onClose} className="px-6 py-2 text-sm font-bold text-slate-600 hover:text-slate-900 transition-all">Cancel</button>
-              <button type="submit" className="px-8 py-3 bg-brand-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-brand-200 hover:bg-brand-700 transition-all active:scale-95">
+              <button type="submit" className="px-8 py-3 bg-brand-600 text-white text-sm font-bold rounded-lg shadow-lg shadow-brand-200 hover:bg-brand-700 transition-all active:scale-95">
                 Create Lead
               </button>
             </div>

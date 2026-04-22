@@ -172,9 +172,7 @@ export const MOCK_DASHBOARD_STATS = {
   }
 };
 
-export const INITIAL_CUSTOM_FIELDS: any[] = [
-  { id: 'cf1', label: 'Preferred Language', type: 'SELECT', options: ['English', 'Hindi', 'Marathi', 'Tamil'], required: false },
-];
+export const INITIAL_CUSTOM_FIELDS: any[] = [];
 
 export const INITIAL_AUDIT_LOGS: any[] = [
   { id: 'log1', userId: 'u1', userName: 'Roshan RS', action: 'LOGIN', entityType: 'USER', details: 'Logged in to the system', timestamp: '2024-03-24T10:00:00Z' },

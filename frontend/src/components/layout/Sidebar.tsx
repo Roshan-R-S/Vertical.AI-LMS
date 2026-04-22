@@ -21,7 +21,7 @@ const SidebarItem = ({ icon: Icon, label, active, onClick }: {
   <button
     onClick={onClick}
     className={cn(
-      "w-full flex items-center gap-3 px-4 py-3 text-sm font-medium transition-all rounded-xl mb-1 group relative overflow-hidden",
+      "w-full flex items-center gap-3 px-4 py-3 text-sm font-medium transition-all rounded-lg mb-1 group relative overflow-hidden",
       active
         ? "bg-brand-500 text-white shadow-lg shadow-brand-500/20"
         : "text-slate-600 hover:bg-slate-50 hover:text-brand-600"
@@ -59,7 +59,7 @@ export const Sidebar = ({
     )}>
       <div className="p-6 flex items-center justify-between lg:justify-start gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-brand-600 rounded-xl flex items-center justify-center shadow-lg shadow-brand-600/20">
+          <div className="w-10 h-10 bg-brand-600 rounded-lg flex items-center justify-center shadow-lg shadow-brand-600/20">
             <TrendingUp className="text-white" size={24} />
           </div>
           <div>
@@ -76,21 +76,21 @@ export const Sidebar = ({
       </div>
 
       <nav className="flex-1 px-4 py-4 space-y-1">
-        {(currentUser.role === 'SUPER_ADMIN' || currentUser.role === 'SALES_ADMIN' || currentUser.role === 'TEAM_LEAD') && (
+        {(currentUser.role === 'SUPER_ADMIN' || currentUser.role === 'SALES_HEAD' || currentUser.role === 'TEAM_LEAD') && (
           <SidebarItem icon={LayoutDashboard} label="Dashboard" active={activeTab === 'dashboard'} onClick={() => nav('dashboard')} />
         )}
         <SidebarItem icon={Target} label="Leads" active={activeTab === 'leads'} onClick={() => nav('leads')} />
-        {(currentUser.role === 'SALES_ADMIN' || currentUser.role === 'SUPER_ADMIN') && (
+        {(currentUser.role === 'SALES_HEAD' || currentUser.role === 'SUPER_ADMIN') && (
           <SidebarItem icon={BarChart3} label="Targets" active={activeTab === 'targets'} onClick={() => nav('targets')} />
         )}
-        {(currentUser.role === 'SUPER_ADMIN' || currentUser.role === 'SALES_ADMIN' || currentUser.role === 'TEAM_LEAD') && (
+        {(currentUser.role === 'SUPER_ADMIN' || currentUser.role === 'SALES_HEAD' || currentUser.role === 'TEAM_LEAD') && (
           <SidebarItem icon={History} label="Status History" active={activeTab === 'stage-history'} onClick={() => nav('stage-history')} />
         )}
         <SidebarItem icon={Settings} label="Settings" active={activeTab === 'settings'} onClick={() => nav('settings')} />
-        {(currentUser.role === 'SUPER_ADMIN' || currentUser.role === 'SALES_ADMIN') && (
+        {(currentUser.role === 'SUPER_ADMIN' || currentUser.role === 'SALES_HEAD') && (
           <SidebarItem icon={Users} label="Clients" active={activeTab === 'clients'} onClick={() => nav('clients')} />
         )}
-        {(currentUser.role === 'SUPER_ADMIN' || currentUser.role === 'SALES_ADMIN' || currentUser.role === 'TEAM_LEAD') && (
+        {(currentUser.role === 'SUPER_ADMIN' || currentUser.role === 'SALES_HEAD' || currentUser.role === 'TEAM_LEAD') && (
           <SidebarItem icon={FileText} label="Reports" active={activeTab === 'reports'} onClick={() => nav('reports')} />
         )}
         {currentUser.role === 'SUPER_ADMIN' && (
@@ -102,7 +102,7 @@ export const Sidebar = ({
       </nav>
 
       <div className="p-4 border-t border-white/5">
-        <div className="flex items-center gap-3 p-3 rounded-2xl bg-white border border-slate-200/50 shadow-sm">
+        <div className="flex items-center gap-3 p-3 rounded-lg bg-white border border-slate-200/50 shadow-sm">
           <div className="relative">
             <img src={currentUser.avatar} alt={currentUser.name} className="w-10 h-10 rounded-full border border-slate-100 ring-2 ring-brand-500/10" />
             <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full" />
@@ -113,7 +113,7 @@ export const Sidebar = ({
           </div>
           <button 
             onClick={onLogout} 
-            className="p-2 text-slate-500 hover:text-rose-500 hover:bg-rose-500/10 rounded-xl transition-all"
+            className="p-2 text-slate-500 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all"
             title="Sign Out"
           >
             <LogOut size={18} />

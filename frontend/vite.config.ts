@@ -14,6 +14,7 @@ export default defineConfig(({mode}) => {
       alias: {
         '@': path.resolve(__dirname, 'src'),
         '@components': path.resolve(__dirname, 'src/components'),
+        '@pages': path.resolve(__dirname, 'src/pages'),
         '@contexts': path.resolve(__dirname, 'src/contexts'),
         '@lib': path.resolve(__dirname, 'src/lib'),
       },
@@ -47,8 +48,8 @@ export default defineConfig(({mode}) => {
           './src/App.tsx',
           './src/components/Sidebar.tsx',
           './src/components/Topbar.tsx',
-          './src/components/LeadsPage.tsx',
-          './src/components/Dashboard.tsx',
+          './src/pages/Shared/LeadsPage.tsx',
+          './src/pages/Shared/Dashboard.tsx',
           './src/contexts/AuthContext.tsx',
         ],
       },

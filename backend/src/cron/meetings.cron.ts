@@ -53,5 +53,5 @@ export const initCronJobs = () => {
     }
   });
 
-  console.log('✅ Meeting reminders cron job initialized.');
+  console.log('Meeting reminders cron job initialized.');
 };

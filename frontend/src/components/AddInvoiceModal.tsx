@@ -37,7 +37,7 @@ export const AddInvoiceModal = ({
           />
           <motion.div
             initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
-            className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+            className="relative w-full max-w-lg bg-white rounded-lg shadow-2xl overflow-hidden flex flex-col"
           >
             <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
               <div className="flex items-center gap-3">
@@ -63,7 +63,7 @@ export const AddInvoiceModal = ({
                 <select 
                   name="clientId" 
                   required 
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20"
                 >
                   <option value="">Choose a client...</option>
                   {clients.map(client => (
@@ -84,7 +84,7 @@ export const AddInvoiceModal = ({
                   step="0.01" 
                   required 
                   placeholder="0.00"
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20" 
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20" 
                 />
               </div>
 
@@ -96,7 +96,7 @@ export const AddInvoiceModal = ({
                   name="dueDate" 
                   type="date" 
                   required 
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20" 
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20" 
                 />
               </div>
 
@@ -112,7 +112,7 @@ export const AddInvoiceModal = ({
                 <button 
                   type="submit" 
                   disabled={isSubmitting}
-                  className="px-8 py-3 bg-brand-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-brand-200 hover:bg-brand-700 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  className="px-8 py-3 bg-brand-600 text-white text-sm font-bold rounded-lg shadow-lg shadow-brand-200 hover:bg-brand-700 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
                   {isSubmitting ? 'Generating...' : 'Generate Invoice'}
                 </button>

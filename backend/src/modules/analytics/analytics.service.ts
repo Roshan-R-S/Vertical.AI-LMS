@@ -1,7 +1,7 @@
 import { prisma } from '../../prisma';
 
-export const getDashboardStats = async (userId: string, role: string, teamId: string | null) => {
-  const isAdmin = ['SUPER_ADMIN', 'SALES_ADMIN'].includes(role);
+export const getDashboardStats = async (userId: string, role: string, teamId: string | null, range?: string, startDate?: string, endDate?: string) => {
+  const isAdmin = ['SUPER_ADMIN', 'SALES_HEAD'].includes(role);
   
   let whereClause: any = {};
   if (!isAdmin) {
@@ -9,6 +9,40 @@ export const getDashboardStats = async (userId: string, role: string, teamId: st
       whereClause.teamId = teamId;
     } else {
       whereClause.assignedToId = userId;
+    }
+  }
+
+  // Add date filtering to whereClause
+  if (range || (startDate && endDate)) {
+    let start: Date | undefined;
+    let end: Date | undefined;
+    const now = new Date();
+
+    if (range === 'TODAY') {
+      start = new Date(now.setHours(0, 0, 0, 0));
+      end = new Date(now.setHours(23, 59, 59, 999));
+    } else if (range === 'YESTERDAY') {
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      start = new Date(yesterday.setHours(0, 0, 0, 0));
+      end = new Date(yesterday.setHours(23, 59, 59, 999));
+    } else if (range === 'LAST_7_DAYS') {
+      start = new Date(now);
+      start.setDate(start.getDate() - 7);
+      start.setHours(0, 0, 0, 0);
+      end = new Date(now);
+      end.setHours(23, 59, 59, 999);
+    } else if (range === 'CUSTOM' && startDate && endDate) {
+      start = new Date(startDate);
+      end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+    }
+
+    if (start && end) {
+      whereClause.createdAt = {
+        gte: start,
+        lte: end
+      };
     }
   }
 
@@ -21,6 +55,8 @@ export const getDashboardStats = async (userId: string, role: string, teamId: st
     leadsByExecutive,
     recentActivities,
     conversionStats,
+    todayMeetings,
+    todayFollowUps,
   ] = await Promise.all([
     // Total leads count
     prisma.lead.count({ where: whereClause }),
@@ -37,7 +73,7 @@ export const getDashboardStats = async (userId: string, role: string, teamId: st
       _sum: { value: true }
     }).then(res => res._sum.value || 0),
 
-    // Overdue Leads
+    // Overdue Leads - Note: Overdue is usually based on follow-up, not createdAt
     prisma.lead.count({
       where: {
         ...whereClause,
@@ -61,7 +97,13 @@ export const getDashboardStats = async (userId: string, role: string, teamId: st
             id: true,
             name: true,
             role: true,
-            _count: { select: { leads: true } },
+            _count: { 
+              select: { 
+                leads: {
+                  where: whereClause
+                }
+              } 
+            },
           },
           where: { isActive: true },
           orderBy: { createdAt: 'asc' },
@@ -99,6 +141,30 @@ export const getDashboardStats = async (userId: string, role: string, teamId: st
         },
       },
     }),
+
+    // Today's Meetings
+    prisma.lead.count({
+      where: {
+        ...whereClause,
+        stage: 'MEETING_SCHEDULED',
+        nextFollowUp: {
+          gte: new Date(new Date().setHours(0,0,0,0)),
+          lt: new Date(new Date().setHours(23,59,59,999))
+        }
+      }
+    }),
+
+    // Today's Follow-ups (excluding meetings)
+    prisma.lead.count({
+      where: {
+        ...whereClause,
+        stage: { not: 'MEETING_SCHEDULED' },
+        nextFollowUp: {
+          gte: new Date(new Date().setHours(0,0,0,0)),
+          lt: new Date(new Date().setHours(23,59,59,999))
+        }
+      }
+    }),
   ]);
 
   return {
@@ -121,6 +187,8 @@ export const getDashboardStats = async (userId: string, role: string, teamId: st
       stage: s.stage,
       count: s._count._all,
     })),
+    todayMeetings,
+    todayFollowUps,
   };
 };
 

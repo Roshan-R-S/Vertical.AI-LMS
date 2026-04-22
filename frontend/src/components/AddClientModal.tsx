@@ -36,7 +36,7 @@ export const AddClientModal = ({
           />
           <motion.div
             initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
-            className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+            className="relative w-full max-w-lg bg-white rounded-lg shadow-2xl overflow-hidden flex flex-col"
           >
             <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
               <div className="flex items-center gap-3">
@@ -61,7 +61,7 @@ export const AddClientModal = ({
                   name="name" 
                   required 
                   placeholder="e.g. John Doe"
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20" 
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20" 
                 />
               </div>
 
@@ -73,7 +73,7 @@ export const AddClientModal = ({
                   name="company" 
                   required 
                   placeholder="e.g. TechCorp Solutions"
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20" 
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20" 
                 />
               </div>
 
@@ -87,7 +87,7 @@ export const AddClientModal = ({
                     type="email" 
                     required 
                     placeholder="john@example.com"
-                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20" 
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20" 
                   />
                 </div>
                 <div className="space-y-2">
@@ -98,7 +98,7 @@ export const AddClientModal = ({
                     name="phone" 
                     required 
                     placeholder="+91 98765 43210"
-                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20" 
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20" 
                   />
                 </div>
               </div>
@@ -115,7 +115,7 @@ export const AddClientModal = ({
                 <button 
                   type="submit" 
                   disabled={isSubmitting}
-                  className="px-8 py-3 bg-brand-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-brand-200 hover:bg-brand-700 transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2"
+                  className="px-8 py-3 bg-brand-600 text-white text-sm font-bold rounded-lg shadow-lg shadow-brand-200 hover:bg-brand-700 transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2"
                 >
                   {isSubmitting ? 'Saving...' : 'Add Client'}
                 </button>

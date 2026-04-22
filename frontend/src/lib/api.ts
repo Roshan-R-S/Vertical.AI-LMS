@@ -29,3 +29,21 @@ export const resetPassword = async (token: string, newPassword: string) => {
 
   return response.json();
 };
+
+export const changePassword = async (token: string, currentPasswordRaw: string, newPasswordRaw: string) => {
+  const response = await fetch(`${API_URL}/auth/change-password`, {
+    method: 'POST',
+    headers: { 
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify({ currentPassword: currentPasswordRaw, newPassword: newPasswordRaw }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to change password');
+  }
+
+  return response.json();
+};

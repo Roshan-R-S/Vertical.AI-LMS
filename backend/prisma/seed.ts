@@ -17,7 +17,7 @@ async function main() {
   const excelPath = path.resolve(__dirname, '../Copy of Zoominfo - 1014 Leads.xlsx');
   
   // 1. Create default users for each role
-  const roles = ['SUPER_ADMIN', 'SALES_ADMIN', 'TEAM_LEAD', 'BDE'] as const;
+  const roles = ['SUPER_ADMIN', 'SALES_HEAD', 'TEAM_LEAD', 'BDE', 'CHANNEL_PARTNER'] as const;
   const passwordHash = await bcrypt.hash('password123', 10);
   
   const users = await Promise.all(roles.map(role => 
@@ -63,13 +63,13 @@ async function main() {
   try {
     workbook = XLSX.readFile(excelPath);
   } catch (err) {
-    console.warn('⚠️  Excel file not found, skipping lead import.');
+    console.warn('Excel file not found, skipping lead import.');
   }
   
   if (workbook) {
     for (const sheetName of workbook.SheetNames) {
       const data: any[] = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName!]!);
-      console.log(`\n📄 Processing sheet: "${sheetName}" (${data.length} rows)`);
+      console.log(`\nProcessing sheet: "${sheetName}" (${data.length} rows)`);
 
       let sheetImported = 0;
       let sheetSkipped = 0;
@@ -81,21 +81,21 @@ async function main() {
           sheetImported++;
         } catch (err: any) {
           sheetSkipped++;
-          console.error(`   ❌ Skip row in "${sheetName}": ${err.message || 'Unknown error'}`);
+          console.error(`Skip row in "${sheetName}": ${err.message || 'Unknown error'}`);
         }
       }
-      console.log(`   ✅ Imported ${sheetImported} leads. ⚠️ Skipped ${sheetSkipped} leads.`);
+      console.log(`   Imported ${sheetImported} leads. Skipped ${sheetSkipped} leads.`);
       totalImported += sheetImported;
       totalSkipped += sheetSkipped;
     }
   }
 
-  console.log(`\n🎯 SEED SUMMARY:`);
+  console.log(`\nSEED SUMMARY:`);
   console.log(`   - Total Imported: ${totalImported}`);
   console.log(`   - Total Skipped:  ${totalSkipped}`);
 
   // 2. Create Mock Clients and Invoices
-  console.log('\n💼 Seeding mock clients and invoices...');
+  console.log('\nSeeding mock clients and invoices...');
   const mockClients = [
     { name: 'John Smith', company: 'TechCorp Solutions', email: 'john@techcorp.com', phone: '+91 9876543210', amcStatus: 'ACTIVE' },
     { name: 'Alice Green', company: 'Green Energy Ltd', email: 'alice@greenenergy.in', phone: '+91 8887776665', amcStatus: 'ACTIVE' },
@@ -132,7 +132,7 @@ async function main() {
     });
   }
 
-  console.log(`\n✨ DONE.`);
+  console.log(`\nDONE.`);
 }
 
 function mapRowToLead(row: any, sheetName: string, defaultUserId: string, bdeUsers: any[]) {
@@ -160,6 +160,7 @@ function mapRowToLead(row: any, sheetName: string, defaultUserId: string, bdeUse
     remarks: String(remarks),
     stage: mapMilestoneToStage(milestone, submilestone),
     assignedToId: getAssignedToId(row, defaultUserId, bdeUsers),
+    createdById: defaultUserId,
     teamId: 'DEFAULT_TEAM',
     source: sheetName,
   };
@@ -197,7 +198,7 @@ function mapMilestoneToStage(milestone: any, submilestone: any): LeadStage {
 
 main()
   .catch((e) => {
-    console.error('❌ SEED FAILED:', e);
+    console.error('SEED FAILED:', e);
     process.exit(1);
   })
   .finally(async () => {
