@@ -11,6 +11,8 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction) 
 
   if (authHeader && authHeader.startsWith('Bearer ')) {
     token = authHeader.split(' ')[1];
+  } else if (queryToken) {
+    token = queryToken;
   }
 
   if (!token) {

@@ -145,7 +145,7 @@ export class AuthService {
       data: { status: 'DENIED' },
     });
 
-    await logAudit('system', 'USER_REGISTER_DENIED', 'USER', undefined, `Registration denied for ${request.email}`);
+    await logAudit(null as any, 'USER_REGISTER_DENIED', 'USER', undefined, `Registration denied for ${request.email}`);
 
     return { message: 'Registration request denied.' };
   }

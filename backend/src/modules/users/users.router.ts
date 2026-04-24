@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import multer from 'multer';
 import path from 'path';
+import fs from 'fs';
 import { authMiddleware } from '../../middleware/auth.middleware';
 import { roleMiddleware } from '../../middleware/role.middleware';
 import * as UsersController from './users.controller';
@@ -9,7 +10,9 @@ const router = Router();
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, path.join(__dirname, '../../../uploads/avatars'));
+    const dest = path.join(__dirname, '../../../uploads/avatars');
+    fs.mkdirSync(dest, { recursive: true });
+    cb(null, dest);
   },
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname);

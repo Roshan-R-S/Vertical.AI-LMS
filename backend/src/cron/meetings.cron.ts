@@ -29,7 +29,7 @@ export const initCronJobs = () => {
           try {
             if (lead.assignedTo?.email) {
               await sendMeetingDueEmail(lead.assignedTo.email, lead.assignedTo.name, lead.name);
-              await logAudit('system', 'AUTO_MEETING_REMINDER', 'LEAD', lead.id, `Automated meeting reminder sent for lead ${lead.name}`);
+              await logAudit(null as any, 'AUTO_MEETING_REMINDER', 'LEAD', lead.id, `Automated meeting reminder sent for lead ${lead.name}`);
             }
           } catch (itemError) {
             console.error(`[Cron] Error processing reminder for lead ${lead.id}:`, itemError);

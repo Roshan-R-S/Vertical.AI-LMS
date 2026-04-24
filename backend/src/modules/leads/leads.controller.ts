@@ -12,7 +12,7 @@ import {
 
 export const getLeads = asyncHandler(async (req: Request, res: Response) => {
   const result = await LeadsService.getLeads(req.query, (req as any).user);
-  res.status(200).json(new ApiResponse(200, { ...result, debugVersion: 'v4-final-fix' }, "Leads fetched successfully"));
+  res.status(200).json(new ApiResponse(200, result, "Leads fetched successfully"));
 });
 
 export const getLeadById = asyncHandler(async (req: Request, res: Response) => {
@@ -30,8 +30,12 @@ export const createLead = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const bulkCreate = asyncHandler(async (req: Request, res: Response) => {
+  const user = (req as any).user;
+  if (!user.canBulkUpload) {
+    throw new ApiError(403, "You do not have permission to perform bulk uploads");
+  }
   if (!Array.isArray(req.body)) throw new ApiError(400, "Request body must be an array of leads");
-  const result = await LeadsService.bulkCreateLeads(req.body, (req as any).user);
+  const result = await LeadsService.bulkCreateLeads(req.body, user);
   res.status(201).json(new ApiResponse(201, result, "Leads bulk created successfully"));
 });
 

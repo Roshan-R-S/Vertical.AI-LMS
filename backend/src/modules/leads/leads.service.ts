@@ -122,7 +122,12 @@ export const updateLead = async (id: string, data: any, user: any) => {
     throw new Error('Access denied to this lead.');
   }
   
-  const updatedLead = await LeadRepo.update(id, data);
+  const updateData = { ...data };
+  if (data.nextFollowUp && lead.nextFollowUp?.getTime() !== new Date(data.nextFollowUp).getTime()) {
+    updateData.meetingNotified = false;
+  }
+  
+  const updatedLead = await LeadRepo.update(id, updateData);
 
   await logAudit(user.id, 'LEAD_UPDATE', 'LEAD', updatedLead.id, `Lead updated: ${Object.keys(data).join(', ')}`);
 

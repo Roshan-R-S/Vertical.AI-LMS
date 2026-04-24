@@ -7,6 +7,8 @@ export const getDashboardStats = async (userId: string, role: string, teamId: st
   if (!isAdmin) {
     if (role === 'TEAM_LEAD') {
       whereClause.teamId = teamId;
+    } else if (role === 'CHANNEL_PARTNER') {
+      whereClause.createdById = userId;
     } else {
       whereClause.assignedToId = userId;
     }
@@ -29,6 +31,12 @@ export const getDashboardStats = async (userId: string, role: string, teamId: st
     } else if (range === 'LAST_7_DAYS') {
       start = new Date(now);
       start.setDate(start.getDate() - 7);
+      start.setHours(0, 0, 0, 0);
+      end = new Date(now);
+      end.setHours(23, 59, 59, 999);
+    } else if (range === 'LAST_30_DAYS') {
+      start = new Date(now);
+      start.setDate(start.getDate() - 30);
       start.setHours(0, 0, 0, 0);
       end = new Date(now);
       end.setHours(23, 59, 59, 999);

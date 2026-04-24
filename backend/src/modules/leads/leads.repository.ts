@@ -208,13 +208,9 @@ export const LeadRepo = {
   },
 
   update: (id: string, data: any) => {
-    const isMeetingRescheduled = data.nextFollowUp !== undefined;
     return prisma.lead.update({
       where: { id },
-      data: {
-        ...data,
-        ...(isMeetingRescheduled ? { meetingNotified: false } : {}),
-      },
+      data,
     });
   },
 
