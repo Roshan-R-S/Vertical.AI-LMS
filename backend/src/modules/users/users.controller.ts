@@ -1,58 +1,82 @@
 import { Request, Response } from 'express';
-import { createUserSchema, updateUserSchema } from './users.schema';
-import * as UsersService from './users.service';
-import { ApiResponse } from '../../utils/apiResponse';
-import { asyncHandler } from '../../utils/asyncHandler';
+import { prisma } from '../../prisma';
+import { formatUser, displayToRole } from '../../utils/roleDisplay';
+import bcrypt from 'bcryptjs';
 
-export const getAllUsers = asyncHandler(async (req: Request, res: Response) => {
-  const users = await UsersService.getAllUsers();
-  res.status(200).json(new ApiResponse(200, users, "Users fetched successfully"));
-});
+// GET /api/v1/users
+export async function getUsers(req: Request, res: Response) {
+  const role = req.query.role as string | undefined;
+  const team = req.query.team as string | undefined;
+  const status = req.query.status as string | undefined;
+  const search = req.query.search as string | undefined;
 
-export const getUserById = asyncHandler(async (req: Request, res: Response) => {
-  const user = await UsersService.getUserById(req.params['id'] as string);
-  res.status(200).json(new ApiResponse(200, user, "User fetched successfully"));
-});
+  const users = await prisma.user.findMany({
+    where: {
+      ...(role && { role: displayToRole(role) }),
+      ...(team && { team: { name: team } }),
+      ...(status && { isActive: status === 'active' }),
+      ...(search && {
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { email: { contains: search, mode: 'insensitive' } },
+        ],
+      }),
+    },
+    include: { team: true },
+    orderBy: { createdAt: 'asc' },
+  });
+  return res.json(users.map(formatUser));
+}
 
-export const createUser = asyncHandler(async (req: Request, res: Response) => {
-  const data = createUserSchema.parse(req.body);
-  if (req.file) {
-    data.avatar = `/uploads/avatars/${req.file.filename}`;
+// POST /api/v1/users
+export async function createUser(req: Request, res: Response) {
+  const { name, email, password, role, phone, territory, teamId } = req.body;
+  if (!name || !email || !password || !role) {
+    return res.status(400).json({ error: 'name, email, password and role are required' });
   }
-  const user = await UsersService.createUser(data);
-  res.status(201).json(new ApiResponse(201, user, "User created successfully"));
-});
+  const passwordHash = await bcrypt.hash(password || 'Vertical@123', 10);
+  const avatar = name.split(' ').map((n: string) => n[0]).join('').toUpperCase();
 
-export const updateUser = asyncHandler(async (req: Request, res: Response) => {
-  const data = updateUserSchema.parse(req.body);
-  if (req.file) {
-    data.avatar = `/uploads/avatars/${req.file.filename}`;
-  }
-  const user = await UsersService.updateUser(req.params['id'] as string, data);
-  res.status(200).json(new ApiResponse(200, user, "User updated successfully"));
-});
+  const user = await prisma.user.create({
+    data: {
+      name, email, passwordHash,
+      role: displayToRole(role),
+      avatar, phone, territory,
+      ...(teamId && { teamId }),
+    },
+    include: { team: true },
+  });
+  return res.status(201).json(formatUser(user));
+}
 
-export const deleteUser = asyncHandler(async (req: Request, res: Response) => {
-  await UsersService.deleteUser(req.params['id'] as string);
-  res.status(200).json(new ApiResponse(200, null, "User deleted successfully"));
-});
+// PATCH /api/v1/users/:id
+export async function updateUser(req: Request, res: Response) {
+  const { id } = req.params;
+  const { name, email, phone, territory, teamId, role } = req.body;
+  const user = await prisma.user.update({
+    where: { id: id as string },
+    data: {
+      ...(name && { name }),
+      ...(email && { email }),
+      ...(phone && { phone }),
+      ...(territory && { territory }),
+      ...(teamId !== undefined && { teamId }),
+      ...(role && { role: displayToRole(role) }),
+    },
+    include: { team: true },
+  });
+  return res.json(formatUser(user));
+}
 
-export const toggleUserActive = asyncHandler(async (req: Request, res: Response) => {
-  const user = await UsersService.toggleUserActive(req.params['id'] as string);
-  res.status(200).json(new ApiResponse(200, user, "User status toggled successfully"));
-});
-
-export const uploadAvatar = asyncHandler(async (req: Request, res: Response) => {
-  console.log(`[UsersController] uploadAvatar hit for ID: ${req.params['id']}`);
-  if (!req.file) {
-    throw new Error('No image file provided');
-  }
-  
-  // Create relative URL for the uploaded file
-  const avatarUrl = `/uploads/avatars/${req.file.filename}`;
-  
-  // Update the user
-  const user = await UsersService.updateUser(req.params['id'] as string, { avatar: avatarUrl });
-  
-  res.status(200).json(new ApiResponse(200, { avatarUrl }, "Avatar uploaded successfully"));
-});
+// PATCH /api/v1/users/:id/status — toggle active/inactive
+export async function toggleUserStatus(req: Request, res: Response) {
+  const { id } = req.params;
+  const user = await prisma.user.findUnique({ where: { id: id as string } });
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  const updated = await prisma.user.update({
+    where: { id: id as string },
+    data: { isActive: !user.isActive },
+    include: { team: true },
+  });
+  return res.json(formatUser(updated));
+}

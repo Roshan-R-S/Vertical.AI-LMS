@@ -1,11 +1,11 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { config } from '../config';
+import { prisma } from '../prisma';
 
-export const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
+export const authMiddleware = async (req: Request, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
   const queryToken = req.query.token as string;
-  console.log(`[AuthMiddleware-v2] ${req.method} ${req.path} - Header: ${!!authHeader}, QueryToken: ${!!queryToken}`);
   
   let token: string | undefined;
 
@@ -20,8 +20,19 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction) 
   }
 
   try {
-    const decoded = jwt.verify(token, config.jwt.secret);
-    (req as any).user = decoded;
+    const decoded = jwt.verify(token, config.jwt.secret) as { userId: string };
+    
+    // Fetch full user for RBAC scoping
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId },
+      include: { team: true },
+    });
+
+    if (!user || !user.isActive) {
+      return res.status(401).json({ error: 'User not found or account deactivated.' });
+    }
+
+    (req as any).user = user;
     next();
   } catch (error: any) {
     console.log(`[AuthMiddleware] Error: ${error.message}`);

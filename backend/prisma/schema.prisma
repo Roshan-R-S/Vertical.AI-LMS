@@ -6,201 +6,303 @@ datasource db {
   provider = "postgresql"
 }
 
+// ─────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────
+
 enum Role {
   SUPER_ADMIN
-  SALES_HEAD
   TEAM_LEAD
   BDE
-  CHANNEL_PARTNER
 }
 
-enum LeadStage {
-  DEFAULT
-  LOST
-  YET_TO_CALL
-  NOT_INTERESTED
-  DNP
-  CALL_BACK
-  DND
-  SWITCHED_OFF
-  MEETING_SCHEDULED
-  MEETING_COMPLETED
-  MEETING_POSTPONED
-  PROPOSAL_SHARED
-  HANDED_OVER
-  PAYMENT_COMPLETED
+enum LeadStatus {
+  active
+  won
+  lost
 }
 
-enum ApprovalStatus {
-  PENDING
-  APPROVED
-  DENIED
+enum LeadPriority {
+  Low
+  Medium
+  High
 }
+
+enum DispositionType {
+  positive
+  neutral
+  negative
+}
+
+enum InteractionType {
+  call
+  email
+  whatsapp
+  meeting
+  note
+}
+
+enum InteractionDirection {
+  inbound
+  outbound
+}
+
+enum Sentiment {
+  positive
+  neutral
+  negative
+}
+
+enum TaskStatus {
+  pending
+  overdue
+  completed
+}
+
+enum ClientStatus {
+  active
+  renewal_due
+  churned
+}
+
+enum InvoiceStatus {
+  paid
+  unpaid
+  partial
+}
+
+// ─────────────────────────────────────────
+// TEAMS
+// ─────────────────────────────────────────
+
+model Team {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  users     User[]
+  createdAt DateTime @default(now())
+
+  @@map("teams")
+}
+
+// ─────────────────────────────────────────
+// USERS
+// ─────────────────────────────────────────
 
 model User {
-  id                String        @id @default(cuid())
-  name              String
-  email             String        @unique
-  passwordHash      String
-  role              Role          @default(BDE)
-  isActive          Boolean       @default(false)
-  canBulkUpload     Boolean       @default(false)
-  mustResetPassword Boolean       @default(false)
-  username          String?       @unique
-  phone             String?
-  profession        String?
-  teamId            String?
-  avatar            String?
-  resetToken        String?       @unique
-  resetTokenExpiry  DateTime?
-  leads             Lead[]        @relation("AssignedLeads")
-  createdLeads      Lead[]        @relation("CreatedLeads")
-  activities        Activity[]
-  auditLogs         AuditLog[]
-  tasks             Task[]
-  attachments       Attachment[]
-  notifyEmail       Boolean       @default(true)
-  notifyPush        Boolean       @default(true)
-  notifyTasks       Boolean       @default(true)
-  notifyAssignments Boolean       @default(true)
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  passwordHash  String
+  role          Role      @default(BDE)
+  avatar        String?
+  phone         String?
+  territory     String?
+  isActive      Boolean   @default(true)
+  lastLoginAt   DateTime?
+  teamId        String?
+  team          Team?     @relation(fields: [teamId], references: [id])
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  assignedLeads  Lead[]        @relation("AssignedLeads")
+  createdLeads   Lead[]        @relation("CreatedLeads")
+  managedClients Client[]      @relation("AccountManager")
+  interactions   Interaction[]
+  assignedTasks  Task[]        @relation("AssignedTasks")
+  createdTasks   Task[]        @relation("CreatedTasks")
+  attachments    Attachment[]
+  auditLogs      AuditLog[]
 
   @@map("users")
 }
 
-model AuditLog {
-  id         String   @id @default(cuid())
-  userId     String?
-  user       User?    @relation(fields: [userId], references: [id])
-  action     String   
-  entityType String   // e.g., LEAD, USER, SETTING, TASK
-  entityId   String?
-  details    String?  
-  createdAt  DateTime @default(now())
-  @@map("audit_logs")
+// ─────────────────────────────────────────
+// MILESTONES & DISPOSITIONS (Pipeline Config)
+// ─────────────────────────────────────────
+
+model Milestone {
+  id           String        @id @default(cuid())
+  name         String        @unique
+  order        Int
+  color        String
+  dispositions Disposition[]
+  leads        Lead[]
+  createdAt    DateTime      @default(now())
+
+  @@map("milestones")
 }
 
-model RegistrationRequest {
-  id            String         @id @default(cuid())
-  name          String
-  firstName     String?
-  lastName      String?
-  username      String?
-  phone         String?
-  profession    String?
-  email         String         @unique
-  passwordHash  String
-  role          Role
-  status        ApprovalStatus @default(PENDING)
-  approvalToken String         @unique
-  teamLeadEmail String
-  expiresAt     DateTime
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  @@map("registration_requests")
+model Disposition {
+  id          String          @id @default(cuid())
+  milestoneId String
+  milestone   Milestone       @relation(fields: [milestoneId], references: [id])
+  name        String
+  description String?
+  type        DispositionType @default(neutral)
+  isActive    Boolean         @default(true)
+  isDefault   Boolean         @default(false)
+  leads       Lead[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@map("dispositions")
 }
+
+// ─────────────────────────────────────────
+// LEADS
+// ─────────────────────────────────────────
 
 model Lead {
-  id              String       @id @default(cuid())
-  name            String
-  phone           String
-  email           String?
-  designation     String?
-  industry        String?
-  source          String?
-  callType        String?
-  value           Float        @default(0)
-  stage           LeadStage    @default(YET_TO_CALL)
-  remarks         String?
-  linkedIn        String?
-  location        String?
-  companyName     String?
-  companyLocation String?
-  companyWebsite  String?
-  product         String?
-  state           String?
-  city            String?
-  assignedToId    String
-  assignedTo      User         @relation("AssignedLeads", fields: [assignedToId], references: [id])
-  createdById     String
-  creator         User         @relation("CreatedLeads", fields: [createdById], references: [id])
-  teamId          String
-  nextFollowUp    DateTime?
-  lastFollowUp    DateTime?
-  meetingNotified Boolean      @default(false)
-  activities      Activity[]
-  tasks           Task[]
-  attachments     Attachment[]
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-  
-  @@index([stage])
+  id            String       @id @default(cuid())
+  companyName   String
+  contactName   String
+  email         String?
+  phone         String
+  source        String?
+  industry      String?
+  tags          String[]
+  milestoneId   String?
+  milestone     Milestone?   @relation(fields: [milestoneId], references: [id])
+  dispositionId String?
+  disposition   Disposition? @relation(fields: [dispositionId], references: [id])
+  status        LeadStatus   @default(active)
+  priority      LeadPriority @default(Medium)
+  score         Int          @default(0)
+  value         Float        @default(0)
+  probability   Int          @default(0)
+  expectedClose DateTime?
+  notes         String?
+  linkedIn      String?
+  assignedToId  String
+  assignedTo    User         @relation("AssignedLeads", fields: [assignedToId], references: [id])
+  createdById   String
+  createdBy     User         @relation("CreatedLeads", fields: [createdById], references: [id])
+  nextFollowUp  DateTime?
+  lastFollowUp  DateTime?
+  interactions  Interaction[]
+  tasks         Task[]
+  attachments   Attachment[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([status])
   @@index([assignedToId])
-  @@index([createdById])
+  @@index([milestoneId])
   @@map("leads")
 }
 
+// ─────────────────────────────────────────
+// INTERACTIONS
+// ─────────────────────────────────────────
+
+model Interaction {
+  id             String                @id @default(cuid())
+  leadId         String
+  lead           Lead                  @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  type           InteractionType
+  direction      InteractionDirection?
+  subject        String?
+  summary        String
+  duration       String?
+  sentiment      Sentiment             @default(neutral)
+  hasTranscript  Boolean               @default(false)
+  hasRecording   Boolean               @default(false)
+  performedById  String
+  performedBy    User                  @relation(fields: [performedById], references: [id])
+  createdAt      DateTime              @default(now())
+
+  @@index([leadId])
+  @@map("interactions")
+}
+
+// ─────────────────────────────────────────
+// TASKS & FOLLOW-UPS
+// ─────────────────────────────────────────
+
+model Task {
+  id           String     @id @default(cuid())
+  title        String
+  leadId       String?
+  lead         Lead?      @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  assignedToId String
+  assignedTo   User       @relation("AssignedTasks", fields: [assignedToId], references: [id])
+  createdById  String
+  createdBy    User       @relation("CreatedTasks", fields: [createdById], references: [id])
+  dueDate      DateTime
+  status       TaskStatus @default(pending)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([assignedToId])
+  @@index([leadId])
+  @@map("tasks")
+}
+
+// ─────────────────────────────────────────
+// CLIENTS
+// ─────────────────────────────────────────
+
 model Client {
-  id              String    @id @default(cuid())
-  name            String
-  company         String
-  email           String    @unique
-  phone           String
-  onboardingDate  DateTime  @default(now())
-  amcStatus       String    @default("ACTIVE") // ACTIVE, EXPIRED, PENDING
-  invoices        Invoice[]
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id               String       @id @default(cuid())
+  companyName      String
+  contactName      String
+  email            String       @unique
+  phone            String
+  industry         String?
+  products         String[]
+  orderValue       Float        @default(0)
+  contractDuration String?
+  startDate        DateTime?
+  renewalDate      DateTime?
+  status           ClientStatus @default(active)
+  linkedLeadId     String?
+  accountManagerId String?
+  accountManager   User?        @relation("AccountManager", fields: [accountManagerId], references: [id])
+  invoices         Invoice[]
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
 
   @@map("clients")
 }
 
+// ─────────────────────────────────────────
+// INVOICES
+// ─────────────────────────────────────────
+
 model Invoice {
-  id        String   @id @default(cuid())
-  clientId  String
-  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  amount    Float
-  status    String   @default("PENDING") // PAID, PENDING, OVERDUE
-  date      DateTime @default(now())
-  dueDate   DateTime
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String        @id @default(cuid())
+  invoiceNumber String        @unique
+  clientId      String
+  client        Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  amount        Float
+  gst           Float         @default(0)
+  total         Float
+  status        InvoiceStatus @default(unpaid)
+  issueDate     DateTime      @default(now())
+  dueDate       DateTime
+  paidDate      DateTime?
+  paidAmount    Float?
+  items         InvoiceItem[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
   @@map("invoices")
 }
 
-model Activity {
-  id        String   @id @default(cuid())
-  leadId    String
-  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  type      String   // e.g., NOTE, TASK, STAGE_CHANGE, ATTACHMENT
-  content   String
-  createdBy String
-  creator   User     @relation(fields: [createdBy], references: [id])
-  createdAt DateTime @default(now())
+model InvoiceItem {
+  id          String   @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  description String
+  amount      Float
+  createdAt   DateTime @default(now())
 
-  @@index([leadId])
-  @@map("activities")
+  @@map("invoice_items")
 }
 
-model Task {
-  id         String    @id @default(cuid())
-  leadId     String
-  lead       Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  title      String
-  dueDate    DateTime
-  priority   String    // LOW, MEDIUM, HIGH
-  status     String    @default("PENDING") // PENDING, COMPLETED
-  reminderAt DateTime?
-  createdBy  String
-  creator    User      @relation(fields: [createdBy], references: [id])
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-
-  @@index([leadId])
-  @@map("tasks")
-}
+// ─────────────────────────────────────────
+// ATTACHMENTS
+// ─────────────────────────────────────────
 
 model Attachment {
   id           String   @id @default(cuid())
@@ -216,4 +318,21 @@ model Attachment {
 
   @@index([leadId])
   @@map("attachments")
+}
+
+// ─────────────────────────────────────────
+// AUDIT LOG
+// ─────────────────────────────────────────
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  action     String
+  entityType String
+  entityId   String?
+  details    String?
+  createdAt  DateTime @default(now())
+
+  @@map("audit_logs")
 }

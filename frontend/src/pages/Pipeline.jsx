@@ -1,0 +1,146 @@
+import { useState } from 'react';
+import { useApp } from '../context/AppContextCore';
+import { 
+  Filter, Plus, Search, MoreHorizontal, 
+  DollarSign, TrendingUp, Calendar, ArrowRight,
+  Target, Clock, AlertCircle
+} from 'lucide-react';
+
+export default function Pipeline() {
+  const { currentUser, leads, milestones } = useApp();
+  const [filterBDE, setFilterBDE] = useState(currentUser?.role === 'BDE' ? currentUser.name : 'All');
+
+  // Stages that count as "Pipeline"
+  const pipelineStages = ['Demo Scheduled', 'Demo Completed', 'Proposal Shared', 'Negotiation'];
+  
+  // Filter leads that are in pipeline
+  let pipelineLeads = leads.filter(l => pipelineStages.includes(l.milestone) && l.status === 'active');
+  
+  if (currentUser?.role === 'BDE') {
+    pipelineLeads = pipelineLeads.filter(l => l.assignedBDE === currentUser.name);
+  } else if (filterBDE !== 'All') {
+    pipelineLeads = pipelineLeads.filter(l => l.assignedBDE === filterBDE);
+  }
+
+  const totalValue = pipelineLeads.reduce((sum, l) => sum + (l.value || 0), 0);
+  const weightedValue = pipelineLeads.reduce((sum, l) => sum + ((l.value || 0) * (l.probability || 0) / 100), 0);
+
+  const getStageColor = (stage) => {
+    return milestones.find(m => m.name === stage)?.color || '#6366f1';
+  };
+
+  const renderPipelineCard = (lead) => (
+    <div key={lead.id} className="studio-card animate-fadeIn" style={{ padding: 20, marginBottom: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+        <div>
+
+          <h3 style={{ fontSize: 16, fontWeight: 700 }}>{lead.companyName}</h3>
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)' }}>₹{(lead.value/1000).toFixed(0)}k</div>
+          <div style={{ fontSize: 11, color: '#10b981', fontWeight: 600 }}>{lead.probability}% Prob.</div>
+        </div>
+      </div>
+      
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 12, color: 'var(--text-secondary)', marginBottom: 16 }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Target size={12} /> {lead.contactName}</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Calendar size={12} /> Exp. Close: {lead.expectedClose}</span>
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div className="avatar avatar-sm" style={{ width: 24, height: 24, fontSize: 10 }}>
+            {lead.assignedBDE ? lead.assignedBDE.split(' ').map(n=>n[0]).join('') : '??'}
+          </div>
+          <span style={{ fontSize: 12 }}>{lead.assignedBDE || 'Unassigned'}</span>
+        </div>
+        <div style={{ padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: `${getStageColor(lead.milestone)}15`, color: getStageColor(lead.milestone), border: `1px solid ${getStageColor(lead.milestone)}30` }}>
+          {lead.milestone.toUpperCase()}
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="animate-fadeIn">
+      <div className="page-header" style={{ marginBottom: 24 }}>
+        <div>
+          <div className="page-subtitle">SALES VELOCITY</div>
+          <h1 className="page-title">Active Deal Pipeline</h1>
+        </div>
+        <div style={{ display: 'flex', gap: 12 }}>
+          <div className="search-wrapper" style={{ width: 240 }}>
+            <Search className="search-icon" size={16} />
+            <input className="search-input" placeholder="Search deals..." />
+          </div>
+          {currentUser?.role !== 'BDE' && (
+            <select className="form-select" style={{ width: 150 }} value={filterBDE} onChange={e => setFilterBDE(e.target.value)}>
+              <option value="All">All BDEs</option>
+              <option value="Neha Singh">Neha Singh</option>
+              <option value="Akash Patel">Akash Patel</option>
+              <option value="Sonia Gupta">Sonia Gupta</option>
+            </select>
+          )}
+          <button className="btn btn-primary">
+            <Plus size={16} /> New Deal
+          </button>
+        </div>
+      </div>
+
+      <div className="form-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 32 }}>
+        <div className="studio-card" style={{ padding: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, color: 'var(--text-secondary)' }}>
+            <DollarSign size={16} /> <span style={{ fontSize: 12, fontWeight: 600 }}>Total Pipeline</span>
+          </div>
+          <div style={{ fontSize: 24, fontWeight: 700 }}>₹{(totalValue/100000).toFixed(2)}L</div>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>{pipelineLeads.length} Active deals</div>
+        </div>
+        <div className="studio-card" style={{ padding: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, color: 'var(--text-secondary)' }}>
+            <TrendingUp size={16} /> <span style={{ fontSize: 12, fontWeight: 600 }}>Weighted Value</span>
+          </div>
+          <div style={{ fontSize: 24, fontWeight: 700 }}>₹{(weightedValue/100000).toFixed(2)}L</div>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Based on probabilities</div>
+        </div>
+        <div className="studio-card" style={{ padding: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, color: 'var(--text-secondary)' }}>
+            <Clock size={16} /> <span style={{ fontSize: 12, fontWeight: 600 }}>Avg. Cycle</span>
+          </div>
+          <div style={{ fontSize: 24, fontWeight: 700 }}>18.4 Days</div>
+          <div style={{ fontSize: 11, color: '#10b981', fontWeight: 600, marginTop: 4 }}>↓ 2.1 days vs LY</div>
+        </div>
+        <div className="studio-card" style={{ padding: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, color: 'var(--text-secondary)' }}>
+            <AlertCircle size={16} /> <span style={{ fontSize: 12, fontWeight: 600 }}>At Risk</span>
+          </div>
+          <div style={{ fontSize: 24, fontWeight: 700, color: '#ef4444' }}>₹3.2L</div>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>3 deals with no activity</div>
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20, alignItems: 'start' }}>
+        {pipelineStages.map(stage => {
+          const stageLeads = pipelineLeads.filter(l => l.milestone === stage);
+          const stageVal = stageLeads.reduce((sum, l) => sum + (l.value || 0), 0);
+          
+          return (
+            <div key={stage}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, padding: '0 4px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ width: 10, height: 10, borderRadius: '50%', background: getStageColor(stage) }}></div>
+                  <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>{stage.split(' ')[0]}</h3>
+                  <span style={{ fontSize: 11, background: 'var(--bg-card)', padding: '2px 8px', borderRadius: 10, border: '1px solid var(--border-subtle)' }}>{stageLeads.length}</span>
+                </div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>₹{(stageVal/1000).toFixed(0)}k</div>
+              </div>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                {stageLeads.map(lead => renderPipelineCard(lead))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}

@@ -1,16 +1,10 @@
 import { Router } from 'express';
-import { TasksController } from './tasks.controller';
-import { authMiddleware } from '../../middleware/auth.middleware';
-import { validateRequest } from '../../middleware/validate.middleware';
-import { createTaskSchema, updateTaskSchema } from './tasks.schema';
+import { getTasks, createTask, updateTask } from './tasks.controller';
 
 const router = Router();
 
-router.use(authMiddleware);
-
-router.get('/', TasksController.getTasks);
-router.post('/', validateRequest(createTaskSchema as any), TasksController.createTask);
-router.patch('/:id', validateRequest(updateTaskSchema as any), TasksController.updateTask);
-router.delete('/:id', TasksController.deleteTask);
+router.get('/', getTasks);
+router.post('/', createTask);
+router.patch('/:id', updateTask);
 
 export default router;

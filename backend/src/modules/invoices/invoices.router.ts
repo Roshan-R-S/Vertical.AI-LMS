@@ -1,15 +1,10 @@
 import { Router } from 'express';
-import { InvoiceController } from './invoices.controller';
-import { authMiddleware } from '../../middleware/auth.middleware';
+import { getInvoices, createInvoice, markInvoicePaid } from './invoices.controller';
 
 const router = Router();
 
-router.use(authMiddleware);
-
-router.get('/', InvoiceController.getAll);
-router.post('/', InvoiceController.create);
-router.get('/:id', InvoiceController.getById);
-router.patch('/:id', InvoiceController.update);
-router.delete('/:id', InvoiceController.remove);
+router.get('/', getInvoices);
+router.post('/', createInvoice);
+router.patch('/:id/mark-paid', markInvoicePaid);
 
 export default router;

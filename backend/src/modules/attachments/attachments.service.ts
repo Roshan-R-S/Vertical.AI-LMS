@@ -1,96 +1,48 @@
 import { prisma } from '../../prisma';
-import { attachmentsRepository } from './attachments.repository';
-import { LeadRepo } from '../leads/leads.repository';
-
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
-
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
 
 export const attachmentsService = {
-  async upload(
-    leadId: string,
-    uploadedById: string,
-    file: Express.Multer.File,
-    user: any
-  ) {
-    const lead = await LeadRepo.findById(leadId);
+  async upload(leadId: string, uploadedById: string, file: Express.Multer.File, user: any) {
+    const lead = await prisma.lead.findUnique({ where: { id: leadId } });
     if (!lead) throw new Error('Lead not found');
-    if (user.role === 'BDE' && lead.assignedToId !== user.id) throw new Error('Access denied.');
-    if (user.role === 'TEAM_LEAD' && lead.teamId !== user.teamId) throw new Error('Access denied.');
 
-    if (file.size > MAX_FILE_SIZE) {
-      throw Object.assign(new Error('File size exceeds the 10 MB limit.'), { status: 413 });
-    }
-
-    const attachment = await attachmentsRepository.create({
-      leadId,
-      uploadedById,
-      fileName: file.originalname,
-      mimeType: file.mimetype,
-      fileSize: file.size,
-      fileData: file.buffer,
-    });
-
-    // Log to Activity History so the upload appears in the timeline
-    await prisma.activity.create({
+    const attachment = await prisma.attachment.create({
       data: {
         leadId,
-        type: 'ATTACHMENT',
-        content: `Attached file: ${file.originalname} (${formatFileSize(file.size)})`,
-        createdBy: uploadedById,
+        uploadedById,
+        fileName: file.originalname,
+        mimeType: file.mimetype,
+        fileSize: file.size,
+        fileData: Buffer.from(file.buffer) as any,
       },
     });
 
-    return attachment;
+    return {
+      id: attachment.id,
+      fileName: attachment.fileName,
+      mimeType: attachment.mimeType,
+      fileSize: attachment.fileSize,
+      createdAt: attachment.createdAt,
+    };
   },
 
   async listByLead(leadId: string, user: any) {
-    const lead = await LeadRepo.findById(leadId);
-    if (!lead) throw new Error('Lead not found');
-    if (user.role === 'BDE' && lead.assignedToId !== user.id) throw new Error('Access denied.');
-    if (user.role === 'TEAM_LEAD' && lead.teamId !== user.teamId) throw new Error('Access denied.');
-
-    return attachmentsRepository.findManyByLeadId(leadId);
+    const attachments = await prisma.attachment.findMany({
+      where: { leadId },
+      select: { id: true, fileName: true, mimeType: true, fileSize: true, createdAt: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    return attachments;
   },
 
   async getForDownload(attachmentId: string, user: any) {
-    const attachment = await attachmentsRepository.findById(attachmentId);
-    if (!attachment) {
-      throw Object.assign(new Error('Attachment not found.'), { status: 404 });
-    }
-
-    const lead = await LeadRepo.findById(attachment.leadId);
-    if (!lead) throw new Error('Lead not found');
-    if (user.role === 'BDE' && lead.assignedToId !== user.id) throw new Error('Access denied.');
-    if (user.role === 'TEAM_LEAD' && lead.teamId !== user.teamId) throw new Error('Access denied.');
-
+    const attachment = await prisma.attachment.findUnique({ where: { id: attachmentId as string } });
+    if (!attachment) throw new Error('Attachment not found');
     return attachment;
   },
 
   async remove(attachmentId: string, deletedById: string, user: any) {
-    const attachment = await attachmentsRepository.findById(attachmentId);
-    if (!attachment) {
-      throw Object.assign(new Error('Attachment not found.'), { status: 404 });
-    }
-
-    const lead = await LeadRepo.findById(attachment.leadId);
-    if (!lead) throw new Error('Lead not found');
-    if (user.role === 'BDE' && lead.assignedToId !== user.id) throw new Error('Access denied.');
-    if (user.role === 'TEAM_LEAD' && lead.teamId !== user.teamId) throw new Error('Access denied.');
-
-    await attachmentsRepository.deleteById(attachmentId);
-
-    // Log file removal to Activity History
-    await prisma.activity.create({
-      data: {
-        leadId: attachment.leadId,
-        type: 'ATTACHMENT_DELETED',
-        content: `Removed file: ${attachment.fileName}`,
-        createdBy: deletedById,
-      },
-    });
+    const attachment = await prisma.attachment.findUnique({ where: { id: attachmentId as string } });
+    if (!attachment) throw new Error('Attachment not found');
+    await prisma.attachment.delete({ where: { id: attachmentId as string } });
   },
 };

@@ -3,69 +3,72 @@ import path from 'path';
 import cors from 'cors';
 import morgan from 'morgan';
 import helmet from 'helmet';
-import { config } from './config';
-import swaggerUi from 'swagger-ui-express';
-import { swaggerSpec } from './config/swagger';
 import { errorMiddleware } from './middleware/error.middleware';
-import authRouter from './modules/auth/auth.router';
-import leadsRouter from './modules/leads/leads.router';
-import usersRouter from './modules/users/users.router';
-import analyticsRouter from './modules/analytics/analytics.router';
-import tasksRouter from './modules/tasks/tasks.router';
+import { authMiddleware } from './middleware/auth.middleware';
+
+import authRouter       from './modules/auth/auth.router';
+import usersRouter      from './modules/users/users.router';
+import leadsRouter      from './modules/leads/leads.router';
+import tasksRouter      from './modules/tasks/tasks.router';
+import clientsRouter    from './modules/clients/clients.router';
+import invoicesRouter   from './modules/invoices/invoices.router';
+import analyticsRouter  from './modules/analytics/analytics.router';
+import milestonesRouter from './modules/milestones/milestones.router';
+import dispositionsRouter from './modules/dispositions/dispositions.router';
 import attachmentsRouter from './modules/attachments/attachments.router';
-import auditLogsRouter from './modules/audit-logs/audit-logs.router';
-import clientsRouter from './modules/clients/clients.router';
-import invoicesRouter from './modules/invoices/invoices.router';
+import auditLogsRouter  from './modules/audit-logs/audit-logs.router';
 
 const app = express();
 
-app.use(helmet({
-  crossOriginResourcePolicy: { policy: "cross-origin" }
-}));
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'http://localhost:5174',
+  process.env.FRONTEND_URL,
+].filter(Boolean) as string[];
+
+app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-  credentials: true
+  origin: (origin, cb) => {
+    if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+    cb(new Error(`CORS: origin ${origin} not allowed`));
+  },
+  credentials: true,
 }));
 app.use(morgan('dev'));
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true }));
 
-// Serve static uploads (avatars, etc)
-console.log('[App] Serving static files from:', path.join(process.cwd(), 'uploads'));
+// Static uploads
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads'), {
-  setHeaders: (res) => {
-    res.set('Cross-Origin-Resource-Policy', 'cross-origin');
-  }
+  setHeaders: (res) => res.set('Cross-Origin-Resource-Policy', 'cross-origin'),
 }));
 
-// API Documentation
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
-
-/**
- * @openapi
- * /health:
- *   get:
- *     description: Returns the health status of the API
- *     responses:
- *       200:
- *         description: Success
- */
+// Health check
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-app.use('/api/v1/auth', authRouter);
-app.use('/api/v1/tasks', tasksRouter);
-app.use('/api/v1/leads', leadsRouter);
-app.use('/api/v1', attachmentsRouter);
-app.use('/api/v1/users', usersRouter);
-app.use('/api/v1/analytics', analyticsRouter);
-app.use('/api/v1/audit-logs', auditLogsRouter);
-app.use('/api/v1/clients', clientsRouter);
-app.use('/api/v1/invoices', invoicesRouter);
+// ─── API Routes ───────────────────────────────────────────────────
+app.use('/api/v1/auth',          authRouter);
 
-app.use((req, res, next) => {
-  console.log(`[App] No route matched: ${req.method} ${req.originalUrl}`);
-  next();
+// Protect all following routes
+app.use(authMiddleware);
+
+app.use('/api/v1/users',         usersRouter);
+app.use('/api/v1/leads',         leadsRouter);
+app.use('/api/v1/tasks',         tasksRouter);
+app.use('/api/v1/clients',       clientsRouter);
+app.use('/api/v1/invoices',      invoicesRouter);
+app.use('/api/v1/analytics',     analyticsRouter);
+app.use('/api/v1/milestones',    milestonesRouter);
+app.use('/api/v1/dispositions',  dispositionsRouter);
+app.use('/api/v1',               attachmentsRouter);
+app.use('/api/v1/audit-logs',    auditLogsRouter);
+
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({ error: `No route matched: ${req.method} ${req.originalUrl}` });
 });
 
 app.use(errorMiddleware);

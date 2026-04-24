@@ -1,52 +1,129 @@
-import { Request, Response, NextFunction } from 'express';
-import { ClientService } from './clients.service';
+import { Request, Response } from 'express';
+import { prisma } from '../../prisma';
+import { ClientStatus } from '@prisma/client';
+import { getClientScopeFilter } from '../../utils/scoping';
 
-export const ClientController = {
-  getAll: async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const skip = parseInt(req.query.skip as any) || 0;
-      const take = parseInt(req.query.take as any) || 20;
-      const result = await ClientService.getAllClients(skip, take);
-      res.json(result);
-    } catch (error) {
-      next(error);
-    }
-  },
+function formatClient(c: any) {
+  return {
+    id: c.id,
+    companyName: c.companyName,
+    contactName: c.contactName,
+    email: c.email,
+    phone: c.phone,
+    industry: c.industry,
+    products: c.products,
+    orderValue: c.orderValue,
+    contractDuration: c.contractDuration,
+    startDate: c.startDate ? new Date(c.startDate).toISOString().split('T')[0] : null,
+    renewalDate: c.renewalDate ? new Date(c.renewalDate).toISOString().split('T')[0] : null,
+    status: c.status,
+    linkedLeadId: c.linkedLeadId,
+    accountManager: c.accountManager?.name ?? null,
+    accountManagerId: c.accountManagerId,
+    documents: [], // attachment file names fetched separately
+    createdAt: c.createdAt,
+  };
+}
 
-  getById: async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const client = await ClientService.getClientById(req.params.id as string);
-      if (!client) return res.status(404).json({ error: 'Client not found' });
-      res.json(client);
-    } catch (error) {
-      next(error);
-    }
-  },
+// GET /api/v1/clients
+export async function getClients(req: Request, res: Response) {
+  const status = req.query.status as string | undefined;
+  const search = req.query.search as string | undefined;
 
-  create: async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const client = await ClientService.createClient(req.body);
-      res.status(201).json(client);
-    } catch (error) {
-      next(error);
-    }
-  },
+  const clients = await prisma.client.findMany({
+    where: {
+      ...getClientScopeFilter((req as any).user),
+      ...(status && { status: status as ClientStatus }),
+      ...(search && {
+        OR: [
+          { companyName: { contains: search, mode: 'insensitive' } },
+          { contactName: { contains: search, mode: 'insensitive' } },
+        ],
+      }),
+    },
+    include: { accountManager: true },
+    orderBy: { createdAt: 'desc' },
+  });
+  return res.json(clients.map(formatClient));
+}
 
-  update: async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const client = await ClientService.updateClient(req.params.id as string, req.body);
-      res.json(client);
-    } catch (error) {
-      next(error);
-    }
-  },
+// GET /api/v1/clients/:id
+export async function getClientById(req: Request, res: Response) {
+  const { id } = req.params;
+  const user = (req as any).user;
+  const client = await prisma.client.findFirst({
+    where: { 
+      id: id as string,
+      ...getClientScopeFilter(user)
+    },
+    include: {
+      accountManager: true,
+      invoices: { include: { items: true }, orderBy: { issueDate: 'desc' } },
+    },
+  });
+  if (!client) return res.status(404).json({ error: 'Client not found' });
+  return res.json({ ...formatClient(client), invoices: (client as any).invoices });
+}
 
-  remove: async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      await ClientService.deleteClient(req.params.id as string);
-      res.status(204).send();
-    } catch (error) {
-      next(error);
-    }
-  },
-};
+// POST /api/v1/clients
+export async function createClient(req: Request, res: Response) {
+  const {
+    companyName, contactName, email, phone, industry, products,
+    orderValue, contractDuration, startDate, renewalDate,
+    accountManagerId, linkedLeadId,
+  } = req.body;
+
+  if (!companyName || !contactName || !email || !phone) {
+    return res.status(400).json({ error: 'companyName, contactName, email, phone are required' });
+  }
+
+  const client = await prisma.client.create({
+    data: {
+      companyName, contactName, email, phone, industry,
+      products: products ?? [],
+      orderValue: orderValue ?? 0,
+      contractDuration,
+      startDate: startDate ? new Date(startDate) : undefined,
+      renewalDate: renewalDate ? new Date(renewalDate) : undefined,
+      status: 'active',
+      linkedLeadId, accountManagerId,
+    },
+    include: { accountManager: true },
+  });
+  return res.status(201).json(formatClient(client));
+}
+
+// PATCH /api/v1/clients/:id
+export async function updateClient(req: Request, res: Response) {
+  const { id } = req.params;
+  const user = (req as any).user;
+  const {
+    companyName, contactName, email, phone, industry, products,
+    orderValue, contractDuration, startDate, renewalDate, status, accountManagerId,
+  } = req.body;
+
+  const existing = await prisma.client.findFirst({
+    where: { id: id as string, ...getClientScopeFilter(user) }
+  });
+  if (!existing) return res.status(404).json({ error: 'Client not found or access denied' });
+
+  const client = await prisma.client.update({
+    where: { id: id as string },
+    data: {
+      ...(companyName && { companyName }),
+      ...(contactName && { contactName }),
+      ...(email && { email }),
+      ...(phone && { phone }),
+      ...(industry !== undefined && { industry }),
+      ...(products !== undefined && { products }),
+      ...(orderValue !== undefined && { orderValue }),
+      ...(contractDuration !== undefined && { contractDuration }),
+      ...(startDate !== undefined && { startDate: startDate ? new Date(startDate) : null }),
+      ...(renewalDate !== undefined && { renewalDate: renewalDate ? new Date(renewalDate) : null }),
+      ...(status && { status: status as ClientStatus }),
+      ...(accountManagerId !== undefined && { accountManagerId }),
+    },
+    include: { accountManager: true },
+  });
+  return res.json(formatClient(client));
+}

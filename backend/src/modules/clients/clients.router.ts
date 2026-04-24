@@ -1,15 +1,11 @@
 import { Router } from 'express';
-import { ClientController } from './clients.controller';
-import { authMiddleware } from '../../middleware/auth.middleware';
+import { getClients, getClientById, createClient, updateClient } from './clients.controller';
 
 const router = Router();
 
-router.use(authMiddleware);
-
-router.get('/', ClientController.getAll);
-router.post('/', ClientController.create);
-router.get('/:id', ClientController.getById);
-router.patch('/:id', ClientController.update);
-router.delete('/:id', ClientController.remove);
+router.get('/', getClients);
+router.post('/', createClient);
+router.get('/:id', getClientById);
+router.patch('/:id', updateClient);
 
 export default router;

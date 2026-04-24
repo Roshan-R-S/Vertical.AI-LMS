@@ -1,92 +1,313 @@
 import { Request, Response } from 'express';
-import * as LeadsService from './leads.service';
-import { asyncHandler } from '../../utils/asyncHandler';
-import { ApiResponse } from '../../utils/apiResponse';
-import { ApiError } from '../../utils/apiError';
-import {
-  createLeadSchema,
-  updateLeadSchema,
-  updateStageSchema,
-  createActivitySchema,
-} from './leads.schema';
+import { prisma } from '../../prisma';
+import { LeadStatus, LeadPriority } from '@prisma/client';
+import { getLeadScopeFilter } from '../../utils/scoping';
 
-export const getLeads = asyncHandler(async (req: Request, res: Response) => {
-  const result = await LeadsService.getLeads(req.query, (req as any).user);
-  res.status(200).json(new ApiResponse(200, result, "Leads fetched successfully"));
-});
+// Shape a lead into the frontend contract
+function formatLead(lead: any) {
+  return {
+    id: lead.id,
+    companyName: lead.companyName,
+    contactName: lead.contactName,
+    email: lead.email,
+    phone: lead.phone,
+    source: lead.source,
+    industry: lead.industry,
+    tags: lead.tags,
+    milestone: lead.milestone?.name ?? null,
+    milestoneId: lead.milestoneId,
+    milestoneColor: lead.milestone?.color ?? null,
+    disposition: lead.disposition?.name ?? null,
+    dispositionId: lead.dispositionId,
+    status: lead.status,
+    priority: lead.priority,
+    score: lead.score,
+    value: lead.value,
+    probability: lead.probability,
+    expectedClose: lead.expectedClose ? new Date(lead.expectedClose).toISOString().split('T')[0] : null,
+    notes: lead.notes,
+    assignedBDE: lead.assignedTo?.name ?? null,
+    assignedBDEId: lead.assignedToId,
+    assignedBDEAvatar: lead.assignedTo?.avatar ?? null,
+    assignedTL: lead.assignedTo?.team ? `${lead.assignedTo.team.name}` : null,
+    teamName: lead.assignedTo?.team?.name ?? null,
+    nextFollowUp: lead.nextFollowUp,
+    lastFollowUp: lead.lastFollowUp,
+    createdAt: lead.createdAt ? new Date(lead.createdAt).toISOString().split('T')[0] : null,
+    updatedAt: lead.updatedAt,
+    _count: lead._count,
+  };
+}
 
-export const getLeadById = asyncHandler(async (req: Request, res: Response) => {
-  const lead = await LeadsService.getLeadById(req.params['id'] as string, (req as any).user);
-  if (!lead) {
-    throw new ApiError(404, "Lead not found");
-  }
-  res.status(200).json(new ApiResponse(200, lead, "Lead fetched successfully"));
-});
+const LEAD_INCLUDE = {
+  milestone: true,
+  disposition: true,
+  assignedTo: { include: { team: true } },
+  _count: { select: { interactions: true, tasks: true, attachments: true } },
+};
 
-export const createLead = asyncHandler(async (req: Request, res: Response) => {
-  const data = createLeadSchema.parse(req.body);
-  const lead = await LeadsService.createLead(data, (req as any).user);
-  res.status(201).json(new ApiResponse(201, lead, "Lead created successfully"));
-});
+// GET /api/v1/leads
+export async function getLeads(req: Request, res: Response) {
+  const status = req.query.status as string | undefined;
+  const milestoneId = req.query.milestoneId as string | undefined;
+  const assignedToId = req.query.assignedToId as string | undefined;
+  const search = req.query.search as string | undefined;
+  const source = req.query.source as string | undefined;
+  const priority = req.query.priority as string | undefined;
 
-export const bulkCreate = asyncHandler(async (req: Request, res: Response) => {
+  const leads = await prisma.lead.findMany({
+    where: {
+      ...getLeadScopeFilter((req as any).user),
+      ...(status && { status: status as LeadStatus }),
+      ...(milestoneId && { milestoneId }),
+      ...(assignedToId && { assignedToId }),
+      ...(source && { source }),
+      ...(priority && { priority: priority as LeadPriority }),
+      ...(search && {
+        OR: [
+          { companyName: { contains: search, mode: 'insensitive' } },
+          { contactName: { contains: search, mode: 'insensitive' } },
+          { email: { contains: search, mode: 'insensitive' } },
+          { phone: { contains: search, mode: 'insensitive' } },
+        ],
+      }),
+    },
+    include: LEAD_INCLUDE,
+    orderBy: { createdAt: 'desc' },
+  });
+
+  return res.json(leads.map(formatLead));
+}
+
+// GET /api/v1/leads/:id
+export async function getLeadById(req: Request, res: Response) {
+  const { id } = req.params;
   const user = (req as any).user;
-  if (!user.canBulkUpload) {
-    throw new ApiError(403, "You do not have permission to perform bulk uploads");
+  const lead = await prisma.lead.findFirst({
+    where: { 
+      id: id as string,
+      ...getLeadScopeFilter(user)
+    },
+    include: {
+      ...LEAD_INCLUDE,
+      interactions: {
+        include: { performedBy: true },
+        orderBy: { createdAt: 'desc' },
+      },
+      tasks: {
+        include: { assignedTo: true, createdBy: true },
+        orderBy: { dueDate: 'asc' },
+      },
+    },
+  });
+  if (!lead) return res.status(404).json({ error: 'Lead not found' });
+  return res.json(formatLead(lead));
+}
+
+// POST /api/v1/leads
+export async function createLead(req: Request, res: Response) {
+  const body = req.body as Record<string, any>;
+  const companyName = body.companyName as string | undefined;
+  const contactName = body.contactName as string | undefined;
+  const email = body.email as string | undefined;
+  const phone = body.phone as string | undefined;
+  const source = body.source as string | undefined;
+  const industry = body.industry as string | undefined;
+  const tags = body.tags as string[] | undefined;
+  const milestoneId = body.milestoneId as string | undefined;
+  const dispositionId = body.dispositionId as string | undefined;
+  const priority = body.priority as string | undefined;
+  const value = body.value as number | undefined;
+  const probability = body.probability as number | undefined;
+  const expectedClose = body.expectedClose as string | undefined;
+  const notes = body.notes as string | undefined;
+  const assignedToId = body.assignedToId as string | undefined;
+  const score = body.score as number | undefined;
+
+  if (!companyName || !contactName || !phone || !assignedToId) {
+    return res.status(400).json({ error: 'companyName, contactName, phone, assignedToId are required' });
   }
-  if (!Array.isArray(req.body)) throw new ApiError(400, "Request body must be an array of leads");
-  const result = await LeadsService.bulkCreateLeads(req.body, user);
-  res.status(201).json(new ApiResponse(201, result, "Leads bulk created successfully"));
-});
 
-export const updateLead = asyncHandler(async (req: Request, res: Response) => {
-  const data = updateLeadSchema.parse(req.body);
-  const lead = await LeadsService.updateLead(req.params['id'] as string, data, (req as any).user);
-  res.status(200).json(new ApiResponse(200, lead, "Lead updated successfully"));
-});
+  const lead = await prisma.lead.create({
+    data: {
+      companyName, contactName, email, phone, source, industry,
+      tags: tags ?? [],
+      milestoneId, dispositionId,
+      priority: (priority ?? 'Medium') as LeadPriority,
+      value: value ?? 0,
+      probability: probability ?? 0,
+      expectedClose: expectedClose ? new Date(expectedClose) : undefined,
+      notes, score: score ?? 0,
+      assignedToId,
+      createdById: assignedToId,
+      status: 'active',
+    },
+    include: LEAD_INCLUDE,
+  });
+  return res.status(201).json(formatLead(lead));
+}
 
-export const deleteLead = asyncHandler(async (req: Request, res: Response) => {
-  await LeadsService.deleteLead(req.params['id'] as string, (req as any).user);
-  res.status(200).json(new ApiResponse(200, null, "Lead deleted successfully"));
-});
+// PATCH /api/v1/leads/:id
+export async function updateLead(req: Request, res: Response) {
+  const { id } = req.params;
+  const body = req.body as Record<string, any>;
+  // ... (keeping variables same)
+  const companyName = body.companyName as string | undefined;
+  const contactName = body.contactName as string | undefined;
+  const email = body.email as string | undefined;
+  const phone = body.phone as string | undefined;
+  const source = body.source as string | undefined;
+  const industry = body.industry as string | undefined;
+  const tags = body.tags as string[] | undefined;
+  const milestoneId = body.milestoneId as string | undefined;
+  const dispositionId = body.dispositionId as string | undefined;
+  const status = body.status as string | undefined;
+  const priority = body.priority as string | undefined;
+  const value = body.value as number | undefined;
+  const probability = body.probability as number | undefined;
+  const expectedClose = body.expectedClose as string | undefined;
+  const notes = body.notes as string | undefined;
+  const assignedToId = body.assignedToId as string | undefined;
+  const score = body.score as number | undefined;
+  const nextFollowUp = body.nextFollowUp as string | undefined;
 
-export const updateStage = asyncHandler(async (req: Request, res: Response) => {
-  const { stage, remarks } = updateStageSchema.parse(req.body);
-  const userId = (req as any).user.id;
-  const result = await LeadsService.updateStage(
-    req.params['id'] as string,
-    stage,
-    userId,
-    (req as any).user,
-    remarks
-  );
-  res.status(200).json(new ApiResponse(200, result, "Stage updated successfully"));
-});
+  const user = (req as any).user;
+  const existing = await prisma.lead.findFirst({
+    where: { id: id as string, ...getLeadScopeFilter(user) }
+  });
+  if (!existing) return res.status(404).json({ error: 'Lead not found or access denied' });
 
-export const getAllActivities = asyncHandler(async (req: Request, res: Response) => {
-  try {
-    const activities = await LeadsService.getAllActivities(req.query, (req as any).user);
-    res.status(200).json(new ApiResponse(200, activities, "Global activities fetched successfully"));
-  } catch (err: any) {
-    console.error('[Error] getAllActivities failed:', err);
-    throw err; // Re-throw to let asyncHandler handle the error status
+  const lead = await prisma.lead.update({
+    where: { id: id as string },
+    data: {
+      ...(companyName && { companyName }),
+      ...(contactName && { contactName }),
+      ...(email !== undefined && { email }),
+      ...(phone && { phone }),
+      ...(source !== undefined && { source }),
+      ...(industry !== undefined && { industry }),
+      ...(tags !== undefined && { tags }),
+      ...(milestoneId !== undefined && { milestoneId }),
+      ...(dispositionId !== undefined && { dispositionId }),
+      ...(status && { status: status as LeadStatus }),
+      ...(priority && { priority: priority as LeadPriority }),
+      ...(value !== undefined && { value }),
+      ...(probability !== undefined && { probability }),
+      ...(expectedClose !== undefined && { expectedClose: expectedClose ? new Date(expectedClose) : null }),
+      ...(notes !== undefined && { notes }),
+      ...(assignedToId && { assignedToId }),
+      ...(score !== undefined && { score }),
+      ...(nextFollowUp !== undefined && { nextFollowUp: nextFollowUp ? new Date(nextFollowUp) : null }),
+    },
+    include: LEAD_INCLUDE,
+  });
+  return res.json(formatLead(lead));
+}
+
+// DELETE /api/v1/leads/:id
+export async function deleteLead(req: Request, res: Response) {
+  const { id } = req.params;
+  const user = (req as any).user;
+  await prisma.lead.deleteMany({ 
+    where: { 
+      id: id as string,
+      ...getLeadScopeFilter(user)
+    } 
+  });
+  return res.json({ success: true });
+}
+
+// GET /api/v1/leads/:id/interactions
+export async function getLeadInteractions(req: Request, res: Response) {
+  const { id } = req.params;
+  const interactions = await prisma.interaction.findMany({
+    where: { leadId: id as string },
+    include: { performedBy: true },
+    orderBy: { createdAt: 'desc' },
+  });
+  return res.json(interactions.map(i => ({
+    id: i.id, leadId: i.leadId, type: i.type, direction: i.direction,
+    subject: i.subject, summary: i.summary, duration: i.duration,
+    sentiment: i.sentiment, hasTranscript: i.hasTranscript, hasRecording: i.hasRecording,
+    performedById: i.performedById,
+    by: (i as any).performedBy?.name ?? null,
+    date: i.createdAt.toLocaleString('en-IN'),
+    transcript: i.hasTranscript,
+    recording: i.hasRecording,
+  })));
+}
+
+// POST /api/v1/leads/:id/interactions
+export async function createLeadInteraction(req: Request, res: Response) {
+  const { id } = req.params;
+  const body = req.body as Record<string, any>;
+  const type = body.type as string | undefined;
+  const direction = body.direction as string | undefined;
+  const subject = body.subject as string | undefined;
+  const summary = body.summary as string | undefined;
+  const duration = body.duration as string | undefined;
+  const sentiment = body.sentiment as string | undefined;
+  const hasTranscript = body.hasTranscript as boolean | undefined;
+  const hasRecording = body.hasRecording as boolean | undefined;
+  const performedById = body.performedById as string | undefined;
+
+  if (!type || !summary || !performedById) {
+    return res.status(400).json({ error: 'type, summary, performedById are required' });
   }
-});
 
-export const getActivities = asyncHandler(async (req: Request, res: Response) => {
-  const activities = await LeadsService.getActivities(req.params['id'] as string, (req as any).user);
-  res.status(200).json(new ApiResponse(200, activities, "Activities fetched successfully"));
-});
+  const interaction = await prisma.interaction.create({
+    data: {
+      leadId: id as string, type: type as any, direction: direction as any, subject, summary,
+      duration, sentiment: (sentiment ?? 'neutral') as any,
+      hasTranscript: hasTranscript ?? false,
+      hasRecording: hasRecording ?? false,
+      performedById,
+    },
+    include: { performedBy: true },
+  });
 
-export const addActivity = asyncHandler(async (req: Request, res: Response) => {
-  const { type, content } = createActivitySchema.parse(req.body);
-  const userId = (req as any).user.id;
-  const activity = await LeadsService.addActivity(
-    req.params['id'] as string,
-    type,
-    content,
-    userId,
-    (req as any).user
-  );
-  res.status(201).json(new ApiResponse(201, activity, "Activity added successfully"));
-});
+  await prisma.lead.update({ where: { id: id as string }, data: { lastFollowUp: new Date() } });
+
+  return res.status(201).json({
+    id: interaction.id, leadId: interaction.leadId, type: interaction.type,
+    direction: interaction.direction, subject: interaction.subject,
+    summary: interaction.summary, duration: interaction.duration,
+    sentiment: interaction.sentiment,
+    hasTranscript: interaction.hasTranscript, hasRecording: interaction.hasRecording,
+    by: (interaction as any).performedBy?.name ?? null,
+    date: interaction.createdAt.toLocaleString('en-IN'),
+  });
+}
+
+// GET /api/v1/leads/:id/tasks
+export async function getLeadTasks(req: Request, res: Response) {
+  const { id } = req.params;
+  const tasks = await prisma.task.findMany({
+    where: { leadId: id as string },
+    include: { assignedTo: true },
+    orderBy: { dueDate: 'asc' },
+  });
+  return res.json(tasks);
+}
+
+// POST /api/v1/leads/:id/tasks
+export async function createLeadTask(req: Request, res: Response) {
+  const { id } = req.params;
+  const body = req.body as Record<string, any>;
+  const title = body.title as string | undefined;
+  const assignedToId = body.assignedToId as string | undefined;
+  const dueDate = body.dueDate as string | undefined;
+  const createdById = body.createdById as string | undefined;
+  if (!title || !assignedToId || !dueDate) {
+    return res.status(400).json({ error: 'title, assignedToId, dueDate are required' });
+  }
+  const task = await prisma.task.create({
+    data: {
+      title, leadId: id as string, assignedToId,
+      createdById: createdById ?? assignedToId,
+      dueDate: new Date(dueDate), status: 'pending',
+    },
+    include: { assignedTo: true },
+  });
+  return res.status(201).json(task);
+}
