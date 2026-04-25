@@ -1,8 +1,10 @@
+import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContextCore';
-import { Bell, Info, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
+import { Bell, Info, AlertTriangle, CheckCircle, Clock, ArrowLeft } from 'lucide-react';
 
 export default function Notifications() {
   const { notifications } = useApp();
+  const navigate = useNavigate();
 
   const getIcon = (type) => {
     switch (type) {
@@ -15,8 +17,15 @@ export default function Notifications() {
 
   return (
     <div className="animate-fadeIn">
-      <div className="page-header" style={{ marginBottom: 24 }}>
+      <div className="page-header" style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
+          <button 
+            className="btn btn-ghost btn-sm" 
+            onClick={() => navigate(-1)} 
+            style={{ marginBottom: 12, paddingLeft: 0, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 6 }}
+          >
+            <ArrowLeft size={16} /> Back to Dashboard
+          </button>
           <div className="page-subtitle">STAY UPDATED</div>
           <h1 className="page-title">Notifications</h1>
         </div>
