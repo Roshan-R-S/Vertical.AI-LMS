@@ -6,9 +6,7 @@ const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
-  const users = await prisma.user.findMany({
-    select: { email: true, name: true, role: true }
-  });
-  console.log(JSON.stringify(users, null, 2));
+  const count = await prisma.lead.count();
+  console.log(`Total Leads: ${count}`);
 }
 main().finally(() => prisma.$disconnect());

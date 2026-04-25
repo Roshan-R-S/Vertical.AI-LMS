@@ -84,14 +84,142 @@ function InvoiceModal({ invoice, onClose }) {
   );
 }
 
+function NewInvoiceModal({ onClose, onSave, clients }) {
+  const [form, setForm] = useState({
+    invoiceNumber: '',
+    clientId: '',
+    amount: '',
+    status: 'unpaid',
+    issueDate: new Date().toISOString().split('T')[0],
+    dueDate: '',
+    pdfUrl: ''
+  });
+  const [isSaved, setIsSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const gst = Math.round((Number(form.amount) || 0) * 0.18);
+  const total = (Number(form.amount) || 0) + gst;
+
+  const handleSave = async () => {
+    if (!form.clientId || !form.amount || !form.dueDate) {
+      alert("Please fill all required fields");
+      return;
+    }
+    setSaving(true);
+    try {
+      await onSave({
+        ...form,
+        amount: Number(form.amount),
+        items: [{ desc: 'Service Fee', amount: Number(form.amount) }]
+      });
+      setIsSaved(true);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && (isSaved ? onClose() : null)}>
+      <div className="modal modal-lg animate-slideUp">
+        <div className="modal-header">
+          <h2 className="modal-title">Generate New Invoice</h2>
+          {!isSaved && <button className="modal-close" onClick={onClose}><X size={16} /></button>}
+        </div>
+        <div className="modal-body">
+          {isSaved ? (
+            <div style={{ textAlign: 'center', padding: '40px 0' }}>
+              <div style={{ background: 'rgba(16,185,129,0.1)', width: 64, height: 64, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+                <CheckCircle size={32} color="#10b981" />
+              </div>
+              <h3 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>Invoice Saved!</h3>
+              <p style={{ color: 'var(--text-secondary)', marginBottom: 24 }}>The invoice has been successfully recorded in the database.</p>
+              <button className="btn btn-primary" onClick={onClose}>Close Window</button>
+            </div>
+          ) : (
+            <>
+              <div className="form-grid">
+                <div className="form-group">
+                  <label className="form-label">Invoice Number (Optional)</label>
+                  <input className="form-input" value={form.invoiceNumber} onChange={e => setForm(p => ({ ...p, invoiceNumber: e.target.value }))} placeholder="E.g. INV-2024-001" />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Client *</label>
+                  <select className="form-select" value={form.clientId} onChange={e => setForm(p => ({ ...p, clientId: e.target.value }))}>
+                    <option value="">Select Client...</option>
+                    {clients.map(c => <option key={c.id} value={c.id}>{c.companyName}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div className="form-grid-3">
+                <div className="form-group">
+                  <label className="form-label">Amount (₹) *</label>
+                  <input className="form-input" type="number" value={form.amount} onChange={e => setForm(p => ({ ...p, amount: e.target.value }))} placeholder="100000" />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">GST (18%)</label>
+                  <input className="form-input" value={`₹${gst.toLocaleString()}`} readOnly style={{ background: 'var(--bg-surface)', cursor: 'not-allowed' }} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Total Amount</label>
+                  <input className="form-input" value={`₹${total.toLocaleString()}`} readOnly style={{ background: 'var(--bg-surface)', fontWeight: 700, color: '#6366f1' }} />
+                </div>
+              </div>
+
+              <div className="form-grid-3">
+                <div className="form-group">
+                  <label className="form-label">Issue Date</label>
+                  <input className="form-input" type="date" value={form.issueDate} onChange={e => setForm(p => ({ ...p, issueDate: e.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Due Date *</label>
+                  <input className="form-input" type="date" value={form.dueDate} onChange={e => setForm(p => ({ ...p, dueDate: e.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Status</label>
+                  <select className="form-select" value={form.status} onChange={e => setForm(p => ({ ...p, status: e.target.value }))}>
+                    <option value="unpaid">Unpaid</option>
+                    <option value="paid">Paid</option>
+                    <option value="partial">Partial</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Invoice PDF URL / Reference</label>
+                <div className="search-wrapper">
+                  <FileText className="search-icon" size={16} />
+                  <input className="form-input" style={{ paddingLeft: 36 }} value={form.pdfUrl} onChange={e => setForm(p => ({ ...p, pdfUrl: e.target.value }))} placeholder="https://storage.link/invoice.pdf" />
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+        {!isSaved && (
+          <div className="modal-footer">
+            <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+            <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
+              {saving ? 'Saving...' : 'Create & Save Invoice'}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function Billing() {
-  const { invoices, clients } = useApp();
+  const { invoices, clients, addInvoice } = useApp();
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('All');
   const [viewInvoice, setViewInvoice] = useState(null);
+  const [showAddModal, setShowAddModal] = useState(false);
   const [tab, setTab] = useState('invoices');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(5);
+
 
 
   const filtered = invoices.filter(inv => {
@@ -113,8 +241,9 @@ export default function Billing() {
         </div>
         <div className="flex gap-2">
           <button className="btn btn-secondary btn-sm"><Download size={14} /> Export</button>
-          <button className="btn btn-primary btn-sm"><Plus size={15} /> New Invoice</button>
+          <button className="btn btn-primary btn-sm" onClick={() => setShowAddModal(true)}><Plus size={15} /> New Invoice</button>
         </div>
+
       </div>
 
       {/* KPIs */}
@@ -216,56 +345,78 @@ export default function Billing() {
       )}
 
       {tab === 'subscriptions' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {clients.map(client => (
-            <div key={client.id} className="card" style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-              <div className="avatar" style={{ background: 'var(--gradient-brand)' }}>{client.companyName.slice(0,2).toUpperCase()}</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 700, fontSize: 14 }}>{client.companyName}</div>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', gap: 12, marginTop: 4 }}>
-                  <span>Plan: {(client.products || []).join(', ')}</span>
-                  <span>Duration: {client.contractDuration}</span>
-                  <span>Renewal: {client.renewalDate}</span>
-                </div>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontWeight: 800, fontSize: 16, color: '#6366f1' }}>₹{(client.orderValue/1000).toFixed(0)}K</div>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>per year</div>
-              </div>
-              <span className={`badge ${client.status === 'active' ? 'badge-success' : 'badge-warning'}`} style={{ fontSize: 12 }}>
-                {client.status === 'renewal_due' ? '⚠️ Renewal Due' : 'Active'}
-              </span>
-            </div>
-          ))}
+        <div className="table-wrapper">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Client</th>
+                <th>Plan Details</th>
+                <th>Duration</th>
+                <th>Renewal Date</th>
+                <th style={{ textAlign: 'right' }}>Annual Value</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {clients.map(client => (
+                <tr key={client.id}>
+                  <td>
+                    <div className="flex items-center gap-2">
+                      <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--bg-surface-active)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>
+                        {client.companyName.slice(0,2).toUpperCase()}
+                      </div>
+                      <div style={{ fontWeight: 600 }}>{client.companyName}</div>
+                    </div>
+                  </td>
+                  <td>
+                    <div className="flex gap-1 flex-wrap">
+                      {(client.products || []).map(p => <span key={p} className="badge badge-neutral">{p}</span>)}
+                    </div>
+                  </td>
+                  <td style={{ color: 'var(--text-secondary)' }}>{client.contractDuration}</td>
+                  <td style={{ fontWeight: 500 }}>{client.renewalDate}</td>
+                  <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--accent-blue)' }}>
+                    ₹{(client.orderValue/1000).toFixed(0)}K
+                  </td>
+                  <td>
+                    <span className={`badge ${client.status === 'active' ? 'badge-success' : 'badge-warning'}`}>
+                      {client.status === 'renewal_due' ? 'Renewal Due' : 'Active'}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
+
       {tab === 'usage billing' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+        <div className="studio-card-grid">
           {[
-            { label: 'AI Calling (STT)', unit: 'per minute', rate: '₹2.50', usage: '19,210 min', total: '₹48,025', color: '#6366f1', icon: Zap },
-            { label: 'Text-to-Speech (TTS)', unit: 'per 1K chars', rate: '₹1.20', usage: '8,430 min', total: '₹10,116', color: '#06b6d4', icon: Zap },
-            { label: 'LLM Tokens (GPT-4o)', unit: 'per 1K tokens', rate: '₹0.024', usage: '48.2M tokens', total: '₹1,157', color: '#8b5cf6', icon: Zap },
-            { label: 'Sentiment Analysis', unit: 'per call', rate: '₹0.50', usage: '2,980 calls', total: '₹1,490', color: '#10b981', icon: Zap },
+            { label: 'AI Calling (STT)', unit: 'per minute', rate: '₹2.50', usage: '19,210 min', total: '₹48,025', color: 'blue', icon: Zap },
+            { label: 'Text-to-Speech (TTS)', unit: 'per 1K chars', rate: '₹1.20', usage: '8,430 min', total: '₹10,116', color: 'yellow', icon: Zap },
+            { label: 'LLM Tokens (GPT-4o)', unit: 'per 1K tokens', rate: '₹0.024', usage: '48.2M tokens', total: '₹1,157', color: 'purple', icon: Zap },
+            { label: 'Sentiment Analysis', unit: 'per call', rate: '₹0.50', usage: '2,980 calls', total: '₹1,490', color: 'green', icon: Zap },
           ].map((item, i) => (
-            <div key={i} className="card" style={{ borderColor: `${item.color}20` }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-                <div style={{ width: 36, height: 36, borderRadius: 10, background: `${item.color}20`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <item.icon size={16} color={item.color} />
+            <div key={i} className="studio-card">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+                <div className={`card-icon-wrapper ${item.color}`} style={{ margin: 0 }}>
+                  <item.icon size={16} />
                 </div>
                 <div>
-                  <div style={{ fontWeight: 700, fontSize: 14 }}>{item.label}</div>
+                  <div className="card-title" style={{ margin: 0 }}>{item.label}</div>
                   <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{item.rate} {item.unit}</div>
                 </div>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
                 <div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Usage</div>
-                  <div style={{ fontWeight: 700, fontSize: 15, marginTop: 2 }}>{item.usage}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Total Usage</div>
+                  <div style={{ fontWeight: 600, fontSize: 15 }}>{item.usage}</div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Cost</div>
-                  <div style={{ fontWeight: 800, fontSize: 18, color: item.color, marginTop: 2 }}>{item.total}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Accrued Cost</div>
+                  <div style={{ fontWeight: 700, fontSize: 20, color: 'var(--text-primary)' }}>{item.total}</div>
                 </div>
               </div>
             </div>
@@ -273,24 +424,27 @@ export default function Billing() {
         </div>
       )}
 
+
       {tab === 'integrations' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16 }}>
+        <div className="studio-card-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
           {[
-            { name: 'Razorpay', status: 'Connected', color: '#06b6d4', desc: 'Payment gateway for invoice collection' },
-            { name: 'Stripe', status: 'Not Connected', color: '#8b5cf6', desc: 'International payment processing' },
-            { name: 'Tally', status: 'Not Connected', color: '#f59e0b', desc: 'Accounting & GST filing integration' },
-            { name: 'Zoho Books', status: 'Not Connected', color: '#10b981', desc: 'Cloud accounting & invoicing' },
-            { name: 'GST Portal', status: 'Connected', color: '#ef4444', desc: 'Auto GST calculation & filing' },
-            { name: 'E-Sign', status: 'Coming Soon', color: '#6366f1', desc: 'Electronic contract signing' },
+            { name: 'Razorpay', status: 'Connected', color: 'blue', desc: 'Payment gateway for invoice collection' },
+            { name: 'Stripe', status: 'Not Connected', color: 'purple', desc: 'International payment processing' },
+            { name: 'Tally', status: 'Not Connected', color: 'yellow', desc: 'Accounting & GST filing integration' },
+            { name: 'Zoho Books', status: 'Not Connected', color: 'green', desc: 'Cloud accounting & invoicing' },
+            { name: 'GST Portal', status: 'Connected', color: 'red', desc: 'Auto GST calculation & filing' },
+            { name: 'E-Sign', status: 'Coming Soon', color: 'gray', desc: 'Electronic contract signing' },
           ].map((int, i) => (
-            <div key={i} className="card">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
-                <div style={{ width: 40, height: 40, borderRadius: 10, background: `${int.color}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12, color: int.color }}>{int.name.slice(0,2)}</div>
-                <span className={`badge ${int.status === 'Connected' ? 'badge-success' : int.status === 'Coming Soon' ? 'badge-neutral' : 'badge-danger'}`}>{int.status}</span>
+            <div key={i} className="studio-card" style={{ justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+                  <div className={`card-icon-wrapper ${int.color}`} style={{ margin: 0, fontWeight: 800, fontSize: 12 }}>{int.name.slice(0,2)}</div>
+                  <span className={`badge ${int.status === 'Connected' ? 'badge-success' : int.status === 'Coming Soon' ? 'badge-neutral' : 'badge-danger'}`}>{int.status}</span>
+                </div>
+                <div className="card-title">{int.name}</div>
+                <div className="card-desc" style={{ marginBottom: 20 }}>{int.desc}</div>
               </div>
-              <div style={{ fontWeight: 700, marginBottom: 4 }}>{int.name}</div>
-              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>{int.desc}</div>
-              <button className="btn btn-secondary btn-sm w-full" style={{ justifyContent: 'center' }} disabled={int.status === 'Coming Soon'}>
+              <button className="btn btn-secondary btn-sm w-full" disabled={int.status === 'Coming Soon'}>
                 {int.status === 'Connected' ? 'Manage' : int.status === 'Coming Soon' ? 'Soon' : 'Connect'}
               </button>
             </div>
@@ -298,7 +452,10 @@ export default function Billing() {
         </div>
       )}
 
+
       {viewInvoice && <InvoiceModal invoice={viewInvoice} onClose={() => setViewInvoice(null)} />}
+      {showAddModal && <NewInvoiceModal onClose={() => setShowAddModal(false)} onSave={addInvoice} clients={clients} />}
     </div>
+
   );
 }

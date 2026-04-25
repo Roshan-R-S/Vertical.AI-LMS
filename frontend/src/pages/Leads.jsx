@@ -2,10 +2,19 @@ import { useState } from 'react';
 import {
   Plus, Search, Filter, Eye, Edit2, Trash2, Phone, Mail,
   MessageSquare, Calendar, Star, Upload, ChevronDown,
-  ArrowUpRight, Mic, Brain, TrendingUp, X, CheckCircle
+  ArrowUpRight, Mic, Brain, TrendingUp, X, CheckCircle,
+  GripVertical
 } from 'lucide-react';
 import { useApp } from '../context/AppContextCore';
 import Pagination from '../components/Pagination';
+import { 
+  DndContext, 
+  useDraggable, 
+  useDroppable, 
+  PointerSensor, 
+  useSensor, 
+  useSensors 
+} from '@dnd-kit/core';
 
 
 const MILESTONE_COLORS = {
@@ -14,12 +23,100 @@ const MILESTONE_COLORS = {
   'Won': '#10b981', 'Lost': '#ef4444'
 };
 
+function DraggableCard({ lead, onView }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: lead.id,
+  });
+
+  const style = {
+    transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 1000 : 1,
+    cursor: 'grab',
+  };
+
+  return (
+    <div 
+      ref={setNodeRef} 
+      style={style} 
+      {...attributes} 
+      {...listeners}
+      className="kanban-card"
+      onClick={(e) => {
+        // Prevent click if we were dragging
+        if (transform && (Math.abs(transform.x) > 5 || Math.abs(transform.y) > 5)) return;
+        onView(lead);
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+        <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-primary)' }}>{lead.companyName}</div>
+        <GripVertical size={14} color="var(--text-muted)" />
+      </div>
+      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 12 }}>{lead.contactName}</div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span style={{ fontSize: 13, fontWeight: 700 }}>₹{(lead.value / 1000).toFixed(0)}K</span>
+        <span style={{ 
+          fontSize: 10, 
+          fontWeight: 700, 
+          color: lead.score >= 80 ? '#10b981' : '#f59e0b', 
+          background: 'rgba(255,255,255,0.05)', 
+          padding: '2px 6px', 
+          borderRadius: 4,
+          border: '1px solid rgba(255,255,255,0.1)'
+        }}>
+          {lead.score}
+        </span>
+      </div>
+      <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.05)', fontSize: 11, color: 'var(--text-secondary)', display: 'flex', justifyContent: 'space-between' }}>
+        <span>By: {lead.assignedBDE}</span>
+        <span style={{ opacity: 0.7 }}>{lead.source}</span>
+      </div>
+    </div>
+  );
+}
+
+function DroppableColumn({ milestone, children, count }) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: milestone.id,
+  });
+
+  return (
+    <div 
+      ref={setNodeRef} 
+      className={`kanban-column ${isOver ? 'is-over' : ''}`}
+      style={{ 
+        background: isOver ? 'rgba(255,255,255,0.05)' : 'var(--bg-surface)', 
+        borderRadius: 16, 
+        padding: 16, 
+        minWidth: 300, 
+        flex: '0 0 auto', 
+        border: `1px solid ${isOver ? milestone.color : 'var(--border-subtle)'}`,
+        transition: 'all 0.2s ease'
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+        <span style={{ color: milestone.color, fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', gap: 10, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+          <div style={{ width: 8, height: 8, borderRadius: '50%', background: milestone.color, boxShadow: `0 0 10px ${milestone.color}` }}></div> 
+          {milestone.name}
+        </span>
+        <span style={{ fontSize: 11, background: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: 10, color: 'var(--text-muted)', fontWeight: 600 }}>{count}</span>
+      </div>
+      <div style={{ minHeight: 500 }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 function LeadModal({ lead, onClose, onSave, milestones, dispositions }) {
+  const { currentUser } = useApp();
+  const [isCustomSource, setIsCustomSource] = useState(false);
   const [form, setForm] = useState(lead || {
     companyName: '', contactName: '', email: '', phone: '', source: 'Website',
     assignedBDE: '', milestone: 'New', disposition: 'Not Contacted',
     value: '', priority: 'Medium', notes: '', tags: []
   });
+
 
   const milestoneDis = dispositions.filter(d => {
     const m = milestones.find(m => m.name === form.milestone);
@@ -44,11 +141,34 @@ function LeadModal({ lead, onClose, onSave, milestones, dispositions }) {
               <input className="form-input" value={form.contactName} onChange={e => setForm(p => ({ ...p, contactName: e.target.value }))} placeholder="Suresh Reddy" />
             </div>
             <div className="form-group">
-              <label className="form-label">Lead Source</label>
-              <select className="form-select" value={form.source} onChange={e => setForm(p => ({ ...p, source: e.target.value }))}>
-                {['Website', 'LinkedIn', 'Google Ads', 'Referral', 'Cold Call', 'Partner', 'API'].map(s => <option key={s}>{s}</option>)}
-              </select>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <label className="form-label" style={{ marginBottom: 0 }}>Lead Source</label>
+                {currentUser?.role === 'Super Admin' && (
+                  <button 
+                    type="button"
+                    className="btn btn-ghost btn-sm" 
+                    style={{ padding: '0 4px', height: 'auto', fontSize: 10, color: 'var(--accent-blue)', background: 'transparent', border: 'none' }}
+                    onClick={() => setIsCustomSource(!isCustomSource)}
+                  >
+                    {isCustomSource ? '← Select' : '+ Add New'}
+                  </button>
+                )}
+              </div>
+              {isCustomSource ? (
+                <input 
+                  className="form-input" 
+                  value={form.source} 
+                  onChange={e => setForm(p => ({ ...p, source: e.target.value }))} 
+                  placeholder="Enter source name"
+                  autoFocus
+                />
+              ) : (
+                <select className="form-select" value={form.source} onChange={e => setForm(p => ({ ...p, source: e.target.value }))}>
+                  {['Website', 'LinkedIn', 'Google Ads', 'Referral', 'Cold Call', 'Partner', 'API'].map(s => <option key={s}>{s}</option>)}
+                </select>
+              )}
             </div>
+
           </div>
           <div className="form-grid">
             <div className="form-group">
@@ -250,8 +370,30 @@ export default function Leads() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(5);
 
+  // DND Configuration
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  );
 
+  const handleDragEnd = (event) => {
+    const { active, over } = event;
+    if (!over) return;
 
+    const leadId = active.id;
+    const newMilestoneId = over.id;
+    const lead = leads.find(l => l.id === leadId);
+    const milestone = milestones.find(m => m.id === newMilestoneId);
+    
+    if (lead && lead.milestoneId !== newMilestoneId) {
+      if (window.confirm(`Move "${lead.companyName}" to stage: ${milestone.name}?`)) {
+        updateLead(leadId, { milestoneId: newMilestoneId });
+      }
+    }
+  };
 
   const filtered = leads.filter(l => {
     const matchSearch = !search || l.companyName.toLowerCase().includes(search.toLowerCase()) || l.contactName.toLowerCase().includes(search.toLowerCase());
@@ -412,35 +554,22 @@ export default function Leads() {
           </table>
         ) : (
           // Kanban View
-          <div style={{ padding: 16 }}>
-            <div style={{ display: 'flex', gap: 16, overflowX: 'auto', paddingBottom: 16, minHeight: 600, alignItems: 'flex-start' }}>
-              {milestones.filter(m => !['Deal Closed', 'Not Interested'].includes(m.name)).map(m => {
-                const stageLeads = filtered.filter(l => l.milestone === m.name);
-                return (
-                  <div key={m.id} style={{ background: 'var(--bg-surface)', borderRadius: 12, padding: 12, minWidth: 280, flex: '0 0 auto', border: '1px solid var(--border-subtle)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                      <span style={{ color: m.color, fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: m.color }}></div> 
-                        {m.name}
-                      </span>
-                      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{stageLeads.length}</span>
-                    </div>
-                    {stageLeads.map(lead => (
-                      <div key={lead.id} onClick={() => setViewLead(lead)} style={{ background: 'var(--bg-card)', borderRadius: 8, padding: 12, marginBottom: 8, cursor: 'pointer', border: '1px solid var(--border-default)', transition: 'background 0.2s' }}>
-                        <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 2 }}>{lead.companyName}</div>
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8 }}>{lead.contactName}</div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: 13, fontWeight: 700 }}>₹{(lead.value / 1000).toFixed(0)}K</span>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: lead.score >= 80 ? '#10b981' : '#f59e0b', background: 'var(--bg-surface)', padding: '2px 6px', borderRadius: 4 }}>{lead.score}</span>
-                        </div>
-                        <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-secondary)' }}>By: {lead.assignedBDE}</div>
-                      </div>
-                    ))}
-                  </div>
-                );
-              })}
+          <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+            <div style={{ padding: 16 }}>
+              <div style={{ display: 'flex', gap: 20, overflowX: 'auto', paddingBottom: 24, minHeight: 650, alignItems: 'flex-start' }}>
+                {milestones.filter(m => !['Deal Closed', 'Not Interested'].includes(m.name)).map(m => {
+                  const stageLeads = filtered.filter(l => l.milestoneId === m.id);
+                  return (
+                    <DroppableColumn key={m.id} milestone={m} count={stageLeads.length}>
+                      {stageLeads.map(lead => (
+                        <DraggableCard key={lead.id} lead={lead} onView={setViewLead} />
+                      ))}
+                    </DroppableColumn>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          </DndContext>
         )}
         
         {viewMode === 'table' && (

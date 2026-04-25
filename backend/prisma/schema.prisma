@@ -282,7 +282,9 @@ model Invoice {
   dueDate       DateTime
   paidDate      DateTime?
   paidAmount    Float?
+  pdfUrl        String?
   items         InvoiceItem[]
+
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 

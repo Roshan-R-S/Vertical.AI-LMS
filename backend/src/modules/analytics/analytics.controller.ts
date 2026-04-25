@@ -3,9 +3,80 @@ import { prisma } from '../../prisma';
 import { getLeadScopeFilter, getTaskScopeFilter } from '../../utils/scoping';
 import { Role } from '@prisma/client';
 
+function getDateRangeForPeriod(period: string) {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+
+  if (period === 'today') {
+    const start = new Date(now.setHours(0, 0, 0, 0));
+    const end = new Date(now.setHours(23, 59, 59, 999));
+    return { gte: start, lte: end };
+  }
+
+  if (period === 'this-week') {
+    const day = now.getDay();
+    const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Adjust for Monday start
+    const start = new Date(now.setDate(diff));
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 6);
+    end.setHours(23, 59, 59, 999);
+    return { gte: start, lte: end };
+  }
+
+  if (period === 'this-month' || period === 'month-0') {
+    return {
+      gte: new Date(year, month, 1),
+      lte: new Date(year, month + 1, 0, 23, 59, 59),
+    };
+  }
+
+  if (period === 'last-month' || period === 'month-1') {
+    return {
+      gte: new Date(year, month - 1, 1),
+      lte: new Date(year, month, 0, 23, 59, 59),
+    };
+  }
+
+  if (period === 'current-quarter') {
+    const qStartMonth = Math.floor(month / 3) * 3;
+    return {
+      gte: new Date(year, qStartMonth, 1),
+      lte: new Date(year, qStartMonth + 3, 0, 23, 59, 59),
+    };
+  }
+
+  if (period === 'current-year') {
+    return {
+      gte: new Date(year, 0, 1),
+      lte: new Date(year, 11, 31, 23, 59, 59),
+    };
+  }
+
+  if (period?.startsWith('month-')) {
+    const offset = parseInt(period.split('-')[1]);
+    const d = new Date(year, month - offset, 1);
+    return {
+      gte: d,
+      lte: new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59),
+    };
+  }
+
+  // Default to this month
+  return {
+    gte: new Date(year, month, 1),
+    lte: new Date(year, month + 1, 0, 23, 59, 59),
+  };
+}
+
 // GET /api/v1/analytics/dashboard
 export async function getDashboard(req: Request, res: Response) {
   const user = (req as any).user;
+  const period = (req.query.period as string) || 'this-month';
+  const dateFilter = getDateRangeForPeriod(period);
+
+  // We only apply dateFilter to leads and tasks related counts
   const leadScope = getLeadScopeFilter(user);
   const taskScope = getTaskScopeFilter(user);
 
@@ -15,16 +86,16 @@ export async function getDashboard(req: Request, res: Response) {
     milestones, staleLeads, overdueFollowUps,
     sourceGroups, allLeads, bdeUsers,
   ] = await Promise.all([
-    prisma.lead.count({ where: leadScope }),
-    prisma.lead.count({ where: { ...leadScope, status: 'active' } }),
-    prisma.lead.count({ where: { ...leadScope, status: 'won' } }),
-    prisma.lead.count({ where: { ...leadScope, status: 'lost' } }),
-    prisma.lead.aggregate({ _sum: { value: true }, where: { ...leadScope, status: 'active' } }),
-    prisma.lead.aggregate({ _sum: { value: true }, where: { ...leadScope, status: 'won' } }),
+    prisma.lead.count({ where: { ...leadScope, createdAt: dateFilter } }),
+    prisma.lead.count({ where: { ...leadScope, status: 'active', createdAt: dateFilter } }),
+    prisma.lead.count({ where: { ...leadScope, status: 'won', updatedAt: dateFilter } }),
+    prisma.lead.count({ where: { ...leadScope, status: 'lost', updatedAt: dateFilter } }),
+    prisma.lead.aggregate({ _sum: { value: true }, where: { ...leadScope, status: 'active', createdAt: dateFilter } }),
+    prisma.lead.aggregate({ _sum: { value: true }, where: { ...leadScope, status: 'won', updatedAt: dateFilter } }),
     prisma.milestone.findMany({ 
       include: { 
         _count: { 
-          select: { leads: { where: leadScope } } 
+          select: { leads: { where: { ...leadScope, createdAt: dateFilter } } } 
         } 
       }, 
       orderBy: { order: 'asc' } 
@@ -40,10 +111,10 @@ export async function getDashboard(req: Request, res: Response) {
     prisma.lead.groupBy({ 
       by: ['source'], 
       _count: { id: true }, 
-      where: { ...leadScope, source: { not: null } } 
+      where: { ...leadScope, source: { not: null }, createdAt: dateFilter } 
     }),
     prisma.lead.findMany({
-      where: leadScope,
+      where: { ...leadScope, createdAt: dateFilter },
       select: { createdAt: true, value: true, probability: true, status: true },
     }),
     prisma.user.findMany({
@@ -57,9 +128,14 @@ export async function getDashboard(req: Request, res: Response) {
         team: true,
         assignedLeads: {
           select: { value: true, status: true },
-          where: { status: 'won' },
+          where: { status: 'won', updatedAt: dateFilter },
         },
-        _count: { select: { interactions: true, assignedLeads: true } },
+        _count: { 
+          select: { 
+            interactions: { where: { createdAt: dateFilter } }, 
+            assignedLeads: { where: { createdAt: dateFilter } } 
+          } 
+        },
       },
     }),
   ]);
@@ -125,9 +201,13 @@ export async function getDashboard(req: Request, res: Response) {
   });
 }
 
-// GET /api/v1/analytics/leaderboard?period=month
+
+// GET /api/v1/analytics/leaderboard?period=month-0
 export async function getLeaderboard(req: Request, res: Response) {
   const user = (req as any).user;
+  const period = (req.query.period as string) || 'month-0';
+  const dateFilter = getDateRangeForPeriod(period);
+
   const bdeUsers = await prisma.user.findMany({
     where: { 
       role: 'BDE', 
@@ -138,10 +218,19 @@ export async function getLeaderboard(req: Request, res: Response) {
     include: {
       team: true,
       assignedLeads: {
-        where: { status: 'won' },
+        where: { 
+          status: 'won',
+          updatedAt: dateFilter, // Using updatedAt as "wonAt" proxy
+        },
         select: { value: true },
       },
-      _count: { select: { interactions: true } },
+      _count: { 
+        select: { 
+          interactions: {
+            where: { createdAt: dateFilter }
+          } 
+        } 
+      },
     },
     orderBy: { name: 'asc' },
   });
@@ -173,7 +262,14 @@ export async function getLeaderboard(req: Request, res: Response) {
       if (!tl.teamId) return { tl, revenue: 0 };
       const teamBDEs = await prisma.user.findMany({ where: { teamId: tl.teamId, role: 'BDE' } });
       const bdeIds = teamBDEs.map(b => b.id);
-      const agg = await prisma.lead.aggregate({ _sum: { value: true }, where: { assignedToId: { in: bdeIds }, status: 'won' } });
+      const agg = await prisma.lead.aggregate({ 
+        _sum: { value: true }, 
+        where: { 
+          assignedToId: { in: bdeIds }, 
+          status: 'won',
+          updatedAt: dateFilter 
+        } 
+      });
       return { tl, revenue: agg._sum.value ?? 0 };
     })
   );

@@ -262,7 +262,8 @@ export default function Clients() {
           <h1 className="page-title">Clients</h1>
           <p className="page-subtitle">{filtered.length} active clients • ₹{(totalARR / 100000).toFixed(1)}L ARR</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+
           <button className="btn btn-primary btn-sm" onClick={() => setShowAdd(true)}><Plus size={15} /> Add Client</button>
         </div>
       </div>

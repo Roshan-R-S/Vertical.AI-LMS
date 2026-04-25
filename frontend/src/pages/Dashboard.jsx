@@ -50,13 +50,21 @@ export default function Dashboard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState('This Month');
+  const rangeMap = {
+    'Today': 'today',
+    'This Week': 'this-week',
+    'This Month': 'this-month',
+    'Last Month': 'last-month',
+    'Custom Range': 'this-month'
+  };
 
   useEffect(() => {
-    api.get('/analytics/dashboard')
+    const period = rangeMap[dateRange] || 'this-month';
+    api.get(`/analytics/dashboard?period=${period}`)
       .then(res => setData(res))
       .catch(err => console.error(err))
       .finally(() => setLoading(false));
-  }, []);
+  }, [dateRange]);
 
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
@@ -84,13 +92,27 @@ export default function Dashboard() {
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
           <div className="search-input-wrapper" style={{ width: 'auto' }}>
             <Calendar size={14} className="search-icon" />
-            <select className="form-select" value={dateRange} onChange={(e) => setDateRange(e.target.value)} style={{ paddingLeft: 36, height: 38, background: 'transparent', border: 'none', fontSize: 13 }}>
+            <select 
+              className="form-select" 
+              value={dateRange} 
+              onChange={(e) => {
+                setDateRange(e.target.value);
+                setLoading(true);
+              }} 
+              style={{ 
+                paddingLeft: 36, 
+                height: 38, 
+                background: 'rgba(255, 255, 255, 0.05)', 
+                border: '1px solid var(--border-default)', 
+                borderRadius: 8,
+                fontSize: 13,
+                color: 'var(--text-primary)',
+                cursor: 'pointer'
+              }}
+            >
               {['Today', 'This Week', 'This Month', 'Last Month', 'Custom Range'].map(opt => <option key={opt}>{opt}</option>)}
             </select>
           </div>
-          <button className="btn btn-primary" style={{ height: 38, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Filter size={14} /> Filters
-          </button>
         </div>
       </div>
 

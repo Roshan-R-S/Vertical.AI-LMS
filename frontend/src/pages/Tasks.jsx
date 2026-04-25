@@ -4,7 +4,8 @@ import { CheckCircle, Clock, AlertTriangle, User, Calendar, Plus, X } from 'luci
 import Pagination from '../components/Pagination';
 
 
-function TaskModal({ onClose, onSave, currentUser, users }) {
+function TaskModal({ onClose, onSave, currentUser, users, leads }) {
+
   const [form, setForm] = useState({
     title: '',
     leadId: '',
@@ -13,6 +14,9 @@ function TaskModal({ onClose, onSave, currentUser, users }) {
     tl: currentUser?.role === 'Team Lead' ? currentUser.name : '',
     status: 'pending'
   });
+
+  const availableLeads = leads || [];
+
 
   const availableBDEs = users.filter(u => 
     u.role === 'BDE' && (currentUser?.role !== 'Team Lead' || u.team === currentUser.team)
@@ -32,9 +36,13 @@ function TaskModal({ onClose, onSave, currentUser, users }) {
           </div>
           <div className="form-grid">
             <div className="form-group">
-              <label className="form-label">Linked Lead ID (Optional)</label>
-              <input className="form-input" value={form.leadId} onChange={e => setForm(p => ({ ...p, leadId: e.target.value }))} placeholder="L001" />
+              <label className="form-label">Linked Lead / Deal</label>
+              <select className="form-select" value={form.leadId} onChange={e => setForm(p => ({ ...p, leadId: e.target.value }))}>
+                <option value="">None / Independent</option>
+                {availableLeads.map(l => <option key={l.id} value={l.id}>{l.companyName}</option>)}
+              </select>
             </div>
+
             <div className="form-group">
               <label className="form-label">Due Date</label>
               <input className="form-input" type="date" value={form.dueDate} onChange={e => setForm(p => ({ ...p, dueDate: e.target.value }))} />
@@ -68,7 +76,8 @@ function TaskModal({ onClose, onSave, currentUser, users }) {
 }
 
 export default function Tasks() {
-  const { currentUser, users, tasks, addTask, updateTask } = useApp();
+  const { currentUser, users, tasks, leads, addTask, updateTask } = useApp();
+
   const [filterStatus, setFilterStatus] = useState('All');
   const [showModal, setShowModal] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -161,7 +170,10 @@ export default function Tasks() {
 
               <tr key={task.id}>
                 <td style={{ fontWeight: 600 }}>{task.title}</td>
-                <td style={{ color: 'var(--brand-primary-light)' }}>{task.leadId}</td>
+                <td style={{ color: 'var(--brand-primary-light)', fontSize: 13 }}>
+                  {leads.find(l => l.id === task.leadId)?.companyName || task.leadId || '—'}
+                </td>
+
                 {currentUser?.role !== 'BDE' && (
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -209,7 +221,9 @@ export default function Tasks() {
           onSave={addTask}
           currentUser={currentUser}
           users={users}
+          leads={leads}
         />
+
       )}
     </div>
   );

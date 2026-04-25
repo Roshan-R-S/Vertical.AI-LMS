@@ -4,20 +4,42 @@ import { api } from '../utils/api';
 import Pagination from '../components/Pagination';
 
 
+const generateFilterOptions = () => {
+  const now = new Date();
+  const options = [];
+  
+  // Last 3 months
+  for (let i = 0; i < 3; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const label = d.toLocaleString('default', { month: 'long', year: 'numeric' });
+    options.push({ label, value: `month-${i}` });
+  }
+  
+  // Current Quarter
+  const q = Math.floor(now.getMonth() / 3) + 1;
+  options.push({ label: `Q${q} ${now.getFullYear()}`, value: 'current-quarter' });
+  
+  // Current Year
+  options.push({ label: `Year ${now.getFullYear()}`, value: 'current-year' });
+  
+  return options;
+};
+
 export default function Leaderboard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [filterPeriod, setFilterPeriod] = useState('April 2026');
+  const [filterPeriod, setFilterPeriod] = useState('month-0');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(5);
 
-  
+  const filterOptions = generateFilterOptions();
+
   useEffect(() => {
-    api.get('/analytics/leaderboard')
+    api.get(`/analytics/leaderboard?period=${filterPeriod}`)
       .then(res => setData(res))
       .catch(err => console.error(err))
       .finally(() => setLoading(false));
-  }, []);
+  }, [filterPeriod]);
 
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
@@ -41,8 +63,22 @@ export default function Leaderboard() {
           <h1 className="page-title">Leaderboard & Awards</h1>
         </div>
         <div style={{ display: 'flex', gap: 12 }}>
-          <select className="form-select" value={filterPeriod} onChange={(e) => setFilterPeriod(e.target.value)}>
-            {['February 2026', 'March 2026', 'April 2026', 'Q1 2026', 'Year 2026'].map(m => <option key={m}>{m}</option>)}
+          <select 
+            className="form-select" 
+            value={filterPeriod} 
+            onChange={(e) => { setFilterPeriod(e.target.value); setLoading(true); }}
+            style={{
+              height: 38,
+              background: 'rgba(255, 255, 255, 0.05)',
+              border: '1px solid var(--border-default)',
+              borderRadius: 8,
+              padding: '0 12px',
+              fontSize: 13,
+              color: 'var(--text-primary)',
+              cursor: 'pointer'
+            }}
+          >
+            {filterOptions.map(opt => <option key={opt.value} value={opt.value} style={{ background: '#1a1a1a' }}>{opt.label}</option>)}
           </select>
         </div>
       </div>

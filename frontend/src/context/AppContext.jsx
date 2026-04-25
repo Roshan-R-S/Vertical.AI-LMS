@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { api } from '../utils/api';
 import { AppContext } from './AppContextCore';
 
@@ -209,6 +209,23 @@ export default function AppProvider({ children }) {
     }
   };
 
+  // Invoices
+  const addInvoice = async (invoice) => {
+    try {
+      const res = await api.post('/invoices', invoice);
+      // We need to transform the response to match the frontend format if necessary
+      // But getInvoices already does this. The POST response might be raw Prisma.
+      // Let's refetch initial data or just push a placeholder and let the user refresh.
+      // Better: fetch initial data to be sure.
+      await fetchInitialData();
+      return res;
+    } catch (err) {
+      alert(err.message);
+      throw err;
+    }
+  };
+
+
   return (
     <AppContext.Provider value={{
       theme, toggleTheme,
@@ -218,7 +235,9 @@ export default function AppProvider({ children }) {
       addUser, updateUser, toggleUserStatus,
       addTask, updateTask,
       addInteraction,
+      addInvoice,
       login, logout, loading,
+
     }}>
       {children}
     </AppContext.Provider>

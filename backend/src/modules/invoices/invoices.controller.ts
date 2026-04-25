@@ -38,6 +38,7 @@ export async function getInvoices(req: Request, res: Response) {
     paidDate: inv.paidDate ? new Date(inv.paidDate).toISOString().split('T')[0] : null,
     paidAmount: inv.paidAmount,
     items: inv.items.map(i => ({ desc: i.description, amount: i.amount })),
+    pdfUrl: inv.pdfUrl,
     _id: inv.id,
   })));
 }
@@ -57,12 +58,20 @@ export async function createInvoice(req: Request, res: Response) {
 
   const invoice = await prisma.invoice.create({
     data: {
-      invoiceNumber: num, clientId, amount, gst, total, status: 'unpaid',
+      invoiceNumber: num, 
+      clientId, 
+      amount, 
+      gst, 
+      total, 
+      status: req.body.status || 'unpaid',
+      issueDate: req.body.issueDate ? new Date(req.body.issueDate) : undefined,
       dueDate: new Date(dueDate),
+      pdfUrl: req.body.pdfUrl,
       items: items ? { create: items.map((i: any) => ({ description: i.desc, amount: i.amount })) } : undefined,
     },
     include: { client: true, items: true },
   });
+
   return res.status(201).json(invoice);
 }
 
