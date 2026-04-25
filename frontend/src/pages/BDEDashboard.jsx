@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContextCore';
 import { 
   Clock, PhoneCall, CheckCircle, Target, 
@@ -28,40 +28,52 @@ function FocusCard({ title, value, sub, icon: Icon, color, urgent = false }) {
 }
 
 export default function BDEDashboard() {
-  const { currentUser, leads, tasks } = useApp();
+  const { currentUser, leads, tasks, fetchDashboard } = useApp();
   const [dateRange, setDateRange] = useState('Today');
   const [customDates, setCustomDates] = useState({ start: '', end: '' });
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
   
+  useEffect(() => {
+    let period = 'today';
+    if (dateRange === 'Today') period = 'today';
+    if (dateRange === 'This Week') period = 'this-week';
+    if (dateRange === 'This Month') period = 'this-month';
+    
+    fetchDashboard(period).then(res => {
+      if (res) setData(res);
+      setLoading(false);
+    });
+  }, [dateRange, fetchDashboard]);
+
   // Filter for current BDE
-  const bdeTasks = tasks.filter(t => t.bde === currentUser.name);
-  const bdeLeads = leads.filter(l => l.assignedBDE === currentUser.name);
-  const today = new Date().toISOString().split('T')[0];
+  const bdeTasks = tasks.filter(t => t.assignedToId === currentUser.id);
+  const bdeLeads = leads.filter(l => l.assignedToId === currentUser.id);
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  if (loading || !data) {
+    return <div className="p-8 text-center"><Zap className="animate-spin" /> Loading performance data...</div>;
+  }
+
+  const { kpis, funnelData } = data;
 
   // 1. Today's Focus
-  const followUpsToday = bdeTasks.filter(t => t.dueDate === today && t.status !== 'completed').length;
+  const followUpsToday = bdeTasks.filter(t => t.dueDate === todayStr && t.status !== 'completed').length;
   const callbacksToday = bdeLeads.filter(l => l.disposition === 'Callback Requested').length;
   const highPriorityCount = bdeLeads.filter(l => l.priority === 'High' && l.status === 'active').length;
-  const overdueCount = bdeTasks.filter(t => t.dueDate < today && t.status !== 'completed').length;
+  const overdueCount = bdeTasks.filter(t => t.dueDate < todayStr && t.status !== 'completed').length;
 
-  // 2. Activity Summary (Mocked for current day)
+  // 2. Activity Summary (Based on real interactions)
   const activityData = [
-    { label: 'Calls Made', value: 18, target: 40, icon: PhoneCall, color: '#6366f1' },
-    { label: 'Connected', value: 12, target: 20, icon: Users, color: '#06b6d4' },
-    { label: 'Meetings', value: 2, target: 5, icon: Calendar, color: '#8b5cf6' },
-    { label: 'Tasks', value: 8, target: 15, icon: CheckCircle, color: '#10b981' },
-  ];
-
-  // 3. Pipeline Snapshot
-  const activeDeals = bdeLeads.filter(l => ['Demo Scheduled', 'Proposal Shared', 'Negotiation'].includes(l.milestone));
-  const stages = [
-    { name: 'Demo', count: bdeLeads.filter(l => l.milestone === 'Demo Scheduled').length },
-    { name: 'Proposal', count: bdeLeads.filter(l => l.milestone === 'Proposal Shared').length },
-    { name: 'Negotiation', count: bdeLeads.filter(l => l.milestone === 'Negotiation').length },
+    { label: 'Calls Made', value: kpis.totalLeads, target: 40, icon: PhoneCall, color: '#6366f1' },
+    { label: 'Active Pipeline', value: kpis.activeLeads, target: 20, icon: Users, color: '#06b6d4' },
+    { label: 'Deals Won', value: kpis.wonDeals, target: 5, icon: Calendar, color: '#8b5cf6' },
+    { label: 'Follow-ups Done', value: bdeTasks.filter(t => t.status === 'completed').length, target: 15, icon: CheckCircle, color: '#10b981' },
   ];
 
   // 4. Personal Tracker
   const monthlyTarget = 500000;
-  const achievedSoFar = bdeLeads.filter(l => l.status === 'won').reduce((sum, l) => sum + (l.value || 0), 0);
+  const achievedSoFar = kpis.closedRevenue;
   const remaining = Math.max(0, monthlyTarget - achievedSoFar);
   const progressPercent = Math.min(100, (achievedSoFar / monthlyTarget) * 100);
 
@@ -77,7 +89,7 @@ export default function BDEDashboard() {
             <div style={{ padding: '0 12px', borderRight: '1px solid var(--border-default)', display: 'flex', alignItems: 'center', background: 'var(--bg-card)' }}>
               <Calendar size={14} color="var(--text-muted)" />
             </div>
-            <select className="form-select" style={{ border: 'none', background: 'transparent', outline: 'none', minWidth: 120, fontSize: 13 }} value={dateRange} onChange={e => setDateRange(e.target.value)}>
+            <select className="form-select" style={{ border: 'none', background: 'transparent', outline: 'none', minWidth: 120, fontSize: 13 }} value={dateRange} onChange={e => { setLoading(true); setDateRange(e.target.value); }}>
               {['Today', 'This Week', 'This Month', 'Custom'].map(m => <option key={m}>{m}</option>)}
             </select>
           </div>
@@ -163,24 +175,24 @@ export default function BDEDashboard() {
         <div className="studio-card" style={{ padding: 24 }}>
           <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 20 }}>Quick Pipeline Snapshot</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {stages.map((stage, i) => (
+            {funnelData.map((stage, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                 <div style={{ width: 100, fontSize: 13, color: 'var(--text-secondary)' }}>{stage.name}</div>
                 <div style={{ flex: 1, height: 24, background: 'var(--bg-surface)', borderRadius: 12, position: 'relative', overflow: 'hidden' }}>
                   <div style={{ 
                     height: '100%', 
-                    width: `${Math.max(10, (stage.count / (bdeLeads.length || 1)) * 100)}%`, 
-                    background: i === 0 ? '#8b5cf6' : i === 1 ? '#3b82f6' : '#ec4899',
+                    width: `${Math.max(10, (stage.value / (kpis.totalLeads || 1)) * 100)}%`, 
+                    background: stage.fill || '#6366f1',
                     borderRadius: 12
                   }}></div>
-                  <span style={{ position: 'absolute', right: 12, top: 4, fontSize: 11, fontWeight: 700 }}>{stage.count}</span>
+                  <span style={{ position: 'absolute', right: 12, top: 4, fontSize: 11, fontWeight: 700 }}>{stage.value}</span>
                 </div>
               </div>
             ))}
           </div>
           <div style={{ marginTop: 24, padding: 16, borderTop: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Closing this week:</span>
-            <span style={{ fontSize: 18, fontWeight: 700, color: '#10b981' }}>₹1.85 L</span>
+            <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Weighted Value:</span>
+            <span style={{ fontSize: 18, fontWeight: 700, color: '#10b981' }}>₹{(kpis.weightedExpected / 100000).toFixed(2)} L</span>
           </div>
         </div>
 
@@ -191,22 +203,22 @@ export default function BDEDashboard() {
             <div style={{ display: 'flex', gap: 16, padding: '12px 16px', background: 'rgba(239, 68, 68, 0.05)', borderRadius: 12, border: '1px solid rgba(239, 68, 68, 0.1)' }}>
               <AlertTriangle size={18} color="#ef4444" style={{ flexShrink: 0 }} />
               <div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#ef4444' }}>Missed Follow-up</div>
-                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>You missed a callback with <b>TechNova Solutions</b> scheduled for 10 AM.</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#ef4444' }}>Missed Callbacks</div>
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>You have <b>{overdueCount}</b> overdue tasks that require immediate attention.</div>
               </div>
             </div>
             <div style={{ display: 'flex', gap: 16, padding: '12px 16px', background: 'rgba(245, 158, 11, 0.05)', borderRadius: 12, border: '1px solid rgba(245, 158, 11, 0.1)' }}>
               <Clock size={18} color="#f59e0b" style={{ flexShrink: 0 }} />
               <div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#f59e0b' }}>No Activity Leads</div>
-                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>4 leads haven't been contacted in the last 48 hours.</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#f59e0b' }}>Stale Leads</div>
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>{kpis.staleLeads} leads have had no activity in over 7 days.</div>
               </div>
             </div>
             <div style={{ display: 'flex', gap: 16, padding: '12px 16px', background: 'rgba(99, 102, 241, 0.05)', borderRadius: 12, border: '1px solid rgba(99, 102, 241, 0.1)' }}>
               <Zap size={18} color="#6366f1" style={{ flexShrink: 0 }} />
               <div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#6366f1' }}>High Value Lead Active</div>
-                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}><b>FinEdge Capital</b> just opened the proposal for the 3rd time today.</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#6366f1' }}>High Value Pipeline</div>
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>You have <b>{kpis.highValueProspects}</b> active leads worth &gt; ₹100K.</div>
               </div>
             </div>
           </div>

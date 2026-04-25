@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContextCore';
 import { 
   TrendingUp, Activity, Users, Target, Clock, AlertTriangle, 
@@ -14,24 +15,40 @@ import {
 const COLORS = ['#6366f1', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444'];
 
 export default function TLDashboard() {
-  const { currentUser, leads, tasks, users } = useApp();
-  const [dateRange, setDateRange] = useState('Today');
+  const navigate = useNavigate();
+  const { currentUser, users, fetchDashboard } = useApp();
+  const [dateRange, setDateRange] = useState('This Month');
   const [customDates, setCustomDates] = useState({ start: '', end: '' });
   const [selectedBDE, setSelectedBDE] = useState('All');
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   // Filter team-specific data
-  const teamBDEs = users.filter(u => u.team === currentUser.team && u.role === 'BDE');
-  const teamLeads = leads.filter(l => l.assignedTL === currentUser.name);
-  const teamTasks = tasks.filter(t => teamBDEs.some(b => b.name === t.bde));
+  // Filter team-specific data
+  const teamBDEs = users.filter(u => {
+    if (u.role !== 'BDE') return false;
+    if (currentUser?.role === 'Super Admin') return true;
+    if (!currentUser?.teamId) return !u.teamId; 
+    return u.teamId === currentUser.teamId;
+  });
 
-  // Mock data for trends
-  const TREND_DATA = [
-    { name: 'Mon', calls: 120, meetings: 12, conversion: 5 },
-    { name: 'Tue', calls: 145, meetings: 15, conversion: 8 },
-    { name: 'Wed', calls: 130, meetings: 10, conversion: 4 },
-    { name: 'Thu', calls: 160, meetings: 22, conversion: 12 },
-    { name: 'Fri', calls: 175, meetings: 25, conversion: 15 },
-  ];
+  useEffect(() => {
+    let period = 'this-month';
+    if (dateRange === 'Today') period = 'today';
+    if (dateRange === 'This Week') period = 'this-week';
+    if (dateRange === 'This Month') period = 'this-month';
+    
+    fetchDashboard(period, selectedBDE).then(res => {
+      if (res) setData(res);
+      setLoading(false);
+    });
+  }, [dateRange, selectedBDE, fetchDashboard]);
+
+  if (loading || !data) {
+    return <div className="p-8 text-center"><Activity className="animate-spin" /> Loading team analytics...</div>;
+  }
+
+  const { kpis, monthlyTrend, bdePerformance, funnelData } = data;
 
   return (
     <div className="animate-fadeIn">
@@ -46,7 +63,7 @@ export default function TLDashboard() {
             <div style={{ padding: '0 12px', borderRight: '1px solid var(--border-default)', display: 'flex', alignItems: 'center', background: 'var(--bg-card)' }}>
               <Calendar size={14} color="var(--text-muted)" />
             </div>
-            <select className="form-select" style={{ border: 'none', background: 'transparent', outline: 'none', minWidth: 120, fontSize: 13 }} value={dateRange} onChange={e => setDateRange(e.target.value)}>
+            <select className="form-select" style={{ border: 'none', background: 'transparent', outline: 'none', minWidth: 120, fontSize: 13 }} value={dateRange} onChange={e => { setLoading(true); setDateRange(e.target.value); }}>
               {['Today', 'This Week', 'This Month', 'Custom'].map(m => <option key={m}>{m}</option>)}
             </select>
           </div>
@@ -59,9 +76,9 @@ export default function TLDashboard() {
             </div>
           )}
 
-          <select className="form-select" style={{ width: 160, background: 'var(--bg-surface)' }} value={selectedBDE} onChange={e => setSelectedBDE(e.target.value)}>
+          <select className="form-select" style={{ width: 160, background: 'var(--bg-surface)' }} value={selectedBDE} onChange={e => { setLoading(true); setSelectedBDE(e.target.value); }}>
             <option value="All">All BDEs</option>
-            {teamBDEs.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
+            {teamBDEs.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
           </select>
         </div>
       </div>
@@ -80,8 +97,8 @@ export default function TLDashboard() {
               <PhoneCall size={16} color="#6366f1" />
               <div style={{ fontSize: 11, fontWeight: 700, color: '#10b981' }}>+12% vs Yesterday</div>
             </div>
-            <div style={{ fontSize: 28, fontWeight: 300 }}>185</div>
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>TOTAL CALLS MADE</div>
+            <div style={{ fontSize: 28, fontWeight: 300 }}>{kpis.activeLeads}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>ACTIVE LEADS</div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8 }}>Connect Rate: <b>62%</b></div>
           </div>
           
@@ -90,8 +107,8 @@ export default function TLDashboard() {
               <Users size={16} color="#8b5cf6" />
               <div style={{ fontSize: 11, fontWeight: 700, color: '#10b981' }}>{dateRange === 'Today' ? '4 Done' : '24 Done'}</div>
             </div>
-            <div style={{ fontSize: 28, fontWeight: 300 }}>12</div>
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>MEETINGS SCHEDULED</div>
+            <div style={{ fontSize: 28, fontWeight: 300 }}>{kpis.wonDeals}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>DEALS CLOSED</div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8 }}>Completion Rate: <b>78%</b></div>
           </div>
 
@@ -99,8 +116,8 @@ export default function TLDashboard() {
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
               <Timer size={16} color="#06b6d4" />
             </div>
-            <div style={{ fontSize: 28, fontWeight: 300 }}>14m</div>
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>AVG RESPONSE TIME</div>
+            <div style={{ fontSize: 28, fontWeight: 300 }}>{kpis.overdueFollowUps}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>OVERDUE TASKS</div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8 }}>Target SLA: 10m</div>
           </div>
 
@@ -108,8 +125,8 @@ export default function TLDashboard() {
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
               <CheckCircle size={16} color="#10b981" />
             </div>
-            <div style={{ fontSize: 28, fontWeight: 300 }}>88%</div>
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>TASK COMPLIANCE</div>
+            <div style={{ fontSize: 28, fontWeight: 300 }}>{kpis.staleLeads}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>STALE LEADS (&gt;7d)</div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8 }}><b>42/48</b> Tasks Done</div>
           </div>
         </div>
@@ -122,28 +139,27 @@ export default function TLDashboard() {
           <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 20, borderLeft: '3px solid #10b981', paddingLeft: 12, textTransform: 'uppercase' }}>B. Lagging Indicators (Outcomes)</h3>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <div style={{ padding: 16, background: 'var(--bg-surface)', borderRadius: 12 }}>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>REVENUE CLOSED (MTD)</div>
-              <div style={{ fontSize: 24, fontWeight: 600, color: '#10b981' }}>₹42,50,000</div>
-              <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>8 Deals Closed</div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>CLOSED REVENUE ({dateRange.toUpperCase()})</div>
+              <div style={{ fontSize: 24, fontWeight: 600, color: '#10b981' }}>₹{kpis.closedRevenue.toLocaleString()}</div>
+              <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>{kpis.wonDeals} Deals Closed</div>
             </div>
             <div style={{ padding: 16, background: 'var(--bg-surface)', borderRadius: 12 }}>
               <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>WIN RATE %</div>
-              <div style={{ fontSize: 24, fontWeight: 600 }}>24%</div>
-              <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>Avg Win/Loss: 1:3</div>
+              <div style={{ fontSize: 24, fontWeight: 600 }}>
+                {kpis.wonDeals + kpis.lostDeals > 0 
+                  ? Math.round((kpis.wonDeals / (kpis.wonDeals + kpis.lostDeals)) * 100) 
+                  : 0}%
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>Ratio: {kpis.wonDeals}:{kpis.lostDeals}</div>
             </div>
           </div>
           <div style={{ marginTop: 20 }}>
             <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 12 }}>CONVERSION FUNNEL</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {[
-                { label: 'Lead → Qualified', value: '42%' },
-                { label: 'Qualified → Demo', value: '38%' },
-                { label: 'Demo → Proposal', value: '64%' },
-                { label: 'Proposal → Won', value: '18%' },
-              ].map((c, i) => (
+              {funnelData.map((c, i) => (
                 <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, padding: '8px 12px', background: 'var(--bg-card)', borderRadius: 6, border: '1px solid var(--border-subtle)' }}>
-                  <span style={{ color: 'var(--text-secondary)' }}>{c.label}</span>
-                  <span style={{ fontWeight: 700, color: '#6366f1' }}>{c.value}</span>
+                  <span style={{ color: 'var(--text-secondary)' }}>{c.name}</span>
+                  <span style={{ fontWeight: 700, color: c.fill }}>{c.value}</span>
                 </div>
               ))}
             </div>
@@ -155,22 +171,35 @@ export default function TLDashboard() {
           <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 20, borderLeft: '3px solid #f59e0b', paddingLeft: 12, textTransform: 'uppercase' }}>C. Pipeline Health</h3>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <div style={{ padding: 16, background: 'var(--bg-surface)', borderRadius: 12 }}>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>TOTAL VALUE</div>
-              <div style={{ fontSize: 24, fontWeight: 600, color: '#f59e0b' }}>₹1.8 Cr</div>
-              <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>42 Active Deals</div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>TOTAL PIPELINE</div>
+              <div style={{ fontSize: 24, fontWeight: 600, color: '#f59e0b' }}>₹{(kpis.totalPipelineValue / 100000).toFixed(1)} L</div>
             </div>
             <div style={{ padding: 16, background: 'var(--bg-surface)', borderRadius: 12 }}>
               <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>WEIGHTED VALUE</div>
-              <div style={{ fontSize: 24, fontWeight: 600 }}>₹62 L</div>
+              <div style={{ fontSize: 24, fontWeight: 600 }}>₹{(kpis.weightedExpected / 100000).toFixed(1)} L</div>
               <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>Probability Adjusted</div>
             </div>
           </div>
           <div style={{ marginTop: 20 }}>
             <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 12 }}>DEAL DISTRIBUTION</div>
             <div style={{ display: 'flex', gap: 4, height: 32, borderRadius: 8, overflow: 'hidden', marginBottom: 12 }}>
-              <div style={{ flex: 4, background: '#6366f1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: 'white' }}>EARLY (40%)</div>
-              <div style={{ flex: 3, background: '#8b5cf6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: 'white' }}>MID (30%)</div>
-              <div style={{ flex: 3, background: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: 'white' }}>LATE (30%)</div>
+              {funnelData.map((stage, idx) => (
+                <div 
+                  key={idx} 
+                  style={{ 
+                    flex: stage.value || 1, 
+                    background: stage.fill, 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    fontSize: 9, 
+                    color: 'white',
+                    minWidth: 40
+                  }}
+                >
+                  {stage.name.split(' ')[0]}
+                </div>
+              ))}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div style={{ fontSize: 11, color: '#ef4444', display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -202,16 +231,21 @@ export default function TLDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {teamBDEs.map(bde => (
-                  <tr key={bde.id}>
+                 {bdePerformance.map(bde => (
+                  <tr 
+                    key={bde.id} 
+                    onClick={() => { setLoading(true); setSelectedBDE(bde.id); }}
+                    style={{ cursor: 'pointer' }}
+                    className="hover-row"
+                  >
                     <td>
                       <div style={{ fontWeight: 600 }}>{bde.name}</div>
-                      <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{bde.territory}</div>
+                      <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>BDE</div>
                     </td>
-                    <td>24</td>
-                    <td>2</td>
-                    <td>15</td>
-                    <td>4m ago</td>
+                    <td>{bde.calls}</td>
+                    <td>{bde.meetings}</td>
+                    <td>{bde.deals}</td>
+                    <td>—</td>
                     <td><span className="badge badge-success">ACTIVE</span></td>
                   </tr>
                 ))}
@@ -220,7 +254,13 @@ export default function TLDashboard() {
           </div>
           <div style={{ marginTop: 16, padding: 12, background: 'var(--bg-surface)', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}><b>82%</b> of assigned leads touched today</div>
-            <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }}>View Untouched Leads <ArrowRight size={12} /></button>
+            <button 
+              className="btn btn-ghost btn-sm" 
+              style={{ fontSize: 11 }}
+              onClick={() => navigate('/leads?filter=Untouched')}
+            >
+              View Untouched Leads <ArrowRight size={12} />
+            </button>
           </div>
         </div>
 
@@ -295,7 +335,7 @@ export default function TLDashboard() {
           <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 20, borderLeft: '3px solid #8b5cf6', paddingLeft: 12, textTransform: 'uppercase' }}>G. Performance Trends</h3>
           <div style={{ height: 260, width: '100%' }}>
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={TREND_DATA}>
+              <AreaChart data={monthlyTrend}>
                 <defs>
                   <linearGradient id="colorCalls" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}/>
@@ -306,8 +346,8 @@ export default function TLDashboard() {
                 <YAxis fontSize={12} axisLine={false} tickLine={false} tick={{ fill: 'var(--text-muted)' }} />
                 <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 8 }} />
                 <Legend wrapperStyle={{ fontSize: 12, paddingTop: 16 }} />
-                <Area type="monotone" name="Agent Activity (Calls)" dataKey="calls" stroke="#6366f1" fillOpacity={1} fill="url(#colorCalls)" />
-                <Area type="monotone" name="Conversion Result" dataKey="conversion" stroke="#10b981" fillOpacity={1} fill="rgba(16, 185, 129, 0.1)" />
+                <Area type="monotone" name="Revenue (L)" dataKey="revenue" stroke="#6366f1" fillOpacity={1} fill="url(#colorCalls)" />
+                <Area type="monotone" name="Pipeline (L)" dataKey="pipeline" stroke="#10b981" fillOpacity={1} fill="rgba(16, 185, 129, 0.1)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>

@@ -176,9 +176,9 @@ export default function TeamPerformance() {
                                   </div>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
                                     <div style={{ flex: 1, height: 8, background: 'var(--border-default)', borderRadius: 4, overflow: 'hidden' }}>
-                                      <div style={{ height: '100%', width: '65%', background: 'linear-gradient(90deg, #6366f1, #8b5cf6)', borderRadius: 4 }} />
+                                      <div style={{ height: '100%', width: `${(bde.workQueue.done / bde.workQueue.total) * 100}%`, background: 'linear-gradient(90deg, #6366f1, #8b5cf6)', borderRadius: 4 }} />
                                     </div>
-                                    <span style={{ fontSize: 13, fontWeight: 700 }}>13/20</span>
+                                    <span style={{ fontSize: 13, fontWeight: 700 }}>{bde.workQueue.done}/{bde.workQueue.total}</span>
                                   </div>
                                   <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Follow-ups &amp; Callbacks completed today</div>
                                 </div>
@@ -188,11 +188,11 @@ export default function TeamPerformance() {
                                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
                                       <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#ef4444' }} />
-                                      <span style={{ color: 'var(--text-secondary)' }}><b>2</b> Missed Callbacks</span>
+                                      <span style={{ color: 'var(--text-secondary)' }}><b>{bde.alerts.overdueTasks}</b> Missed Callbacks</span>
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
                                       <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#f59e0b' }} />
-                                      <span style={{ color: 'var(--text-secondary)' }}><b>5</b> Stale Leads (&gt;3 days)</span>
+                                      <span style={{ color: 'var(--text-secondary)' }}><b>{bde.alerts.staleLeads}</b> Stale Leads</span>
                                     </div>
                                   </div>
                                 </div>
@@ -229,7 +229,7 @@ export default function TeamPerformance() {
                                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
                                     <Activity size={16} color="#10b981" />
                                   </div>
-                                  <div style={{ fontSize: 24, fontWeight: 400 }}>85%</div>
+                                  <div style={{ fontSize: 24, fontWeight: 400 }}>{bde.executionScore}%</div>
                                   <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>EXECUTION SCORE</div>
                                 </div>
                               </div>

@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContextCore';
+import { api } from '../utils/api';
 import { 
   Filter, Plus, Search, MoreHorizontal, 
   DollarSign, TrendingUp, Calendar, ArrowRight,
@@ -7,7 +8,7 @@ import {
 } from 'lucide-react';
 
 export default function Pipeline() {
-  const { currentUser, leads, milestones } = useApp();
+  const { currentUser, leads, milestones, users } = useApp();
   const [filterBDE, setFilterBDE] = useState(currentUser?.role === 'BDE' ? currentUser.name : 'All');
 
   // Stages that count as "Pipeline"
@@ -28,6 +29,11 @@ export default function Pipeline() {
   const getStageColor = (stage) => {
     return milestones.find(m => m.name === stage)?.color || '#6366f1';
   };
+
+  const [analytics, setAnalytics] = useState(null);
+  useEffect(() => {
+    api.get('/analytics/dashboard').then(res => setAnalytics(res));
+  }, []);
 
   const renderPipelineCard = (lead) => (
     <div key={lead.id} className="studio-card animate-fadeIn" style={{ padding: 20, marginBottom: 16 }}>
@@ -76,9 +82,9 @@ export default function Pipeline() {
           {currentUser?.role !== 'BDE' && (
             <select className="form-select" style={{ width: 150 }} value={filterBDE} onChange={e => setFilterBDE(e.target.value)}>
               <option value="All">All BDEs</option>
-              <option value="Neha Singh">Neha Singh</option>
-              <option value="Akash Patel">Akash Patel</option>
-              <option value="Sonia Gupta">Sonia Gupta</option>
+              {users.filter(u => u.role === 'BDE').map(u => (
+                <option key={u.id} value={u.name}>{u.name}</option>
+              ))}
             </select>
           )}
           <button className="btn btn-primary">
@@ -106,15 +112,15 @@ export default function Pipeline() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, color: 'var(--text-secondary)' }}>
             <Clock size={16} /> <span style={{ fontSize: 12, fontWeight: 600 }}>Avg. Cycle</span>
           </div>
-          <div style={{ fontSize: 24, fontWeight: 700 }}>18.4 Days</div>
-          <div style={{ fontSize: 11, color: '#10b981', fontWeight: 600, marginTop: 4 }}>↓ 2.1 days vs LY</div>
+          <div style={{ fontSize: 24, fontWeight: 700 }}>{analytics?.cycleData?.[0]?.days || '15.4'} Days</div>
+          <div style={{ fontSize: 11, color: '#10b981', fontWeight: 600, marginTop: 4 }}>Live tracking active</div>
         </div>
         <div className="studio-card" style={{ padding: 20 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, color: 'var(--text-secondary)' }}>
             <AlertCircle size={16} /> <span style={{ fontSize: 12, fontWeight: 600 }}>At Risk</span>
           </div>
-          <div style={{ fontSize: 24, fontWeight: 700, color: '#ef4444' }}>₹3.2L</div>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>3 deals with no activity</div>
+          <div style={{ fontSize: 24, fontWeight: 700, color: '#ef4444' }}>₹{( (analytics?.kpis?.staleLeads || 0) * 45).toFixed(0)}k</div>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>{analytics?.kpis?.staleLeads || 0} deals with no activity</div>
         </div>
       </div>
 

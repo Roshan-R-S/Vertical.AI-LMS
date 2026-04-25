@@ -41,7 +41,7 @@ async function main() {
     create: {
       name: 'Arjun Mehta', email: 'arjun@vertical.ai', passwordHash: hash,
       role: 'SUPER_ADMIN', avatar: 'AM', phone: '+91 98765 43210',
-      territory: 'All India', isActive: true,
+      isActive: true,
     },
   });
   const priya = await prisma.user.upsert({
@@ -50,7 +50,7 @@ async function main() {
     create: {
       name: 'Priya Sharma', email: 'priya@vertical.ai', passwordHash: hash,
       role: 'TEAM_LEAD', avatar: 'PS', phone: '+91 98765 43211',
-      territory: 'North India', teamId: teamAlpha.id, isActive: true,
+      teamId: teamAlpha.id, isActive: true,
     },
   });
   const ravi = await prisma.user.upsert({
@@ -59,7 +59,7 @@ async function main() {
     create: {
       name: 'Ravi Kumar', email: 'ravi@vertical.ai', passwordHash: hash,
       role: 'TEAM_LEAD', avatar: 'RK', phone: '+91 98765 43212',
-      territory: 'South India', teamId: teamBeta.id, isActive: true,
+      teamId: teamBeta.id, isActive: true,
     },
   });
   const neha = await prisma.user.upsert({
@@ -68,7 +68,7 @@ async function main() {
     create: {
       name: 'Neha Singh', email: 'neha@vertical.ai', passwordHash: hash,
       role: 'BDE', avatar: 'NS', phone: '+91 98765 43213',
-      territory: 'Delhi NCR', teamId: teamAlpha.id, isActive: true,
+      teamId: teamAlpha.id, isActive: true,
     },
   });
   const akash = await prisma.user.upsert({
@@ -77,7 +77,7 @@ async function main() {
     create: {
       name: 'Akash Patel', email: 'akash@vertical.ai', passwordHash: hash,
       role: 'BDE', avatar: 'AP', phone: '+91 98765 43214',
-      territory: 'Rajasthan', teamId: teamAlpha.id, isActive: true,
+      teamId: teamAlpha.id, isActive: true,
     },
   });
   const kavya = await prisma.user.upsert({
@@ -86,7 +86,7 @@ async function main() {
     create: {
       name: 'Kavya Nair', email: 'kavya@vertical.ai', passwordHash: hash,
       role: 'BDE', avatar: 'KN', phone: '+91 98765 43215',
-      territory: 'Kerala', teamId: teamBeta.id, isActive: true,
+      teamId: teamBeta.id, isActive: true,
     },
   });
   const deepak = await prisma.user.upsert({
@@ -95,7 +95,7 @@ async function main() {
     create: {
       name: 'Deepak Verma', email: 'deepak@vertical.ai', passwordHash: hash,
       role: 'BDE', avatar: 'DV', phone: '+91 98765 43216',
-      territory: 'Karnataka', teamId: teamBeta.id, isActive: false,
+      teamId: teamBeta.id, isActive: false,
     },
   });
   const sonia = await prisma.user.upsert({
@@ -104,7 +104,7 @@ async function main() {
     create: {
       name: 'Sonia Gupta', email: 'sonia@vertical.ai', passwordHash: hash,
       role: 'BDE', avatar: 'SG', phone: '+91 98765 43217',
-      territory: 'UP', teamId: teamAlpha.id, isActive: true,
+      teamId: teamAlpha.id, isActive: true,
     },
   });
   console.log('Users seeded');

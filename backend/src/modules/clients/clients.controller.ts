@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { prisma } from '../../prisma';
 import { ClientStatus } from '@prisma/client';
 import { getClientScopeFilter } from '../../utils/scoping';
+import { asyncHandler } from '../../utils/async-handler';
 
 function formatClient(c: any) {
   return {
@@ -26,7 +27,7 @@ function formatClient(c: any) {
 }
 
 // GET /api/v1/clients
-export async function getClients(req: Request, res: Response) {
+export const getClients = asyncHandler(async (req: Request, res: Response) => {
   const status = req.query.status as string | undefined;
   const search = req.query.search as string | undefined;
 
@@ -45,10 +46,10 @@ export async function getClients(req: Request, res: Response) {
     orderBy: { createdAt: 'desc' },
   });
   return res.json(clients.map(formatClient));
-}
+});
 
 // GET /api/v1/clients/:id
-export async function getClientById(req: Request, res: Response) {
+export const getClientById = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
   const user = (req as any).user;
   const client = await prisma.client.findFirst({
@@ -63,10 +64,10 @@ export async function getClientById(req: Request, res: Response) {
   });
   if (!client) return res.status(404).json({ error: 'Client not found' });
   return res.json({ ...formatClient(client), invoices: (client as any).invoices });
-}
+});
 
 // POST /api/v1/clients
-export async function createClient(req: Request, res: Response) {
+export const createClient = asyncHandler(async (req: Request, res: Response) => {
   const {
     companyName, contactName, email, phone, industry, products,
     orderValue, contractDuration, startDate, renewalDate,
@@ -91,10 +92,10 @@ export async function createClient(req: Request, res: Response) {
     include: { accountManager: true },
   });
   return res.status(201).json(formatClient(client));
-}
+});
 
 // PATCH /api/v1/clients/:id
-export async function updateClient(req: Request, res: Response) {
+export const updateClient = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
   const user = (req as any).user;
   const {
@@ -126,4 +127,22 @@ export async function updateClient(req: Request, res: Response) {
     include: { accountManager: true },
   });
   return res.json(formatClient(client));
-}
+});
+
+// DELETE /api/v1/clients/:id
+export const deleteClient = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const user = (req as any).user;
+
+  const existing = await prisma.client.findFirst({
+    where: { id: id as string, ...getClientScopeFilter(user) }
+  });
+  if (!existing) return res.status(404).json({ error: 'Client not found or access denied' });
+
+  await prisma.client.update({
+    where: { id: id as string },
+    data: { deletedAt: new Date() }
+  });
+
+  return res.json({ success: true, message: 'Client deleted successfully' });
+});

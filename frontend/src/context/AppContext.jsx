@@ -15,6 +15,7 @@ export default function AppProvider({ children }) {
   const [invoices, setInvoices] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(() => !!localStorage.getItem('lms_token'));
+  const [processing, setProcessing] = useState(false);
   const [theme, setTheme] = useState('light');
 
 
@@ -74,6 +75,12 @@ export default function AppProvider({ children }) {
     }
   }, []);
 
+  const formatError = (err) => {
+    if (err.data && err.data.errors) {
+      return `${err.message}: ${err.data.errors.map(e => e.message).join(', ')}`;
+    }
+    return err.message;
+  };
 
   const login = async (role) => {
     try {
@@ -82,7 +89,8 @@ export default function AppProvider({ children }) {
       setCurrentUser(result.user);
       await fetchInitialData();
     } catch (err) {
-      alert(err.message);
+      alert(formatError(err));
+      throw err;
     }
   };
 
@@ -102,7 +110,19 @@ export default function AppProvider({ children }) {
       });
       setLeads(prev => [res, ...prev]);
     } catch (err) {
-      alert(err.message);
+      alert(formatError(err));
+    }
+  };
+
+  const bulkAddLeads = async (leads) => {
+    setProcessing(true);
+    try {
+      await api.post('/leads/bulk', leads);
+      await fetchInitialData();
+    } catch (err) {
+      alert("Bulk import failed: " + formatError(err));
+    } finally {
+      setProcessing(false);
     }
   };
 
@@ -111,7 +131,7 @@ export default function AppProvider({ children }) {
       const res = await api.patch(`/leads/${id}`, updates);
       setLeads(prev => prev.map(l => l.id === id ? res : l));
     } catch (err) {
-      alert(err.message);
+      alert(formatError(err));
     }
   };
 
@@ -121,7 +141,7 @@ export default function AppProvider({ children }) {
       await api.delete(`/leads/${id}`);
       setLeads(prev => prev.filter(l => l.id !== id));
     } catch (err) {
-      alert(err.message);
+      alert(formatError(err));
     }
   };
 
@@ -131,7 +151,7 @@ export default function AppProvider({ children }) {
       const res = await api.post('/clients', client);
       setClients(prev => [res, ...prev]);
     } catch (err) {
-      alert(err.message);
+      alert(formatError(err));
     }
   };
 
@@ -140,7 +160,7 @@ export default function AppProvider({ children }) {
       const res = await api.patch(`/clients/${id}`, updates);
       setClients(prev => prev.map(c => c.id === id ? res : c));
     } catch (err) {
-      alert(err.message);
+      alert(formatError(err));
     }
   };
 
@@ -150,7 +170,7 @@ export default function AppProvider({ children }) {
       const res = await api.post('/users', user);
       setUsers(prev => [res, ...prev]);
     } catch (err) {
-      alert(err.message);
+      alert(formatError(err));
     }
   };
 
@@ -159,7 +179,7 @@ export default function AppProvider({ children }) {
       const res = await api.patch(`/users/${id}`, updates);
       setUsers(prev => prev.map(u => u.id === id ? res : u));
     } catch (err) {
-      alert(err.message);
+      alert(formatError(err));
     }
   };
 
@@ -167,10 +187,10 @@ export default function AppProvider({ children }) {
     const user = users.find(u => u.id === id);
     if (!user) return;
     try {
-      const res = await api.patch(`/users/${id}`, { isActive: !user.isActive });
-      setUsers(prev => prev.map(u => u.id === id ? { ...u, status: res.isActive ? 'active' : 'inactive' } : u));
+      const res = await api.patch(`/users/${id}/status`);
+      setUsers(prev => prev.map(u => u.id === id ? res : u));
     } catch (err) {
-      alert(err.message);
+      alert(formatError(err));
     }
   };
 
@@ -183,7 +203,7 @@ export default function AppProvider({ children }) {
       });
       setTasks(prev => [res, ...prev]);
     } catch (err) {
-      alert(err.message);
+      alert(formatError(err));
     }
   };
 
@@ -192,7 +212,7 @@ export default function AppProvider({ children }) {
       const res = await api.patch(`/tasks/${id}`, updates);
       setTasks(prev => prev.map(t => t.id === id ? res : t));
     } catch (err) {
-      alert(err.message);
+      alert(formatError(err));
     }
   };
 
@@ -205,20 +225,28 @@ export default function AppProvider({ children }) {
       });
       setInteractions(prev => [res, ...prev]);
     } catch (err) {
-      alert(err.message);
+      alert(formatError(err));
     }
   };
 
   const convertLead = async (id) => {
+    setProcessing(true);
     try {
       const res = await api.post(`/leads/${id}/convert`);
+      const client = res.client;
       // Update local state
       setLeads(prev => prev.map(l => l.id === id ? { ...l, status: 'won' } : l));
-      setClients(prev => [res.client, ...prev]);
-      return res.client;
+      setClients(prev => [client, ...prev]);
+      // Update history references in local state
+      setInteractions(prev => prev.map(i => i.leadId === id ? { ...i, clientId: client.id } : i));
+      setTasks(prev => prev.map(t => t.leadId === id ? { ...t, clientId: client.id } : t));
+      
+      return client;
     } catch (err) {
-      alert(err.message);
+      alert(formatError(err));
       throw err;
+    } finally {
+      setProcessing(false);
     }
   };
 
@@ -229,7 +257,7 @@ export default function AppProvider({ children }) {
       await fetchInitialData();
       return res;
     } catch (err) {
-      alert(err.message);
+      alert(formatError(err));
       throw err;
     }
   };
@@ -243,8 +271,27 @@ export default function AppProvider({ children }) {
       });
       await fetchInitialData();
     } catch (err) {
-      alert("Failed to upload invoice file: " + err.message);
+      alert("Failed to upload invoice file: " + formatError(err));
       throw err;
+    }
+  };
+
+  const markInvoicePaid = async (id, amount) => {
+    try {
+      await api.patch(`/invoices/${id}/mark-paid`, { paidAmount: amount });
+      await fetchInitialData();
+    } catch (err) {
+      alert(formatError(err));
+    }
+  };
+
+  const fetchDashboard = async (period = 'this-month', bdeId = 'All') => {
+    try {
+      const bdeQuery = bdeId !== 'All' ? `&bdeId=${bdeId}` : '';
+      return await api.get(`/analytics/dashboard?period=${period}${bdeQuery}`);
+    } catch (err) {
+      console.error("Dashboard fetch error:", err);
+      return null;
     }
   };
 
@@ -253,17 +300,15 @@ export default function AppProvider({ children }) {
     <AppContext.Provider value={{
       theme, toggleTheme,
       currentUser, leads, clients, users, milestones, dispositions, interactions, invoices, notifications, tasks,
-      addLead, updateLead, deleteLead, convertLead,
+      addLead, bulkAddLeads, updateLead, deleteLead, convertLead,
       addClient, updateClient,
       addUser, updateUser, toggleUserStatus,
       addTask, updateTask,
       addInteraction,
-      addInvoice, uploadInvoiceFile,
-      login, logout, loading,
-
+      addInvoice, uploadInvoiceFile, markInvoicePaid, fetchDashboard,
+      login, logout, loading, processing, formatError
     }}>
       {children}
     </AppContext.Provider>
   );
 }
-

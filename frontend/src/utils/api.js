@@ -14,8 +14,10 @@ async function request(path, options = {}) {
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.error || 'Something went wrong');
+    const data = await response.json().catch(() => ({}));
+    const error = new Error(data.message || data.error || 'Something went wrong');
+    error.data = data;
+    throw error;
   }
 
   return response.json();

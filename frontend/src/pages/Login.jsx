@@ -3,7 +3,7 @@ import { useApp } from '../context/AppContextCore';
 import { Shield, UserCheck, User, Zap, ChevronRight, Lock } from 'lucide-react';
 
 export default function Login() {
-  const { login } = useApp();
+  const { login, formatError } = useApp();
   const [selectedRole, setSelectedRole] = useState('Super Admin');
   const [loading, setLoading] = useState(false);
 
@@ -19,7 +19,7 @@ export default function Login() {
     try {
       await login(selectedRole);
     } catch (err) {
-      alert(err.message);
+      alert(formatError(err));
     } finally {
       setLoading(false);
     }

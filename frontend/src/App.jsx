@@ -26,7 +26,7 @@ import GlobalSearch from './components/GlobalSearch';
 
 
 function AppShell() {
-  const { currentUser, loading } = useApp();
+  const { currentUser, loading, processing } = useApp();
 
   if (loading) return (
     <div style={{ height: '100vh', width: '100vw', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-page)' }}>
@@ -41,6 +41,14 @@ function AppShell() {
 
   return (
     <div className="app-layout">
+      {processing && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
+          <div style={{ background: 'var(--card-bg)', padding: '24px 48px', borderRadius: '16px', boxShadow: '0 12px 48px rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', gap: '16px', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <div className="spinner" style={{ width: '24px', height: '24px', border: '3px solid var(--brand-primary)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+            <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '1.1rem' }}>Processing...</span>
+          </div>
+        </div>
+      )}
       <Sidebar />
       <div className="main-wrapper" style={{ display: 'flex', flexDirection: 'column' }}>
         <GlobalSearch />

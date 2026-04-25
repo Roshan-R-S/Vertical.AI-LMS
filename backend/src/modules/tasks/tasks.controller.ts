@@ -1,10 +1,11 @@
 import { Request, Response } from 'express';
 import { prisma } from '../../prisma';
-import { TaskStatus } from '@prisma/client';
+import { Role, TaskStatus } from '@prisma/client';
 import { getTaskScopeFilter } from '../../utils/scoping';
+import { asyncHandler } from '../../utils/async-handler';
 
 // GET /api/v1/tasks
-export async function getTasks(req: Request, res: Response) {
+export const getTasks = asyncHandler(async (req: Request, res: Response) => {
   const { assignedToId, status, leadId } = req.query as any;
   const tasks = await prisma.task.findMany({
     where: {
@@ -21,22 +22,24 @@ export async function getTasks(req: Request, res: Response) {
     orderBy: { dueDate: 'asc' },
   });
 
-  return res.json(tasks.map(t => ({
-    id: t.id,
-    title: t.title,
-    leadId: t.leadId,
-    leadCompany: t.lead?.companyName ?? null,
-    bde: t.assignedTo.name,
-    bdeId: t.assignedToId,
-    tl: t.assignedTo.team?.name ?? null,
-    dueDate: t.dueDate.toISOString().split('T')[0],
-    status: t.status,
-    createdAt: t.createdAt,
-  })));
-}
+  return res.json(tasks.map(formatTask));
+});
+
+const formatTask = (t: any) => ({
+  id: t.id,
+  title: t.title,
+  leadId: t.leadId,
+  leadCompany: t.lead?.companyName ?? null,
+  bde: t.assignedTo?.name ?? 'Unassigned',
+  bdeId: t.assignedToId,
+  tl: t.assignedTo?.team?.name ?? null,
+  dueDate: t.dueDate.toISOString().split('T')[0],
+  status: t.status,
+  createdAt: t.createdAt,
+});
 
 // POST /api/v1/tasks
-export async function createTask(req: Request, res: Response) {
+export const createTask = asyncHandler(async (req: Request, res: Response) => {
   const { title, leadId, assignedToId, createdById, dueDate } = req.body;
   if (!title || !assignedToId || !dueDate) {
     return res.status(400).json({ error: 'title, assignedToId, dueDate are required' });
@@ -49,11 +52,11 @@ export async function createTask(req: Request, res: Response) {
     },
     include: { assignedTo: { include: { team: true } }, lead: { select: { id: true, companyName: true } } },
   });
-  return res.status(201).json(task);
-}
+  return res.status(201).json(formatTask(task));
+});
 
 // PATCH /api/v1/tasks/:id
-export async function updateTask(req: Request, res: Response) {
+export const updateTask = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
   const user = (req as any).user;
   const { title, status, dueDate, assignedToId } = req.body;
@@ -71,7 +74,7 @@ export async function updateTask(req: Request, res: Response) {
       ...(dueDate && { dueDate: new Date(dueDate) }),
       ...(assignedToId && { assignedToId }),
     },
-    include: { assignedTo: true, lead: { select: { id: true, companyName: true } } },
+    include: { assignedTo: { include: { team: true } }, lead: { select: { id: true, companyName: true } } },
   });
-  return res.json(task);
-}
+  return res.json(formatTask(task));
+});

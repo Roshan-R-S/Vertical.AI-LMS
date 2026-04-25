@@ -3,14 +3,14 @@
 // ============================================
 
 export const USERS = [
-  { id: 1, name: 'Arjun Mehta', email: 'arjun@vertical.ai', role: 'Super Admin', avatar: 'AM', status: 'active', phone: '+91 98765 43210', team: null, territory: 'All India', createdAt: '2024-01-10', lastLogin: '2026-04-22 09:00' },
-  { id: 2, name: 'Priya Sharma', email: 'priya@vertical.ai', role: 'Team Lead', avatar: 'PS', status: 'active', phone: '+91 98765 43211', team: 'Team Alpha', territory: 'North India', createdAt: '2024-02-15', lastLogin: '2026-04-22 08:45' },
-  { id: 3, name: 'Ravi Kumar', email: 'ravi@vertical.ai', role: 'Team Lead', avatar: 'RK', status: 'active', phone: '+91 98765 43212', team: 'Team Beta', territory: 'South India', createdAt: '2024-02-20', lastLogin: '2026-04-21 17:30' },
-  { id: 4, name: 'Neha Singh', email: 'neha@vertical.ai', role: 'BDE', avatar: 'NS', status: 'active', phone: '+91 98765 43213', team: 'Team Alpha', territory: 'Delhi NCR', createdAt: '2024-03-01', lastLogin: '2026-04-22 09:15' },
-  { id: 5, name: 'Akash Patel', email: 'akash@vertical.ai', role: 'BDE', avatar: 'AP', status: 'active', phone: '+91 98765 43214', team: 'Team Alpha', territory: 'Rajasthan', createdAt: '2024-03-05', lastLogin: '2026-04-22 08:50' },
-  { id: 6, name: 'Kavya Nair', email: 'kavya@vertical.ai', role: 'BDE', avatar: 'KN', status: 'active', phone: '+91 98765 43215', team: 'Team Beta', territory: 'Kerala', createdAt: '2024-03-10', lastLogin: '2026-04-22 09:05' },
-  { id: 7, name: 'Deepak Verma', email: 'deepak@vertical.ai', role: 'BDE', avatar: 'DV', status: 'inactive', phone: '+91 98765 43216', team: 'Team Beta', territory: 'Karnataka', createdAt: '2024-03-15', lastLogin: '2026-04-10 14:00' },
-  { id: 8, name: 'Sonia Gupta', email: 'sonia@vertical.ai', role: 'BDE', avatar: 'SG', status: 'active', phone: '+91 98765 43217', team: 'Team Alpha', territory: 'UP', createdAt: '2024-04-01', lastLogin: '2026-04-22 09:20' },
+  { id: 1, name: 'Arjun Mehta', email: 'arjun@vertical.ai', role: 'Super Admin', avatar: 'AM', status: 'active', phone: '+91 98765 43210', team: null, createdAt: '2024-01-10', lastLogin: '2026-04-22 09:00' },
+  { id: 2, name: 'Priya Sharma', email: 'priya@vertical.ai', role: 'Team Lead', avatar: 'PS', status: 'active', phone: '+91 98765 43211', team: 'Team Alpha', createdAt: '2024-02-15', lastLogin: '2026-04-22 08:45' },
+  { id: 3, name: 'Ravi Kumar', email: 'ravi@vertical.ai', role: 'Team Lead', avatar: 'RK', status: 'active', phone: '+91 98765 43212', team: 'Team Beta', createdAt: '2024-02-20', lastLogin: '2026-04-21 17:30' },
+  { id: 4, name: 'Neha Singh', email: 'neha@vertical.ai', role: 'BDE', avatar: 'NS', status: 'active', phone: '+91 98765 43213', team: 'Team Alpha', createdAt: '2024-03-01', lastLogin: '2026-04-22 09:15' },
+  { id: 5, name: 'Akash Patel', email: 'akash@vertical.ai', role: 'BDE', avatar: 'AP', status: 'active', phone: '+91 98765 43214', team: 'Team Alpha', createdAt: '2024-03-05', lastLogin: '2026-04-22 08:50' },
+  { id: 6, name: 'Kavya Nair', email: 'kavya@vertical.ai', role: 'BDE', avatar: 'KN', status: 'active', phone: '+91 98765 43215', team: 'Team Beta', createdAt: '2024-03-10', lastLogin: '2026-04-22 09:05' },
+  { id: 7, name: 'Deepak Verma', email: 'deepak@vertical.ai', role: 'BDE', avatar: 'DV', status: 'inactive', phone: '+91 98765 43216', team: 'Team Beta', createdAt: '2024-03-15', lastLogin: '2026-04-10 14:00' },
+  { id: 8, name: 'Sonia Gupta', email: 'sonia@vertical.ai', role: 'BDE', avatar: 'SG', status: 'active', phone: '+91 98765 43217', team: 'Team Alpha', createdAt: '2024-04-01', lastLogin: '2026-04-22 09:20' },
 ];
 
 export const LEADS = [

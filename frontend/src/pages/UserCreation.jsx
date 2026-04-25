@@ -22,9 +22,8 @@ const PERMISSIONS = {
 
 function UserModal({ user, onClose, onSave, allUsers }) {
   const [form, setForm] = useState(user || {
-    name: '', email: '', phone: '', role: 'BDE', team: '', territory: '', status: 'active'
+    name: '', email: '', phone: '', role: 'BDE', teamId: '', status: 'active'
   });
-  const tls = allUsers.filter(u => u.role === 'Team Lead');
 
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
@@ -56,19 +55,20 @@ function UserModal({ user, onClose, onSave, allUsers }) {
               </select>
             </div>
           </div>
-          {form.role === 'BDE' && (
+          {(form.role === 'BDE' || form.role === 'Team Lead') && (
             <div className="form-group">
-              <label className="form-label">Reporting Team Lead</label>
-              <select className="form-select" value={form.team} onChange={e => setForm(p => ({ ...p, team: e.target.value }))}>
-                <option value="">Select TL</option>
-                {tls.map(tl => <option key={tl.id} value={tl.team}>{tl.name} ({tl.team})</option>)}
+              <label className="form-label">{form.role === 'BDE' ? 'Reporting Team Lead / Team' : 'Assign to Team'}</label>
+              <select className="form-select" value={form.teamId} onChange={e => setForm(p => ({ ...p, teamId: e.target.value }))}>
+                <option value="">Select Team</option>
+                {/* Extract unique teams from existing users */}
+                {Array.from(new Set(allUsers.map(u => u.teamId).filter(Boolean))).map(tId => {
+                  const teamName = allUsers.find(u => u.teamId === tId)?.team;
+                  return <option key={tId} value={tId}>{teamName || tId}</option>;
+                })}
               </select>
             </div>
           )}
-          <div className="form-group">
-            <label className="form-label">Territory</label>
-            <input className="form-input" value={form.territory} onChange={e => setForm(p => ({ ...p, territory: e.target.value }))} placeholder="North India, Delhi NCR..." />
-          </div>
+
           {!user && (
             <div className="form-group">
               <label className="form-label">Temporary Password</label>
@@ -82,7 +82,15 @@ function UserModal({ user, onClose, onSave, allUsers }) {
         </div>
         <div className="modal-footer">
           <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" onClick={() => { onSave({ ...form, avatar: form.name.split(' ').map(n => n[0]).join('').toUpperCase() }); onClose(); }}>
+          <button className="btn btn-primary" onClick={() => { 
+            const payload = { 
+              ...form, 
+              avatar: form.name.split(' ').map(n => n[0]).join('').toUpperCase() 
+            };
+            if (!user) payload.password = 'Vertical@123';
+            onSave(payload); 
+            onClose(); 
+          }}>
             <CheckCircle size={15} /> {user ? 'Save Changes' : 'Create User'}
           </button>
         </div>
@@ -115,7 +123,7 @@ function PermissionsPanel({ role }) {
 }
 
 export default function UserCreation() {
-  const { users, addUser, updateUser, toggleUserStatus } = useApp();
+  const { currentUser, users, addUser, updateUser, toggleUserStatus } = useApp();
   const [search, setSearch] = useState('');
   const [filterRole, setFilterRole] = useState('All');
   const [showAdd, setShowAdd] = useState(false);
@@ -165,7 +173,7 @@ export default function UserCreation() {
         })}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 20 }}>
+      <div className="grid-main-sidebar">
         {/* Users Table */}
         <div className="table-wrapper">
           <div className="table-header">
@@ -183,7 +191,6 @@ export default function UserCreation() {
                 <th>User</th>
                 <th>Role</th>
                 <th>Team</th>
-                <th>Territory</th>
                 <th>Last Login</th>
                 <th>Status</th>
                 <th>Actions</th>
@@ -211,7 +218,6 @@ export default function UserCreation() {
                       </span>
                     </td>
                     <td style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{user.team || '—'}</td>
-                    <td style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{user.territory}</td>
                     <td style={{ fontSize: 11, color: 'var(--text-muted)' }}>{user.lastLogin}</td>
                     <td>
                       <span className={`badge ${user.status === 'active' ? 'badge-success' : 'badge-neutral'}`}>
@@ -221,7 +227,17 @@ export default function UserCreation() {
                     <td>
                       <div className="table-actions">
                         <button className="btn btn-ghost btn-sm btn-icon" onClick={() => setEditUser(user)}><Edit2 size={14} /></button>
-                        <button className="btn btn-ghost btn-sm btn-icon" onClick={() => toggleUserStatus(user.id)} title={user.status === 'active' ? 'Disable' : 'Enable'} style={{ color: user.status === 'active' ? 'var(--brand-danger)' : 'var(--brand-success)' }}>
+                        <button 
+                          className="btn btn-ghost btn-sm btn-icon" 
+                          onClick={() => toggleUserStatus(user.id)} 
+                          title={user.id === currentUser?.id ? 'Cannot deactivate yourself' : (user.status === 'active' ? 'Disable' : 'Enable')} 
+                          style={{ 
+                            color: user.status === 'active' ? 'var(--brand-danger)' : 'var(--brand-success)',
+                            opacity: user.id === currentUser?.id ? 0.3 : 1,
+                            cursor: user.id === currentUser?.id ? 'not-allowed' : 'pointer'
+                          }}
+                          disabled={user.id === currentUser?.id}
+                        >
                           {user.status === 'active' ? <EyeOff size={14} /> : <Eye size={14} />}
                         </button>
                       </div>

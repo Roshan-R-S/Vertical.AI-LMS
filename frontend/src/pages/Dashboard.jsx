@@ -61,8 +61,13 @@ export default function Dashboard() {
   useEffect(() => {
     const period = rangeMap[dateRange] || 'this-month';
     api.get(`/analytics/dashboard?period=${period}`)
-      .then(res => setData(res))
-      .catch(err => console.error(err))
+      .then(res => {
+        console.log('Dashboard Data:', res);
+        setData(res);
+      })
+      .catch(err => {
+        console.error('Dashboard Fetch Error:', err);
+      })
       .finally(() => setLoading(false));
   }, [dateRange]);
 
@@ -121,7 +126,7 @@ export default function Dashboard() {
         <MetricCard title="Total Revenue" value={`₹${(kpis.closedRevenue/1000).toFixed(0)}K`} sub="Current Period" icon={DollarSign} color="#8ab4f8" trend={12} />
         <MetricCard title="Active Leads" value={kpis.activeLeads} sub="Requiring Action" icon={Zap} color="#fdd663" trend={-5} />
         <MetricCard title="Conversion Rate" value={`${conversionRate}%`} sub="Lead to Deal" icon={TrendingUp} color="#81c995" trend={8} />
-        <MetricCard title="Avg Deal Size" value="₹45K" sub="Across Tiers" icon={Activity} color="#c58aff" />
+        <MetricCard title="Avg Deal Size" value={`₹${(kpis.avgDealSize / 1000).toFixed(1)}K`} sub="Across Tiers" icon={Activity} color="#c58aff" />
 
       </div>
 
@@ -202,7 +207,7 @@ export default function Dashboard() {
           <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 20 }}>Sales Cycle (Avg Days)</div>
           <div style={{ height: 200 }}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart layout="vertical" data={CYCLE_DATA}>
+              <BarChart layout="vertical" data={data.cycleData}>
                 <XAxis type="number" hide />
                 <YAxis dataKey="stage" type="category" width={100} fontSize={10} stroke="var(--text-muted)" tickLine={false} axisLine={false} />
                 <Tooltip cursor={{fill: 'transparent'}} contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)', borderRadius: 8 }} />
@@ -219,21 +224,21 @@ export default function Dashboard() {
               <AlertTriangle size={16} color="#ef4444" />
               <div>
                 <div style={{ fontSize: 13, fontWeight: 600, color: '#ef4444' }}>Stale Leads Detected</div>
-                <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>12 leads haven't been contacted in 48h.</div>
+                <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{kpis.staleLeads} leads haven't been updated in 7 days.</div>
               </div>
             </div>
             <div style={{ display: 'flex', gap: 12, padding: 12, background: '#f59e0b10', borderRadius: 8, border: '1px solid #f59e0b20' }}>
               <Clock size={16} color="#f59e0b" />
               <div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: '#f59e0b' }}>Demo Backlog</div>
-                <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>8 demos scheduled for tomorrow.</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#f59e0b' }}>Overdue Follow-ups</div>
+                <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{kpis.overdueFollowUps} tasks past their due date.</div>
               </div>
             </div>
             <div style={{ display: 'flex', gap: 12, padding: 12, background: 'var(--accent-blue)10', borderRadius: 8, border: '1px solid var(--accent-blue)20' }}>
               <Target size={16} color="var(--accent-blue)" />
               <div>
                 <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent-blue)' }}>High Value Prospects</div>
-                <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>3 leads worth &gt; ₹100K identified.</div>
+                <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{kpis.highValueProspects} active leads worth &gt; ₹100K.</div>
               </div>
             </div>
           </div>

@@ -16,6 +16,7 @@ const STATUS_CONFIG = {
 
 function InvoiceModal({ invoice, onClose }) {
   const s = STATUS_CONFIG[invoice.status];
+  const { markInvoicePaid } = useApp();
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal animate-slideUp">
@@ -89,7 +90,11 @@ function InvoiceModal({ invoice, onClose }) {
               <FileText size={14} /> No Document
             </button>
           )}
-          {invoice.status !== 'paid' && <button className="btn btn-primary"><CheckCircle size={14} /> Mark as Paid</button>}
+          {invoice.status !== 'paid' && (
+            <button className="btn btn-primary" onClick={() => { markInvoicePaid(invoice._id); onClose(); }}>
+              <CheckCircle size={14} /> Mark as Paid
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -250,7 +255,7 @@ function NewInvoiceModal({ onClose, onSave, clients }) {
 }
 
 export default function Billing() {
-  const { invoices, clients, addInvoice } = useApp();
+  const { invoices, clients, addInvoice, markInvoicePaid } = useApp();
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('All');
   const [viewInvoice, setViewInvoice] = useState(null);
@@ -405,7 +410,15 @@ export default function Billing() {
                         >
                           <Download size={14} />
                         </button>
-                        {inv.status !== 'paid' && <button className="btn btn-ghost btn-sm btn-icon" style={{ color: '#10b981' }}><CheckCircle size={14} /></button>}
+                        {inv.status !== 'paid' && (
+                          <button 
+                            className="btn btn-ghost btn-sm btn-icon" 
+                            style={{ color: '#10b981' }}
+                            onClick={() => markInvoicePaid(inv._id)}
+                          >
+                            <CheckCircle size={14} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

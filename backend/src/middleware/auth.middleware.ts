@@ -24,11 +24,10 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
     
     // Fetch full user for RBAC scoping
     const user = await prisma.user.findUnique({
-      where: { id: decoded.userId },
-      include: { team: true },
+      where: { id: decoded.userId }
     });
 
-    if (!user || !user.isActive) {
+    if (!user || (!user.isActive && user.role !== 'SUPER_ADMIN')) {
       return res.status(401).json({ error: 'User not found or account deactivated.' });
     }
 

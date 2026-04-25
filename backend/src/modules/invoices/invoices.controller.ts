@@ -2,9 +2,10 @@ import { Request, Response } from 'express';
 import { prisma } from '../../prisma';
 import { InvoiceStatus } from '@prisma/client';
 import { getInvoiceScopeFilter } from '../../utils/scoping';
+import { asyncHandler } from '../../utils/async-handler';
 
 // GET /api/v1/invoices
-export async function getInvoices(req: Request, res: Response) {
+export const getInvoices = asyncHandler(async (req: Request, res: Response) => {
   const status = req.query.status as string | undefined;
   const clientId = req.query.clientId as string | undefined;
   const search = req.query.search as string | undefined;
@@ -41,10 +42,10 @@ export async function getInvoices(req: Request, res: Response) {
     pdfUrl: inv.attachments?.[0]?.id ? `/api/v1/attachments/${inv.attachments[0].id}/download` : inv.pdfUrl,
     _id: inv.id,
   })));
-}
+});
 
 // POST /api/v1/invoices
-export async function createInvoice(req: Request, res: Response) {
+export const createInvoice = asyncHandler(async (req: Request, res: Response) => {
   const { clientId, amount, dueDate, items, invoiceNumber } = req.body;
   if (!clientId || !amount || !dueDate) {
     return res.status(400).json({ error: 'clientId, amount, dueDate are required' });
@@ -73,10 +74,10 @@ export async function createInvoice(req: Request, res: Response) {
   });
 
   return res.status(201).json(invoice);
-}
+});
 
 // PATCH /api/v1/invoices/:id/mark-paid
-export async function markInvoicePaid(req: Request, res: Response) {
+export const markInvoicePaid = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
   const user = (req as any).user;
   const { paidAmount } = req.body;
@@ -97,4 +98,4 @@ export async function markInvoicePaid(req: Request, res: Response) {
     include: { client: true, items: true },
   });
   return res.json(updated);
-}
+});

@@ -3,15 +3,19 @@ import {
   getLeads, getLeadById, createLead, updateLead, deleteLead,
   getLeadInteractions, createLeadInteraction,
   getLeadTasks, createLeadTask,
-  convertLeadToClient,
+  convertLeadToClient, bulkCreateLeads
 } from './leads.controller';
+
+import { validate } from '../../middleware/validate.middleware';
+import { LeadCreateSchema, LeadUpdateSchema } from './leads.schema';
 
 const router = Router();
 
 router.get('/', getLeads);
-router.post('/', createLead);
+router.post('/', validate(LeadCreateSchema), createLead);
+router.post('/bulk', bulkCreateLeads);
 router.get('/:id', getLeadById);
-router.patch('/:id', updateLead);
+router.patch('/:id', validate(LeadUpdateSchema), updateLead);
 router.delete('/:id', deleteLead);
 
 // Sub-resources

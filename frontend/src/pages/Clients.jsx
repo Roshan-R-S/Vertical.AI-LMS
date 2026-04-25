@@ -105,10 +105,12 @@ function ClientModal({ client, onClose, onSave }) {
 }
 
 function ClientDetailModal({ client, onClose }) {
+  const { interactions, attachments } = useApp();
   const [tab, setTab] = useState('overview');
   const s = STATUS_COLORS[client.status] || STATUS_COLORS.active;
 
-  const mockDocs = client.documents || [];
+  const clientInteractions = interactions.filter(i => i.clientId === client.id);
+  const clientDocs = attachments.filter(a => a.clientId === client.id);
 
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
@@ -130,7 +132,7 @@ function ClientDetailModal({ client, onClose }) {
         </div>
         <div className="modal-body">
           <div className="tabs mb-4">
-            {['overview', 'documents', 'transactions', 'ai insights'].map(t => (
+            {['overview', 'timeline', 'documents', 'transactions', 'ai insights'].map(t => (
               <button key={t} className={`tab ${tab === t ? 'active' : ''}`} onClick={() => setTab(t)} style={{ textTransform: 'capitalize' }}>{t}</button>
             ))}
           </div>
@@ -180,12 +182,38 @@ function ClientDetailModal({ client, onClose }) {
             </div>
           )}
 
+          {tab === 'timeline' && (
+            <div className="timeline" style={{ padding: '4px 0' }}>
+              {clientInteractions.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)' }}>No interactions recorded yet</div>
+              ) : (
+                clientInteractions.map((item, i) => (
+                  <div key={i} className="timeline-item" style={{ display: 'flex', gap: 16, marginBottom: 20, position: 'relative' }}>
+                    <div style={{ width: 2, background: 'var(--border-subtle)', position: 'absolute', top: 24, bottom: -20, left: 11 }}></div>
+                    <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--bg-surface-active)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1, border: '4px solid var(--bg-card)' }}>
+                      <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--brand-primary)' }}></div>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <div style={{ fontWeight: 700, fontSize: 13 }}>{item.type.toUpperCase()} • {item.subject || 'No Subject'}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{item.date}</div>
+                      </div>
+                      <div style={{ fontSize: 12, color: 'var(--text-secondary)', background: 'var(--bg-surface)', padding: 10, borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
+                        {item.summary}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
           {tab === 'documents' && (
             <div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16, gap: 8 }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
                 <button className="btn btn-secondary btn-sm"><Upload size={14} /> Upload Document</button>
               </div>
-              {mockDocs.length === 0 ? (
+              {clientDocs.length === 0 ? (
                 <div className="empty-state">
                   <div className="empty-icon">📁</div>
                   <div className="empty-title">No documents yet</div>
@@ -193,22 +221,20 @@ function ClientDetailModal({ client, onClose }) {
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {mockDocs.map((doc, i) => {
-                    const ext = doc.split('.').pop().toUpperCase();
-                    const colors = { PDF: '#ef4444', DOCX: '#3b82f6', XLSX: '#10b981' };
+                  {clientDocs.map((doc, i) => {
+                    const ext = doc.fileName.split('.').pop().toUpperCase();
                     return (
                       <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: 'var(--bg-surface)', borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
-                        <div style={{ width: 36, height: 36, borderRadius: 8, background: `${colors[ext] || '#6366f1'}20`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <span style={{ fontSize: 10, fontWeight: 800, color: colors[ext] || '#6366f1' }}>{ext}</span>
+                        <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(99,102,241,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <span style={{ fontSize: 10, fontWeight: 800, color: '#6366f1' }}>{ext}</span>
                         </div>
                         <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: 13, fontWeight: 600 }}>{doc}</div>
-                          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Uploaded • v1.0</div>
+                          <div style={{ fontSize: 13, fontWeight: 600 }}>{doc.fileName}</div>
+                          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{(doc.fileSize / 1024).toFixed(0)} KB</div>
                         </div>
                         <div style={{ display: 'flex', gap: 6 }}>
                           <button className="btn btn-ghost btn-sm btn-icon"><Download size={14} /></button>
-                          <button className="btn btn-ghost btn-sm btn-icon"><ExternalLink size={14} /></button>
-                          <button className="btn btn-ghost btn-sm btn-icon" style={{ color: 'var(--brand-danger)' }}><Trash2 size={14} /></button>
+                          <button className="btn btn-ghost btn-sm btn-icon" style={{ color: 'var(--brand-danger)' }} onClick={() => window.confirm('Are you sure you want to delete this document?') && console.log('Delete logic needed')}><Trash2 size={14} /></button>
                         </div>
                       </div>
                     );
@@ -246,9 +272,8 @@ function ClientDetailModal({ client, onClose }) {
 }
 
 export default function Clients() {
-  const { clients, addClient, updateClient, currentUser } = useApp();
+  const { clients, updateClient, currentUser } = useApp();
   const [search, setSearch] = useState('');
-  const [showAdd, setShowAdd] = useState(false);
   const [editClient, setEditClient] = useState(null);
   const [viewClient, setViewClient] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -272,8 +297,6 @@ export default function Clients() {
           <p className="page-subtitle">{filtered.length} active clients • ₹{(totalARR / 100000).toFixed(1)}L ARR</p>
         </div>
         <div className="flex gap-2 items-center">
-
-          <button className="btn btn-primary btn-sm" onClick={() => setShowAdd(true)}><Plus size={15} /> Add Client</button>
         </div>
       </div>
 
@@ -381,7 +404,6 @@ export default function Clients() {
     </div>
 
 
-      {showAdd && <ClientModal onClose={() => setShowAdd(false)} onSave={addClient} />}
       {editClient && <ClientModal client={editClient} onClose={() => setEditClient(null)} onSave={d => updateClient(editClient.id, d)} />}
       {viewClient && <ClientDetailModal client={viewClient} onClose={() => setViewClient(null)} />}
     </div>

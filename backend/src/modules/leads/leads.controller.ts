@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { prisma } from '../../prisma';
 import { LeadStatus, LeadPriority } from '@prisma/client';
 import { getLeadScopeFilter } from '../../utils/scoping';
+import { asyncHandler } from '../../utils/async-handler';
 
 // Shape a lead into the frontend contract
 function formatLead(lead: any) {
@@ -47,7 +48,7 @@ const LEAD_INCLUDE = {
 };
 
 // GET /api/v1/leads
-export async function getLeads(req: Request, res: Response) {
+export const getLeads = asyncHandler(async (req: Request, res: Response) => {
   const status = req.query.status as string | undefined;
   const milestoneId = req.query.milestoneId as string | undefined;
   const assignedToId = req.query.assignedToId as string | undefined;
@@ -77,10 +78,10 @@ export async function getLeads(req: Request, res: Response) {
   });
 
   return res.json(leads.map(formatLead));
-}
+});
 
 // GET /api/v1/leads/:id
-export async function getLeadById(req: Request, res: Response) {
+export const getLeadById = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
   const user = (req as any).user;
   const lead = await prisma.lead.findFirst({
@@ -102,10 +103,10 @@ export async function getLeadById(req: Request, res: Response) {
   });
   if (!lead) return res.status(404).json({ error: 'Lead not found' });
   return res.json(formatLead(lead));
-}
+});
 
 // POST /api/v1/leads
-export async function createLead(req: Request, res: Response) {
+export const createLead = asyncHandler(async (req: Request, res: Response) => {
   const body = req.body as Record<string, any>;
   const companyName = body.companyName as string | undefined;
   const contactName = body.contactName as string | undefined;
@@ -145,10 +146,10 @@ export async function createLead(req: Request, res: Response) {
     include: LEAD_INCLUDE,
   });
   return res.status(201).json(formatLead(lead));
-}
+});
 
 // PATCH /api/v1/leads/:id
-export async function updateLead(req: Request, res: Response) {
+export const updateLead = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
   const body = req.body as Record<string, any>;
   // ... (keeping variables same)
@@ -202,10 +203,10 @@ export async function updateLead(req: Request, res: Response) {
     include: LEAD_INCLUDE,
   });
   return res.json(formatLead(lead));
-}
+});
 
 // DELETE /api/v1/leads/:id
-export async function deleteLead(req: Request, res: Response) {
+export const deleteLead = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
   const user = (req as any).user;
   await prisma.lead.deleteMany({ 
@@ -215,7 +216,7 @@ export async function deleteLead(req: Request, res: Response) {
     } 
   });
   return res.json({ success: true });
-}
+});
 
 // GET /api/v1/leads/:id/interactions
 export async function getLeadInteractions(req: Request, res: Response) {
@@ -313,7 +314,8 @@ export async function createLeadTask(req: Request, res: Response) {
 }
 
 // POST /api/v1/leads/:id/convert
-export async function convertLeadToClient(req: Request, res: Response) {
+// POST /api/v1/leads/:id/convert
+export const convertLeadToClient = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
   
   const lead = await prisma.lead.findUnique({
@@ -328,30 +330,94 @@ export async function convertLeadToClient(req: Request, res: Response) {
   });
   if (existingClient) return res.status(400).json({ error: 'Lead is already converted to a client' });
 
-  // Create the Client
-  const client = await prisma.client.create({
-    data: {
-      companyName: lead.companyName,
-      contactName: lead.contactName,
-      email: lead.email || `${lead.contactName.toLowerCase().replace(/\s/g, '')}@${lead.companyName.toLowerCase().replace(/\s/g, '')}.com`,
-      phone: lead.phone,
-      industry: lead.industry,
-      products: [], 
-      orderValue: lead.value,
-      contractDuration: '12 months',
-      startDate: new Date(),
-      renewalDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),
-      status: 'active',
-      linkedLeadId: lead.id,
-      accountManagerId: lead.assignedToId,
-    }
-  });
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Create the Client
+      const client = await tx.client.create({
+        data: {
+          companyName: lead.companyName,
+          contactName: lead.contactName,
+          email: lead.email || `${lead.contactName.toLowerCase().replace(/\s/g, '')}@${lead.companyName.toLowerCase().replace(/\s/g, '')}.com`,
+          phone: lead.phone,
+          industry: lead.industry,
+          products: [], 
+          orderValue: lead.value,
+          contractDuration: '12 months',
+          startDate: new Date(),
+          renewalDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),
+          status: 'active',
+          linkedLeadId: lead.id,
+          accountManagerId: lead.assignedToId,
+        }
+      });
 
-  // Update Lead Status to won
-  await prisma.lead.update({
-    where: { id: id as string },
-    data: { status: 'won' }
-  });
+      // 2. Update Lead Status to won
+      await tx.lead.update({
+        where: { id: id as string },
+        data: { status: 'won' }
+      });
 
-  return res.json({ success: true, client });
-}
+      // 3. Migrate Interactions
+      await tx.interaction.updateMany({
+        where: { leadId: id as string },
+        data: { clientId: client.id }
+      });
+
+      // 4. Migrate Tasks
+      await tx.task.updateMany({
+        where: { leadId: id as string },
+        data: { clientId: client.id }
+      });
+
+      // 5. Migrate Attachments
+      await tx.attachment.updateMany({
+        where: { leadId: id as string },
+        data: { clientId: client.id }
+      });
+
+      return client;
+    });
+
+    return res.json({ success: true, client: result });
+  } catch (err: any) {
+    console.error('Conversion failed:', err);
+    return res.status(500).json({ error: 'Failed to convert lead: ' + err.message });
+  }
+});
+
+// POST /api/v1/leads/bulk
+export const bulkCreateLeads = asyncHandler(async (req: Request, res: Response) => {
+  const leads = req.body as any[];
+  const user = (req as any).user;
+  
+  if (!Array.isArray(leads)) {
+    return res.status(400).json({ error: 'Body must be an array of leads' });
+  }
+
+  try {
+    // Get default milestone if none provided
+    const firstMilestone = await prisma.milestone.findFirst({ orderBy: { order: 'asc' } });
+
+    const result = await prisma.$transaction(
+      leads.map(lead => prisma.lead.create({
+        data: {
+          companyName: lead.companyName,
+          contactName: lead.contactName,
+          email: lead.email,
+          phone: lead.phone,
+          source: lead.source,
+          value: Number(lead.value) || 0,
+          priority: (lead.priority || 'Medium') as any,
+          notes: lead.notes,
+          milestoneId: lead.milestoneId || firstMilestone?.id,
+          assignedToId: lead.assignedToId || user.id,
+          createdById: user.id,
+        }
+      }))
+    );
+    return res.status(201).json({ success: true, count: result.length });
+  } catch (err: any) {
+    console.error('Bulk import failed:', err);
+    return res.status(500).json({ error: 'Bulk import failed: ' + err.message });
+  }
+});

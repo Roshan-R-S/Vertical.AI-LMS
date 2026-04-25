@@ -26,7 +26,6 @@ export function formatUser(u: any) {
     role:       roleToDisplay(u.role),
     avatar:     u.avatar ?? u.name.split(' ').map((n: string) => n[0]).join('').toUpperCase(),
     phone:      u.phone,
-    territory:  u.territory,
     team:       u.team?.name ?? null,
     teamId:     u.teamId,
     status:     u.isActive ? 'active' : 'inactive',

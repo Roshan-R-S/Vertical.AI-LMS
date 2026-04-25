@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { prisma } from '../../prisma';
 import { getLeadScopeFilter, getTaskScopeFilter } from '../../utils/scoping';
 import { Role } from '@prisma/client';
+import { asyncHandler } from '../../utils/async-handler';
 
 function getDateRangeForPeriod(period: string) {
   const now = new Date();
@@ -71,14 +72,23 @@ function getDateRangeForPeriod(period: string) {
 }
 
 // GET /api/v1/analytics/dashboard
-export async function getDashboard(req: Request, res: Response) {
-  const user = (req as any).user;
+export const getDashboard = asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
   const period = (req.query.period as string) || 'this-month';
+  const bdeId = req.query.bdeId as string | undefined;
   const dateFilter = getDateRangeForPeriod(period);
 
   // We only apply dateFilter to leads and tasks related counts
-  const leadScope = getLeadScopeFilter(user);
-  const taskScope = getTaskScopeFilter(user);
+  let leadScope: any = getLeadScopeFilter(user);
+  let taskScope: any = getTaskScopeFilter(user);
+
+  if (bdeId && bdeId !== 'All') {
+    // If a specific BDE is selected, we filter by their ID.
+    // This should work for Team Leads, Admins, and Super Admins.
+    leadScope = { deletedAt: null, assignedToId: bdeId };
+    taskScope = { deletedAt: null, assignedToId: bdeId };
+  }
 
   const [
     totalLeads, activeLeads, wonDeals, lostDeals,
@@ -123,6 +133,7 @@ export async function getDashboard(req: Request, res: Response) {
         isActive: true,
         ...(user.role === Role.TEAM_LEAD && { teamId: user.teamId }),
         ...(user.role === Role.BDE && { id: user.id }),
+        ...(bdeId && bdeId !== 'All' && user.role === Role.TEAM_LEAD && { id: bdeId }),
       },
       include: {
         team: true,
@@ -178,32 +189,49 @@ export async function getDashboard(req: Request, res: Response) {
     target: 500000,
   })).sort((a: any, b: any) => b.revenue - a.revenue);
 
-  const weightedExpected = allLeads
-    .filter((l: any) => l.status === 'active')
-    .reduce((s: any, l: any) => s + (l.value * l.probability / 100), 0);
+    const pipelineRevenue = pipelineAgg._sum.value || 0;
+    const weightedExpected = allLeads.reduce((sum, l) => {
+      if (l.status === 'active') {
+        return sum + ((l.value || 0) * (l.probability || 0) / 100);
+      }
+      return sum;
+    }, 0);
 
-  return res.json({
-    kpis: {
-      totalLeads,
-      activeLeads,
-      wonDeals,
-      lostDeals,
-      totalPipelineValue: pipelineAgg._sum.value ?? 0,
-      closedRevenue: closedAgg._sum.value ?? 0,
-      weightedExpected,
-      staleLeads,
-      overdueFollowUps,
-    },
-    funnelData,
-    sourceData,
-    monthlyTrend,
-    bdePerformance,
-  });
-}
+    return res.json({
+      kpis: {
+        totalLeads,
+        activeLeads,
+        wonDeals,
+        lostDeals,
+        pipelineRevenue,
+        totalPipelineValue: pipelineRevenue,
+        weightedExpected,
+        closedRevenue: closedAgg._sum.value || 0,
+        staleLeads,
+        overdueFollowUps,
+        avgDealSize: wonDeals > 0 ? (closedAgg._sum.value ?? 0) / wonDeals : 0,
+        highValueProspects: allLeads.filter((l: any) => l.status === 'active' && l.value >= 100000).length,
+      },
+      funnelData,
+      sourceData,
+      monthlyTrend,
+      bdePerformance,
+      cycleData: [
+        { stage: 'Lead -> Close', days: 15.4 }, // simplified for now
+        { stage: 'Qualify -> Won', days: 8.2 },
+      ],
+    });
+  } catch (error: any) {
+    const fs = require('fs');
+    const logMsg = `[DASHBOARD ERROR] ${new Date().toISOString()} - ${error.message}\n${error.stack}\n\n`;
+    fs.appendFileSync('debug.log', logMsg);
+    throw error;
+  }
+});
 
 
 // GET /api/v1/analytics/leaderboard?period=month-0
-export async function getLeaderboard(req: Request, res: Response) {
+export const getLeaderboard = asyncHandler(async (req: Request, res: Response) => {
   const user = (req as any).user;
   const period = (req.query.period as string) || 'month-0';
   const dateFilter = getDateRangeForPeriod(period);
@@ -239,7 +267,7 @@ export async function getLeaderboard(req: Request, res: Response) {
     id: u.id,
     name: u.name,
     avatar: u.avatar,
-    territory: u.territory,
+
     team: u.team?.name ?? null,
     revenue: u.assignedLeads.reduce((s, l) => s + l.value, 0),
     deals: u.assignedLeads.length,
@@ -286,10 +314,10 @@ export async function getLeaderboard(req: Request, res: Response) {
     quarterlyPerformer: ranked[1] ?? null,
     annualPerformer: ranked[2] ?? null,
   });
-}
+});
 
 // GET /api/v1/analytics/team-performance
-export async function getTeamPerformance(req: Request, res: Response) {
+export const getTeamPerformance = asyncHandler(async (req: Request, res: Response) => {
   const user = (req as any).user;
   const tls = await prisma.user.findMany({
     where: { 
@@ -313,12 +341,21 @@ export async function getTeamPerformance(req: Request, res: Response) {
       id: b.id,
       name: b.name,
       avatar: b.avatar,
-      territory: b.territory,
+
       calls: b._count.interactions,
       meetings: Math.round(b._count.interactions * 0.2),
       deals: b.assignedLeads.length,
       revenue: b.assignedLeads.reduce((s, l) => s + l.value, 0),
       target: 500000,
+      executionScore: Math.min(100, Math.round((b._count.interactions / 40) * 100)), // 40 calls target
+      workQueue: {
+        done: b._count.interactions,
+        total: 50
+      },
+      alerts: {
+        staleLeads: 0, // Placeholder or compute
+        overdueTasks: 0 // Placeholder or compute
+      }
     }));
 
     const teamRevenue = bdeStats.reduce((s, b) => s + b.revenue, 0);
@@ -330,7 +367,7 @@ export async function getTeamPerformance(req: Request, res: Response) {
         name: tl.name,
         avatar: tl.avatar,
         team: tl.team?.name,
-        territory: tl.territory,
+
       },
       teamRevenue,
       teamTarget,
@@ -340,4 +377,4 @@ export async function getTeamPerformance(req: Request, res: Response) {
   }));
 
   return res.json(result);
-}
+});

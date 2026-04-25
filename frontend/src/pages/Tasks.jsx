@@ -177,8 +177,10 @@ export default function Tasks() {
                 {currentUser?.role !== 'BDE' && (
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <div className="avatar avatar-sm" style={{ width: 20, height: 20, fontSize: 9 }}>{task.bde.split(' ').map(n=>n[0]).join('')}</div>
-                      <span style={{ fontSize: 13 }}>{task.bde}</span>
+                      <div className="avatar avatar-sm" style={{ width: 20, height: 20, fontSize: 9 }}>
+                        {task.bde?.split(' ').map(n => n[0]).join('') || '?'}
+                      </div>
+                      <span style={{ fontSize: 13 }}>{task.bde || 'Unassigned'}</span>
                     </div>
                   </td>
                 )}

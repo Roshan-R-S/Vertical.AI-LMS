@@ -96,7 +96,6 @@ model User {
   role          Role      @default(BDE)
   avatar        String?
   phone         String?
-  territory     String?
   isActive      Boolean   @default(true)
   lastLoginAt   DateTime?
   teamId        String?
@@ -184,8 +183,12 @@ model Lead {
   attachments   Attachment[]
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
+  deletedAt     DateTime?
 
+  @@index([email])
+  @@index([phone])
   @@index([status])
+  @@index([companyName])
   @@index([assignedToId])
   @@index([milestoneId])
   @@map("leads")
@@ -212,6 +215,7 @@ model Interaction {
   performedById  String
   performedBy    User                  @relation(fields: [performedById], references: [id])
   createdAt      DateTime              @default(now())
+  deletedAt      DateTime?
 
   @@index([leadId])
   @@map("interactions")
@@ -236,6 +240,7 @@ model Task {
   status       TaskStatus @default(pending)
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
+  deletedAt    DateTime?
 
   @@index([assignedToId])
   @@index([leadId])
@@ -268,7 +273,11 @@ model Client {
   attachments      Attachment[]
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
+  deletedAt        DateTime?
 
+  @@index([companyName])
+  @@index([email])
+  @@index([status])
   @@map("clients")
 }
 
@@ -294,6 +303,7 @@ model Invoice {
   items         InvoiceItem[]
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
+  deletedAt     DateTime?
 
   @@map("invoices")
 }

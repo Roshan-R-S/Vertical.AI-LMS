@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import {
   Plus, Search, Filter, Eye, Edit2, Trash2, Phone, Mail,
-  MessageSquare, Calendar, Star, Upload, ChevronDown,
+  MessageSquare, Calendar, Star, Upload, Download, ChevronDown,
   ArrowUpRight, Mic, Brain, TrendingUp, X, CheckCircle,
   GripVertical
 } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../context/AppContextCore';
 import Pagination from '../components/Pagination';
 import { 
@@ -420,9 +421,10 @@ function InteractionModal({ lead, interactions, onClose, onAdd }) {
 }
 
 export default function Leads() {
-  const { leads, milestones, dispositions, interactions, addLead, updateLead, deleteLead, addInteraction, currentUser } = useApp();
+  const [searchParams] = useSearchParams();
+  const { leads, milestones, dispositions, interactions, addLead, bulkAddLeads, updateLead, deleteLead, addInteraction, currentUser } = useApp();
   const [search, setSearch] = useState('');
-  const [filterMilestone, setFilterMilestone] = useState('All');
+  const [filterMilestone, setFilterMilestone] = useState(searchParams.get('milestone') || 'All');
   const [filterSource, setFilterSource] = useState('All');
   const [filterBde, setFilterBde] = useState(currentUser?.role === 'BDE' ? currentUser.name : 'All');
   const [showAddModal, setShowAddModal] = useState(false);
@@ -434,6 +436,7 @@ export default function Leads() {
   const [viewMode, setViewMode] = useState('table'); // table | kanban
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(5);
+  const [filterType, setFilterType] = useState(searchParams.get('filter') || 'All'); // 'All' | 'Untouched'
 
   // DND Configuration
   const sensors = useSensors(
@@ -475,6 +478,12 @@ export default function Leads() {
       else if (dateRange === 'Custom' && customDates.start && customDates.end) {
         matchDate = leadDate >= customDates.start && leadDate <= customDates.end;
       }
+    }
+
+    // Untouched filter logic
+    if (filterType === 'Untouched') {
+      const hasInteractions = interactions.some(i => i.leadId === l.id);
+      if (hasInteractions) return false;
     }
 
     return matchSearch && matchMilestone && matchSource && matchBde && matchDate;
@@ -529,6 +538,11 @@ export default function Leads() {
           <select className="form-select" style={{ width: 'auto', padding: '8px 12px', fontSize: 13 }} value={filterBde} onChange={e => setFilterBde(e.target.value)}>
             <option value="All">BDE: All</option>
             {bdes.filter(s=>s!=='All').map(s => <option key={s}>{s}</option>)}
+          </select>
+          
+          <select className="form-select" style={{ width: 'auto', padding: '8px 12px', fontSize: 13, border: filterType === 'Untouched' ? '1px solid #f59e0b' : '' }} value={filterType} onChange={e => setFilterType(e.target.value)}>
+            <option value="All">All Status</option>
+            <option value="Untouched">Untouched Leads</option>
           </select>
 
           <div style={{ display: 'flex', gap: 0, borderRadius: 8, background: 'var(--bg-surface)', border: '1px solid var(--border-default)', overflow: 'hidden' }}>
@@ -652,9 +666,7 @@ export default function Leads() {
       {editLead && <LeadModal lead={editLead} onClose={() => setEditLead(null)} onSave={d => updateLead(editLead.id, d)} milestones={milestones} dispositions={dispositions} />}
       {viewLead && <InteractionModal lead={viewLead} interactions={interactions} onClose={() => setViewLead(null)} onAdd={addInteraction} />}
       {showImportModal && <ImportModal onClose={() => setShowImportModal(false)} onImport={async (data) => {
-        for (const lead of data) {
-          await addLead(lead);
-        }
+        await bulkAddLeads(data);
         setShowImportModal(false);
       }} />}
     </div>
