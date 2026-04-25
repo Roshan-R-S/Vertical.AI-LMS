@@ -129,7 +129,7 @@ function MilestoneRow({ milestone, dispositions, onAddDis, onEditDis, onToggleDi
                   </label>
                   <button className="btn btn-ghost btn-sm btn-icon" onClick={() => onEditDis(dis)}><Edit2 size={13} /></button>
                   {!dis.isDefault && (
-                    <button className="btn btn-ghost btn-sm btn-icon" style={{ color: 'var(--brand-danger)' }} onClick={() => onDeleteDis(dis.id)}><Trash2 size={13} /></button>
+                    <button className="btn btn-ghost btn-sm btn-icon" style={{ color: 'var(--brand-danger)' }} onClick={() => window.confirm('Are you sure you want to delete this disposition?') && onDeleteDis(dis.id)}><Trash2 size={13} /></button>
                   )}
                 </div>
               </div>

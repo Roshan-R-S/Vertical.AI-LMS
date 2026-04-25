@@ -609,7 +609,7 @@ export default function Leads() {
                     <div className="table-actions">
                       <button className="btn btn-ghost btn-sm btn-icon" title="View" onClick={() => setViewLead(lead)}><Eye size={14} /></button>
                       <button className="btn btn-ghost btn-sm btn-icon" title="Edit" onClick={() => setEditLead(lead)}><Edit2 size={14} /></button>
-                      <button className="btn btn-ghost btn-sm btn-icon" title="Delete" style={{ color: 'var(--brand-danger)' }} onClick={() => deleteLead(lead.id)}><Trash2 size={14} /></button>
+                      <button className="btn btn-ghost btn-sm btn-icon" title="Delete" style={{ color: 'var(--brand-danger)' }} onClick={() => window.confirm(`Are you sure you want to delete lead "${lead.companyName}"?`) && deleteLead(lead.id)}><Trash2 size={14} /></button>
                     </div>
                   </td>
                 </tr>
