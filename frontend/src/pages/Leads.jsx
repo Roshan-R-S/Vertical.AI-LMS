@@ -428,6 +428,7 @@ export default function Leads() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editLead, setEditLead] = useState(null);
   const [viewLead, setViewLead] = useState(null);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [dateRange, setDateRange] = useState('All');
   const [customDates, setCustomDates] = useState({ start: '', end: '' });
   const [viewMode, setViewMode] = useState('table'); // table | kanban
@@ -490,7 +491,7 @@ export default function Leads() {
           <p className="page-subtitle">{leads.length} total leads • {leads.filter(l => l.status === 'active').length} active</p>
         </div>
         <div className="flex gap-2 items-center">
-          <button className="btn btn-secondary btn-sm"><Upload size={14} /> Import CSV</button>
+          <button className="btn btn-secondary btn-sm" onClick={() => setShowImportModal(true)}><Upload size={14} /> Import CSV</button>
           <button className="btn btn-primary btn-sm" onClick={() => setShowAddModal(true)}><Plus size={15} /> Add Lead</button>
         </div>
       </div>
@@ -650,6 +651,114 @@ export default function Leads() {
       {showAddModal && <LeadModal onClose={() => setShowAddModal(false)} onSave={addLead} milestones={milestones} dispositions={dispositions} />}
       {editLead && <LeadModal lead={editLead} onClose={() => setEditLead(null)} onSave={d => updateLead(editLead.id, d)} milestones={milestones} dispositions={dispositions} />}
       {viewLead && <InteractionModal lead={viewLead} interactions={interactions} onClose={() => setViewLead(null)} onAdd={addInteraction} />}
+      {showImportModal && <ImportModal onClose={() => setShowImportModal(false)} onImport={async (data) => {
+        for (const lead of data) {
+          await addLead(lead);
+        }
+        setShowImportModal(false);
+      }} />}
+    </div>
+  );
+}
+
+function ImportModal({ onClose, onImport }) {
+  const [file, setFile] = useState(null);
+  const [preview, setPreview] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const downloadTemplate = () => {
+    const headers = ['companyName', 'contactName', 'email', 'phone', 'source', 'value', 'priority', 'notes'];
+    const csvContent = headers.join(',') + '\n' + 'Sample Corp,John Doe,john@sample.com,9876543210,Website,50000,High,Interesting prospect';
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'Leads_Import_Template.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleFile = (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    setFile(f);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target.result;
+      const lines = text.split('\n').filter(l => l.trim());
+      const headers = lines[0].split(',').map(h => h.trim());
+      const data = lines.slice(1).map(line => {
+        const values = line.split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+        const obj = {};
+        headers.forEach((h, i) => { if (values[i]) obj[h] = values[i]; });
+        return obj;
+      });
+      setPreview(data);
+    };
+    reader.readAsText(f);
+  };
+
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal animate-slideUp">
+        <div className="modal-header">
+          <h2 className="modal-title">Bulk Import Leads</h2>
+          <button className="modal-close" onClick={onClose}><X size={16} /></button>
+        </div>
+        <div className="modal-body">
+          {!file ? (
+            <div style={{ textAlign: 'center', padding: '20px 0' }}>
+              <div style={{ marginBottom: 24 }}>
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12 }}>Download our template to ensure your data is formatted correctly.</p>
+                <button className="btn btn-secondary" onClick={downloadTemplate}><Download size={14} /> Download CSV Template</button>
+              </div>
+              
+              <div 
+                style={{ border: '2px dashed var(--border-default)', borderRadius: 16, padding: '40px 20px', background: 'var(--bg-surface)', cursor: 'pointer' }}
+                onClick={() => document.getElementById('csvInput').click()}
+              >
+                <Upload size={32} color="var(--brand-primary)" style={{ marginBottom: 16, opacity: 0.5 }} />
+                <div style={{ fontWeight: 600, marginBottom: 4 }}>Click to upload CSV</div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Max file size: 5MB</div>
+                <input id="csvInput" type="file" accept=".csv" hidden onChange={handleFile} />
+              </div>
+            </div>
+          ) : (
+            <div>
+              <div style={{ background: 'var(--bg-surface)', padding: 12, borderRadius: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                <div style={{ fontSize: 13 }}>
+                  <div style={{ fontWeight: 700 }}>{file.name}</div>
+                  <div style={{ color: 'var(--text-secondary)' }}>Ready to import {preview.length} leads</div>
+                </div>
+                <button className="btn btn-ghost btn-sm" onClick={() => { setFile(null); setPreview([]); }}>Change</button>
+              </div>
+
+              <div style={{ maxHeight: 200, overflowY: 'auto', border: '1px solid var(--border-subtle)', borderRadius: 8, marginBottom: 20 }}>
+                <table className="table" style={{ minWidth: 'auto', fontSize: 11 }}>
+                  <thead style={{ position: 'sticky', top: 0, background: 'var(--bg-card)' }}>
+                    <tr><th>Company</th><th>Contact</th><th>Value</th></tr>
+                  </thead>
+                  <tbody>
+                    {preview.slice(0, 5).map((p, i) => (
+                      <tr key={i}>
+                        <td>{p.companyName}</td>
+                        <td>{p.contactName}</td>
+                        <td>₹{p.value}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {preview.length > 5 && <div style={{ padding: 8, textAlign: 'center', fontSize: 10, color: 'var(--text-muted)', borderTop: '1px solid var(--border-subtle)' }}>+ {preview.length - 5} more rows</div>}
+              </div>
+              
+              <button className="btn btn-primary w-full" disabled={loading} onClick={() => { setLoading(true); onImport(preview); }}>
+                {loading ? 'Processing...' : `Confirm Import ${preview.length} Leads`}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
