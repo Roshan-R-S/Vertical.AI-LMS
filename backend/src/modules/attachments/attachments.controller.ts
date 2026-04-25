@@ -9,8 +9,23 @@ export async function uploadAttachment(req: Request, res: Response, next: NextFu
     }
     const leadId = req.params.id as string;
     const uploadedById = (req as any).user.id as string;
-    const attachment = await attachmentsService.upload(leadId, uploadedById, req.file, (req as any).user);
+    const attachment = await attachmentsService.upload(leadId, null, uploadedById, req.file, (req as any).user);
     res.status(201).json({ statusCode: 201, data: attachment, message: 'File uploaded successfully.' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function uploadInvoiceAttachment(req: Request, res: Response, next: NextFunction) {
+  try {
+    if (!req.file) {
+      res.status(400).json({ statusCode: 400, message: 'No file provided.' });
+      return;
+    }
+    const invoiceId = req.params.id as string;
+    const uploadedById = (req as any).user.id as string;
+    const attachment = await attachmentsService.upload(null, invoiceId, uploadedById, req.file, (req as any).user);
+    res.status(201).json({ statusCode: 201, data: attachment, message: 'Invoice file uploaded successfully.' });
   } catch (err) {
     next(err);
   }

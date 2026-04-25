@@ -1,13 +1,11 @@
 import { prisma } from '../../prisma';
 
 export const attachmentsService = {
-  async upload(leadId: string, uploadedById: string, file: Express.Multer.File, user: any) {
-    const lead = await prisma.lead.findUnique({ where: { id: leadId } });
-    if (!lead) throw new Error('Lead not found');
-
+  async upload(leadId: string | null, invoiceId: string | null, uploadedById: string, file: Express.Multer.File, user: any) {
     const attachment = await prisma.attachment.create({
       data: {
-        leadId,
+        leadId: leadId ?? undefined,
+        invoiceId: invoiceId ?? undefined,
         uploadedById,
         fileName: file.originalname,
         mimeType: file.mimetype,

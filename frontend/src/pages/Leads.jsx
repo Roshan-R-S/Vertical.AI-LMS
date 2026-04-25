@@ -68,7 +68,7 @@ function DraggableCard({ lead, onView }) {
         </span>
       </div>
       <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.05)', fontSize: 11, color: 'var(--text-secondary)', display: 'flex', justifyContent: 'space-between' }}>
-        <span>By: {lead.assignedBDE}</span>
+        <span>By: {lead.assignedTo?.name || 'Unassigned'}</span>
         <span style={{ opacity: 0.7 }}>{lead.source}</span>
       </div>
     </div>
@@ -109,11 +109,21 @@ function DroppableColumn({ milestone, children, count }) {
 }
 
 function LeadModal({ lead, onClose, onSave, milestones, dispositions }) {
-  const { currentUser } = useApp();
+  const { currentUser, users, convertLead } = useApp();
   const [isCustomSource, setIsCustomSource] = useState(false);
-  const [form, setForm] = useState(lead || {
+  const [showConvertConfirm, setShowConvertConfirm] = useState(false);
+  const [convertText, setConvertText] = useState('');
+  
+  // Filter for BDEs only
+  const bdeUsers = users.filter(u => u.role === 'BDE');
+  
+  const [form, setForm] = useState(lead ? {
+    ...lead,
+    // Ensure we have IDs for the dropdowns
+    assignedToId: lead.assignedBDEId || lead.assignedToId
+  } : {
     companyName: '', contactName: '', email: '', phone: '', source: 'Website',
-    assignedBDE: '', milestone: 'New', disposition: 'Not Contacted',
+    assignedToId: '', milestone: 'New', disposition: 'Not Contacted',
     value: '', priority: 'Medium', notes: '', tags: []
   });
 
@@ -206,18 +216,71 @@ function LeadModal({ lead, onClose, onSave, milestones, dispositions }) {
               <input className="form-input" type="number" value={form.value} onChange={e => setForm(p => ({ ...p, value: e.target.value }))} placeholder="150000" />
             </div>
             <div className="form-group">
-              <label className="form-label">Assign BDE</label>
-              <input className="form-input" value={form.assignedBDE} onChange={e => setForm(p => ({ ...p, assignedBDE: e.target.value }))} placeholder="BDE Name" />
+              <label className="form-label">Assign BDE *</label>
+              <select 
+                className="form-select" 
+                value={form.assignedToId} 
+                onChange={e => setForm(p => ({ ...p, assignedToId: e.target.value }))}
+                required
+              >
+                <option value="">Select BDE</option>
+                {bdeUsers.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+              </select>
             </div>
           </div>
           <div className="form-group">
             <label className="form-label">Notes</label>
             <textarea className="form-textarea" value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} placeholder="Add notes about this lead..." />
           </div>
+
+          {lead && form.milestone === 'Deal Closed' && lead.status !== 'won' && (
+            <div style={{ marginTop: 24, padding: 20, background: 'rgba(16,185,129,0.05)', borderRadius: 12, border: '1px solid rgba(16,185,129,0.2)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <h4 style={{ margin: 0, color: '#10b981', fontSize: 14 }}>Ready to finalize?</h4>
+                  <p style={{ margin: '4px 0 0 0', fontSize: 12, color: 'var(--text-muted)' }}>Converting will create a permanent Client profile and move this lead to 'Won'.</p>
+                </div>
+                {!showConvertConfirm ? (
+                  <button className="btn btn-primary" onClick={() => setShowConvertConfirm(true)}>
+                    Convert to Client
+                  </button>
+                ) : (
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <input 
+                      className="form-input" 
+                      style={{ width: 120, height: 36, textTransform: 'uppercase', fontSize: 12 }} 
+                      placeholder="TYPE CONVERT" 
+                      value={convertText}
+                      onChange={e => setConvertText(e.target.value)}
+                    />
+                    <button 
+                      className="btn btn-primary" 
+                      style={{ height: 36 }}
+                      disabled={convertText.toUpperCase() !== 'CONVERT'}
+                      onClick={async () => {
+                        try {
+                          await convertLead(lead.id);
+                          alert('Lead successfully converted to Client!');
+                          onClose();
+                        } catch { /* handled in context */ }
+                      }}
+                    >
+                      Confirm
+                    </button>
+                    <button className="btn btn-ghost" style={{ height: 36 }} onClick={() => { setShowConvertConfirm(false); setConvertText(''); }}>Cancel</button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
         <div className="modal-footer">
           <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" onClick={() => { onSave(form); onClose(); }}>
+          <button className="btn btn-primary" onClick={() => { 
+            if (!form.assignedToId) return alert("Please assign a BDE");
+            onSave(form); 
+            onClose(); 
+          }}>
             <CheckCircle size={15} /> {lead ? 'Update Lead' : 'Create Lead'}
           </button>
         </div>
@@ -245,16 +308,17 @@ function InteractionModal({ lead, interactions, onClose, onAdd }) {
         </div>
         <div className="modal-body">
           {/* Lead stats */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, marginBottom: 20 }}>
             {[
               { l: 'Stage', v: lead.milestone, c: MILESTONE_COLORS[lead.milestone] },
+              { l: 'Source', v: lead.source, c: '#06b6d4' },
               { l: 'Score', v: lead.score, c: lead.score >= 80 ? '#10b981' : '#f59e0b' },
               { l: 'Value', v: `₹${(lead.value/1000).toFixed(0)}K`, c: '#6366f1' },
               { l: 'Priority', v: lead.priority, c: lead.priority === 'High' ? '#ef4444' : '#f59e0b' },
             ].map((s, i) => (
               <div key={i} style={{ background: 'var(--bg-surface)', borderRadius: 10, padding: '10px 14px', border: '1px solid var(--border-subtle)' }}>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>{s.l}</div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: s.c }}>{s.v}</div>
+                <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 4, textTransform: 'uppercase' }}>{s.l}</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: s.c, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={s.v}>{s.v}</div>
               </div>
             ))}
           </div>
@@ -399,7 +463,7 @@ export default function Leads() {
     const matchSearch = !search || l.companyName.toLowerCase().includes(search.toLowerCase()) || l.contactName.toLowerCase().includes(search.toLowerCase());
     const matchMilestone = filterMilestone === 'All' || l.milestone === filterMilestone;
     const matchSource = filterSource === 'All' || l.source === filterSource;
-    const matchBde = filterBde === 'All' || l.assignedBDE === filterBde;
+    const matchBde = filterBde === 'All' || l.assignedTo?.name === filterBde;
     
     // Simple date filtering
     let matchDate = true;
@@ -415,8 +479,8 @@ export default function Leads() {
     return matchSearch && matchMilestone && matchSource && matchBde && matchDate;
   });
 
-  const sources = ['All', ...new Set(leads.map(l => l.source))];
-  const bdes = ['All', ...new Set(leads.map(l => l.assignedBDE))];
+  const sources = ['All', ...new Set(leads.map(l => l.source).filter(Boolean))];
+  const bdes = ['All', ...new Set(leads.map(l => l.assignedTo?.name).filter(Boolean))];
 
   return (
     <div className="animate-fadeIn">
@@ -517,7 +581,7 @@ export default function Leads() {
                 <tr key={lead.id}>
                   <td>
                     <div style={{ fontWeight: 600, fontSize: 13 }}>{lead.companyName}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{lead.id} • {lead.createdAt}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Created on {lead.createdAt}</div>
                   </td>
                   <td>
                     <div style={{ fontSize: 13 }}>{lead.contactName}</div>
@@ -530,7 +594,7 @@ export default function Leads() {
                     </span>
                   </td>
                   <td style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{lead.disposition}</td>
-                  <td style={{ fontSize: 13 }}>{lead.assignedBDE}</td>
+                  <td style={{ fontSize: 13 }}>{lead.assignedTo?.name || 'Unassigned'}</td>
                   <td style={{ fontWeight: 700 }}>₹{(lead.value / 1000).toFixed(0)}K</td>
                   <td>
                     <span style={{ fontWeight: 700, color: lead.score >= 80 ? '#10b981' : lead.score >= 60 ? '#f59e0b' : '#ef4444', fontSize: 14 }}>{lead.score}</span>
@@ -544,7 +608,6 @@ export default function Leads() {
                     <div className="table-actions">
                       <button className="btn btn-ghost btn-sm btn-icon" title="View" onClick={() => setViewLead(lead)}><Eye size={14} /></button>
                       <button className="btn btn-ghost btn-sm btn-icon" title="Edit" onClick={() => setEditLead(lead)}><Edit2 size={14} /></button>
-                      <button className="btn btn-ghost btn-sm btn-icon" title="Call" style={{ color: '#10b981' }}><Phone size={14} /></button>
                       <button className="btn btn-ghost btn-sm btn-icon" title="Delete" style={{ color: 'var(--brand-danger)' }} onClick={() => deleteLead(lead.id)}><Trash2 size={14} /></button>
                     </div>
                   </td>

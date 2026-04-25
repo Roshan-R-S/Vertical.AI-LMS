@@ -160,7 +160,7 @@ export default function Dashboard() {
         </div>
 
         <div className="studio-card">
-          <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 24 }}>Lead Distribution</div>
+          <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 24 }}>Leads by Source</div>
           <div style={{ height: 260 }}>
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>

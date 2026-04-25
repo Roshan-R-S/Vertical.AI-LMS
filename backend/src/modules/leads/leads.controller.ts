@@ -311,3 +311,47 @@ export async function createLeadTask(req: Request, res: Response) {
   });
   return res.status(201).json(task);
 }
+
+// POST /api/v1/leads/:id/convert
+export async function convertLeadToClient(req: Request, res: Response) {
+  const { id } = req.params;
+  
+  const lead = await prisma.lead.findUnique({
+    where: { id: id as string },
+    include: { milestone: true }
+  });
+
+  if (!lead) return res.status(404).json({ error: 'Lead not found' });
+  
+  const existingClient = await prisma.client.findFirst({
+    where: { linkedLeadId: id as string }
+  });
+  if (existingClient) return res.status(400).json({ error: 'Lead is already converted to a client' });
+
+  // Create the Client
+  const client = await prisma.client.create({
+    data: {
+      companyName: lead.companyName,
+      contactName: lead.contactName,
+      email: lead.email || `${lead.contactName.toLowerCase().replace(/\s/g, '')}@${lead.companyName.toLowerCase().replace(/\s/g, '')}.com`,
+      phone: lead.phone,
+      industry: lead.industry,
+      products: [], 
+      orderValue: lead.value,
+      contractDuration: '12 months',
+      startDate: new Date(),
+      renewalDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),
+      status: 'active',
+      linkedLeadId: lead.id,
+      accountManagerId: lead.assignedToId,
+    }
+  });
+
+  // Update Lead Status to won
+  await prisma.lead.update({
+    where: { id: id as string },
+    data: { status: 'won' }
+  });
+
+  return res.json({ success: true, client });
+}

@@ -209,18 +209,41 @@ export default function AppProvider({ children }) {
     }
   };
 
+  const convertLead = async (id) => {
+    try {
+      const res = await api.post(`/leads/${id}/convert`);
+      // Update local state
+      setLeads(prev => prev.map(l => l.id === id ? { ...l, status: 'won' } : l));
+      setClients(prev => [res.client, ...prev]);
+      return res.client;
+    } catch (err) {
+      alert(err.message);
+      throw err;
+    }
+  };
+
   // Invoices
   const addInvoice = async (invoice) => {
     try {
       const res = await api.post('/invoices', invoice);
-      // We need to transform the response to match the frontend format if necessary
-      // But getInvoices already does this. The POST response might be raw Prisma.
-      // Let's refetch initial data or just push a placeholder and let the user refresh.
-      // Better: fetch initial data to be sure.
       await fetchInitialData();
       return res;
     } catch (err) {
       alert(err.message);
+      throw err;
+    }
+  };
+
+  const uploadInvoiceFile = async (invoiceId, file) => {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      await api.post(`/invoices/${invoiceId}/attachments`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      await fetchInitialData();
+    } catch (err) {
+      alert("Failed to upload invoice file: " + err.message);
       throw err;
     }
   };
@@ -230,12 +253,12 @@ export default function AppProvider({ children }) {
     <AppContext.Provider value={{
       theme, toggleTheme,
       currentUser, leads, clients, users, milestones, dispositions, interactions, invoices, notifications, tasks,
-      addLead, updateLead, deleteLead,
+      addLead, updateLead, deleteLead, convertLead,
       addClient, updateClient,
       addUser, updateUser, toggleUserStatus,
       addTask, updateTask,
       addInteraction,
-      addInvoice,
+      addInvoice, uploadInvoiceFile,
       login, logout, loading,
 
     }}>

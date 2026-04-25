@@ -283,8 +283,8 @@ model Invoice {
   paidDate      DateTime?
   paidAmount    Float?
   pdfUrl        String?
+  attachments   Attachment[]
   items         InvoiceItem[]
-
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
@@ -308,8 +308,10 @@ model InvoiceItem {
 
 model Attachment {
   id           String   @id @default(cuid())
-  leadId       String
-  lead         Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  leadId       String?
+  lead         Lead?    @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  invoiceId    String?
+  invoice      Invoice? @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   uploadedById String
   uploadedBy   User     @relation(fields: [uploadedById], references: [id])
   fileName     String
@@ -319,6 +321,7 @@ model Attachment {
   createdAt    DateTime @default(now())
 
   @@index([leadId])
+  @@index([invoiceId])
   @@map("attachments")
 }
 

@@ -76,7 +76,19 @@ function InvoiceModal({ invoice, onClose }) {
           )}
         </div>
         <div className="modal-footer">
-          <button className="btn btn-secondary" onClick={onClose}><Download size={14} /> Download PDF</button>
+          {invoice.pdfUrl ? (
+            <button 
+              onClick={() => window.open(invoice.pdfUrl, '_blank')}
+              className="btn btn-secondary"
+              style={{ display: 'flex', alignItems: 'center', gap: 8 }}
+            >
+              <Download size={14} /> Download Document
+            </button>
+          ) : (
+            <button className="btn btn-secondary" disabled title="No document uploaded">
+              <FileText size={14} /> No Document
+            </button>
+          )}
           {invoice.status !== 'paid' && <button className="btn btn-primary"><CheckCircle size={14} /> Mark as Paid</button>}
         </div>
       </div>
@@ -92,10 +104,11 @@ function NewInvoiceModal({ onClose, onSave, clients }) {
     status: 'unpaid',
     issueDate: new Date().toISOString().split('T')[0],
     dueDate: '',
-    pdfUrl: ''
   });
+  const [file, setFile] = useState(null);
   const [isSaved, setIsSaved] = useState(false);
   const [saving, setSaving] = useState(false);
+  const { uploadInvoiceFile } = useApp();
 
   const gst = Math.round((Number(form.amount) || 0) * 0.18);
   const total = (Number(form.amount) || 0) + gst;
@@ -107,11 +120,16 @@ function NewInvoiceModal({ onClose, onSave, clients }) {
     }
     setSaving(true);
     try {
-      await onSave({
+      const res = await onSave({
         ...form,
         amount: Number(form.amount),
         items: [{ desc: 'Service Fee', amount: Number(form.amount) }]
       });
+      
+      if (file && res?.id) {
+        await uploadInvoiceFile(res.id, file);
+      }
+      
       setIsSaved(true);
     } catch (err) {
       console.error(err);
@@ -187,11 +205,32 @@ function NewInvoiceModal({ onClose, onSave, clients }) {
                 </div>
               </div>
 
-              <div className="form-group">
-                <label className="form-label">Invoice PDF URL / Reference</label>
-                <div className="search-wrapper">
-                  <FileText className="search-icon" size={16} />
-                  <input className="form-input" style={{ paddingLeft: 36 }} value={form.pdfUrl} onChange={e => setForm(p => ({ ...p, pdfUrl: e.target.value }))} placeholder="https://storage.link/invoice.pdf" />
+               <div className="form-group">
+                <label className="form-label">Upload Invoice Document (PDF/DOC)</label>
+                <div style={{ 
+                  border: '2px dashed var(--border-default)', 
+                  borderRadius: 12, 
+                  padding: '20px', 
+                  textAlign: 'center',
+                  background: file ? 'rgba(16,185,129,0.05)' : 'transparent',
+                  borderColor: file ? '#10b981' : 'var(--border-default)'
+                }}>
+                  <input 
+                    type="file" 
+                    id="invoice-file"
+                    style={{ display: 'none' }} 
+                    accept=".pdf,.doc,.docx"
+                    onChange={e => setFile(e.target.files[0])} 
+                  />
+                  <label htmlFor="invoice-file" style={{ cursor: 'pointer' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                      <FileText size={24} color={file ? '#10b981' : 'var(--text-muted)'} />
+                      <div style={{ fontSize: 13, fontWeight: 500 }}>
+                        {file ? file.name : 'Click to select or drag and drop'}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>PDF, DOC up to 10MB</div>
+                    </div>
+                  </label>
                 </div>
               </div>
             </>
@@ -231,6 +270,41 @@ export default function Billing() {
   const totalRevenue = invoices.filter(i => i.status === 'paid').reduce((s, i) => s + i.amount, 0);
   const totalPending = invoices.filter(i => i.status !== 'paid').reduce((s, i) => s + (i.status === 'partial' ? (i.total - (i.paidAmount || 0)) : i.total), 0);
   const overdue = invoices.filter(i => i.status === 'unpaid').length;
+  
+  const handleExport = () => {
+    if (filtered.length === 0) return;
+    
+    // Headers
+    const headers = ['Invoice ID', 'Client', 'Amount', 'GST', 'Total', 'Issue Date', 'Due Date', 'Status'];
+    
+    // Rows
+    const rows = filtered.map(inv => [
+      inv.id,
+      inv.clientName,
+      inv.amount,
+      inv.gst || 0,
+      inv.total,
+      inv.issueDate,
+      inv.dueDate,
+      inv.status
+    ]);
+    
+    // Convert to CSV string with quote-wrapping for safety
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(r => r.map(val => `"${val}"`).join(','))
+    ].join('\n');
+    
+    // Download trigger
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `Invoices_Export_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   return (
     <div className="animate-fadeIn">
@@ -240,7 +314,7 @@ export default function Billing() {
           <p className="page-subtitle">Financial management & payment tracking</p>
         </div>
         <div className="flex gap-2">
-          <button className="btn btn-secondary btn-sm"><Download size={14} /> Export</button>
+          <button className="btn btn-secondary btn-sm" onClick={handleExport}><Download size={14} /> Export</button>
           <button className="btn btn-primary btn-sm" onClick={() => setShowAddModal(true)}><Plus size={15} /> New Invoice</button>
         </div>
 
@@ -305,7 +379,6 @@ export default function Billing() {
                     <td style={{ fontWeight: 700, color: 'var(--brand-primary-light)' }}>{inv.id}</td>
                     <td>
                       <div style={{ fontWeight: 600, fontSize: 13 }}>{inv.clientName}</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{inv.clientId}</div>
                     </td>
                     <td>₹{inv.amount.toLocaleString()}</td>
                     <td style={{ color: 'var(--text-muted)', fontSize: 12 }}>₹{(inv.gst || 0).toLocaleString()}</td>
@@ -324,7 +397,14 @@ export default function Billing() {
                     <td>
                       <div className="table-actions">
                         <button className="btn btn-ghost btn-sm btn-icon" onClick={() => setViewInvoice(inv)}><Eye size={14} /></button>
-                        <button className="btn btn-ghost btn-sm btn-icon"><Download size={14} /></button>
+                        <button 
+                          className="btn btn-ghost btn-sm btn-icon" 
+                          onClick={() => inv.pdfUrl ? window.open(inv.pdfUrl, '_blank') : alert('No document attached to this invoice')}
+                          style={{ opacity: inv.pdfUrl ? 1 : 0.4 }}
+                          title={inv.pdfUrl ? 'Download Invoice' : 'No document attached'}
+                        >
+                          <Download size={14} />
+                        </button>
                         {inv.status !== 'paid' && <button className="btn btn-ghost btn-sm btn-icon" style={{ color: '#10b981' }}><CheckCircle size={14} /></button>}
                       </div>
                     </td>

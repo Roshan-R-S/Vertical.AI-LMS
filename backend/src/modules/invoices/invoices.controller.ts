@@ -21,7 +21,7 @@ export async function getInvoices(req: Request, res: Response) {
         ],
       }),
     },
-    include: { client: true, items: true },
+    include: { client: true, items: true, attachments: true },
     orderBy: { issueDate: 'desc' },
   });
 
@@ -38,7 +38,7 @@ export async function getInvoices(req: Request, res: Response) {
     paidDate: inv.paidDate ? new Date(inv.paidDate).toISOString().split('T')[0] : null,
     paidAmount: inv.paidAmount,
     items: inv.items.map(i => ({ desc: i.description, amount: i.amount })),
-    pdfUrl: inv.pdfUrl,
+    pdfUrl: inv.attachments?.[0]?.id ? `/api/v1/attachments/${inv.attachments[0].id}/download` : inv.pdfUrl,
     _id: inv.id,
   })));
 }

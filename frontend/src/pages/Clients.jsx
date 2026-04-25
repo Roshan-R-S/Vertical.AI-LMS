@@ -58,7 +58,16 @@ function ClientModal({ client, onClose, onSave }) {
             </div>
             <div className="form-group">
               <label className="form-label">Account Manager</label>
-              <input className="form-input" value={form.accountManager} onChange={e => setForm(p => ({ ...p, accountManager: e.target.value }))} />
+              <select 
+                className="form-select" 
+                value={form.accountManagerId || ''} 
+                onChange={e => setForm(p => ({ ...p, accountManagerId: e.target.value }))}
+              >
+                <option value="">Select Manager</option>
+                {useApp().users.filter(u => u.role !== 'SUPER_ADMIN').map(u => (
+                  <option key={u.id} value={u.id}>{u.name}</option>
+                ))}
+              </select>
             </div>
           </div>
           <div className="form-grid-3">
@@ -323,7 +332,7 @@ export default function Clients() {
                       <div className="avatar avatar-sm" style={{ background: 'var(--gradient-brand)' }}>{client.companyName.slice(0, 2).toUpperCase()}</div>
                       <div>
                         <div style={{ fontWeight: 600, fontSize: 13 }}>{client.companyName}</div>
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{client.id} • {client.industry}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{client.industry}</div>
                       </div>
                     </div>
                   </td>

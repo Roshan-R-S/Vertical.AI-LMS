@@ -7,6 +7,16 @@ const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
+  console.log('Clearing database for fresh logical sync...');
+  // Delete in order to respect Foreign Key constraints
+  await prisma.invoiceItem.deleteMany({});
+  await prisma.invoice.deleteMany({});
+  await prisma.client.deleteMany({});
+  await prisma.interaction.deleteMany({});
+  await prisma.task.deleteMany({});
+  await prisma.lead.deleteMany({});
+  await prisma.disposition.deleteMany({});
+
   console.log('Seeding database...');
 
   // ─── TEAMS ────────────────────────────────────────────────────────
@@ -105,44 +115,51 @@ async function main() {
     { name: 'First Call',       order: 2,  color: '#06b6d4' },
     { name: 'Demo Scheduled',   order: 3,  color: '#8b5cf6' },
     { name: 'Demo Completed',   order: 4,  color: '#f59e0b' },
-    { name: 'Demo Postponed',   order: 5,  color: '#f97316' },
-    { name: 'Proposal Shared',  order: 6,  color: '#3b82f6' },
-    { name: 'PS & Dropped',     order: 7,  color: '#9ca3af' },
-    { name: 'Negotiation',      order: 8,  color: '#ec4899' },
-    { name: 'Deal Closed',      order: 9,  color: '#10b981' },
-    { name: 'Not Interested',   order: 10, color: '#ef4444' },
+    { name: 'Proposal Shared',  order: 5,  color: '#3b82f6' },
+    { name: 'Negotiation',      order: 6,  color: '#ec4899' },
+    { name: 'Deal Closed',      order: 7,  color: '#10b981' },
+    { name: 'Not Interested',   order: 8,  color: '#ef4444' },
   ];
 
   const milestones: Record<string, any> = {};
   for (const m of milestoneData) {
     milestones[m.name] = await prisma.milestone.upsert({
-      where: { name: m.name }, update: {}, create: m,
+      where: { name: m.name }, update: { order: m.order, color: m.color }, create: m,
     });
   }
   console.log('Milestones seeded');
 
   // ─── DISPOSITIONS ─────────────────────────────────────────────────
+  // First clear old dispositions to avoid conflicts with new mapping
+  await prisma.disposition.deleteMany({});
+
   const dispositionData = [
     { milestone: 'New',            name: 'Not Contacted',     type: 'neutral'  as const, isDefault: true,  description: 'Lead has not been contacted yet' },
-    { milestone: 'First Call',     name: 'Call Connected',    type: 'positive' as const, isDefault: true,  description: 'Successfully connected on call' },
-    { milestone: 'First Call',     name: 'Call Not Picked',   type: 'neutral'  as const, isDefault: true,  description: 'Call was not answered' },
-    { milestone: 'First Call',     name: 'Invalid Number',    type: 'negative' as const, isDefault: true,  description: 'Phone number is invalid' },
-    { milestone: 'First Call',     name: 'Callback Requested',type: 'positive' as const, isDefault: true,  description: 'Lead requested a callback' },
-    { milestone: 'Demo Scheduled', name: 'Interest Confirmed',type: 'positive' as const, isDefault: true,  description: 'Lead confirmed interest in product' },
-    { milestone: 'Demo Scheduled', name: 'Not Interested',    type: 'negative' as const, isDefault: true,  description: 'Lead is not interested' },
-    { milestone: 'Demo Scheduled', name: 'Meeting Scheduled', type: 'positive' as const, isDefault: false, description: 'Meeting has been booked' },
-    { milestone: 'Demo Completed', name: 'Demo Scheduled',    type: 'positive' as const, isDefault: true,  description: 'Product demo has been scheduled' },
-    { milestone: 'Demo Completed', name: 'Demo Completed',    type: 'positive' as const, isDefault: true,  description: 'Demo was successfully completed' },
-    { milestone: 'Demo Completed', name: 'Demo No-Show',      type: 'negative' as const, isDefault: true,  description: 'Lead did not attend demo' },
-    { milestone: 'Demo Postponed', name: 'Proposal Sent',     type: 'positive' as const, isDefault: true,  description: 'Proposal has been sent to lead' },
-    { milestone: 'Demo Postponed', name: 'Proposal Viewed',   type: 'positive' as const, isDefault: true,  description: 'Lead has opened the proposal' },
-    { milestone: 'Demo Postponed', name: 'Needs Revision',    type: 'neutral'  as const, isDefault: false, description: 'Proposal needs changes' },
-    { milestone: 'Negotiation',    name: 'Price Discussion',  type: 'neutral'  as const, isDefault: true,  description: 'Negotiating on pricing' },
-    { milestone: 'Negotiation',    name: 'Contract Review',   type: 'positive' as const, isDefault: false, description: 'Lead reviewing contract' },
-    { milestone: 'Deal Closed',    name: 'Deal Closed',       type: 'positive' as const, isDefault: true,  description: 'Deal has been successfully closed' },
-    { milestone: 'Not Interested', name: 'Chose Competitor',  type: 'negative' as const, isDefault: true,  description: 'Lead chose a competitor product' },
-    { milestone: 'Not Interested', name: 'Budget Constraint', type: 'negative' as const, isDefault: true,  description: 'Lead does not have budget' },
-    { milestone: 'Not Interested', name: 'No Response',       type: 'negative' as const, isDefault: true,  description: 'Lead stopped responding' },
+    { milestone: 'First Call',     name: 'Call Connected',    type: 'positive' as const, isDefault: true,  description: 'Successfully connected' },
+    { milestone: 'First Call',     name: 'Call Not Picked',   type: 'neutral'  as const, isDefault: false, description: 'No answer' },
+    { milestone: 'First Call',     name: 'Callback Requested',type: 'positive' as const, isDefault: false, description: 'Lead wants a call later' },
+    { milestone: 'First Call',     name: 'Demo Booked',       type: 'positive' as const, isDefault: false, description: 'Proceeding to demo' },
+    
+    { milestone: 'Demo Scheduled', name: 'Meeting Confirmed', type: 'positive' as const, isDefault: true,  description: 'Calendar invite accepted' },
+    { milestone: 'Demo Scheduled', name: 'No-Show',           type: 'negative' as const, isDefault: false, description: 'Lead missed the meeting' },
+    { milestone: 'Demo Scheduled', name: 'Demo Done',         type: 'positive' as const, isDefault: false, description: 'Demo finished successfully' },
+    
+    { milestone: 'Demo Completed', name: 'Interested',        type: 'positive' as const, isDefault: true,  description: 'Prospect wants a proposal' },
+    { milestone: 'Demo Completed', name: 'Proposal Requested',type: 'positive' as const, isDefault: false, description: 'Needs a formal quote' },
+    { milestone: 'Demo Completed', name: 'Not a Fit',         type: 'negative' as const, isDefault: false, description: 'Product does not match needs' },
+    
+    { milestone: 'Proposal Shared', name: 'Proposal Sent',     type: 'positive' as const, isDefault: true,  description: 'Offer is with the client' },
+    { milestone: 'Proposal Shared', name: 'Proposal Viewed',   type: 'positive' as const, isDefault: false, description: 'Client has read the offer' },
+    { milestone: 'Proposal Shared', name: 'Revision Requested',type: 'neutral'  as const, isDefault: false, description: 'Negotiating the terms' },
+    
+    { milestone: 'Negotiation',    name: 'Price Discussion',  type: 'neutral'  as const, isDefault: true,  description: 'Haggling on the final numbers' },
+    { milestone: 'Negotiation',    name: 'Contract Review',   type: 'positive' as const, isDefault: false, description: 'Legal is checking the papers' },
+    
+    { milestone: 'Deal Closed',    name: 'Payment Received',  type: 'positive' as const, isDefault: true,  description: 'Money is in the bank' },
+    
+    { milestone: 'Not Interested', name: 'Chose Competitor',  type: 'negative' as const, isDefault: true,  description: 'Went with someone else' },
+    { milestone: 'Not Interested', name: 'Budget Constraint', type: 'negative' as const, isDefault: false, description: 'No money' },
+    { milestone: 'Not Interested', name: 'Ghosted',           type: 'negative' as const, isDefault: false, description: 'No response anymore' },
   ];
 
   const dispositions: Record<string, any> = {};
@@ -164,7 +181,7 @@ async function main() {
       companyName: 'TechNova Solutions', contactName: 'Suresh Reddy',
       email: 'suresh@technova.com', phone: '+91 99001 12345',
       source: 'Website', assignedTo: neha, milestone: 'Demo Scheduled',
-      disposition: 'Demo Scheduled', score: 85, priority: 'High' as const,
+      disposition: 'Meeting Confirmed', score: 85, priority: 'High' as const,
       value: 180000, probability: 70, status: 'active' as const,
       expectedClose: new Date('2026-05-15'), tags: ['SaaS', 'Enterprise'],
       notes: 'Interested in AI calling solution',
@@ -209,7 +226,7 @@ async function main() {
       companyName: 'EduSpark Academy', contactName: 'Pooja Iyer',
       email: 'pooja@eduspark.com', phone: '+91 99006 67890',
       source: 'Website', assignedTo: akash, milestone: 'Deal Closed',
-      disposition: 'Deal Closed', score: 95, priority: 'High' as const,
+      disposition: 'Payment Received', score: 95, priority: 'High' as const,
       value: 145000, probability: 100, status: 'won' as const,
       expectedClose: new Date('2026-04-10'), tags: ['EdTech'],
       notes: 'Closed successfully',
@@ -236,7 +253,7 @@ async function main() {
       companyName: 'Sunrise Builders', contactName: 'Venkat Rao',
       email: 'venkat@sunrisebuilders.com', phone: '+91 99009 90123',
       source: 'Google Ads', assignedTo: neha, milestone: 'Demo Completed',
-      disposition: 'Demo Completed', score: 78, priority: 'Medium' as const,
+      disposition: 'Interested', score: 78, priority: 'Medium' as const,
       value: 165000, probability: 60, status: 'active' as const,
       expectedClose: new Date('2026-05-20'), tags: ['Real Estate', 'Construction'],
       notes: 'Demo went well, proposal pending',
@@ -245,7 +262,7 @@ async function main() {
       companyName: 'Nexus Digital', contactName: 'Sara Khan',
       email: 'sara@nexusdigital.in', phone: '+91 99010 01234',
       source: 'Referral', assignedTo: deepak, milestone: 'Demo Scheduled',
-      disposition: 'Meeting Scheduled', score: 66, priority: 'Medium' as const,
+      disposition: 'Meeting Confirmed', score: 66, priority: 'Medium' as const,
       value: 75000, probability: 45, status: 'active' as const,
       expectedClose: new Date('2026-06-01'), tags: ['Digital Marketing'],
       notes: 'Product fit confirmed',

@@ -41,6 +41,7 @@ router.use(authMiddleware);
  *         description: Uploaded
  */
 router.post('/leads/:id/attachments', upload.single('file'), AttachmentsController.uploadAttachment);
+router.post('/invoices/:id/attachments', upload.single('file'), AttachmentsController.uploadInvoiceAttachment);
 
 /**
  * @openapi
