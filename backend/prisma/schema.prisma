@@ -197,8 +197,10 @@ model Lead {
 
 model Interaction {
   id             String                @id @default(cuid())
-  leadId         String
-  lead           Lead                  @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  leadId         String?
+  lead           Lead?                 @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  clientId       String?
+  client         Client?               @relation(fields: [clientId], references: [id], onDelete: Cascade)
   type           InteractionType
   direction      InteractionDirection?
   subject        String?
@@ -223,7 +225,9 @@ model Task {
   id           String     @id @default(cuid())
   title        String
   leadId       String?
-  lead         Lead?      @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  lead         Lead?      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  clientId     String?
+  client       Client?    @relation(fields: [clientId], references: [id], onDelete: Cascade)
   assignedToId String
   assignedTo   User       @relation("AssignedTasks", fields: [assignedToId], references: [id])
   createdById  String
@@ -259,6 +263,9 @@ model Client {
   accountManagerId String?
   accountManager   User?        @relation("AccountManager", fields: [accountManagerId], references: [id])
   invoices         Invoice[]
+  interactions     Interaction[]
+  tasks            Task[]
+  attachments      Attachment[]
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
 
@@ -310,6 +317,8 @@ model Attachment {
   id           String   @id @default(cuid())
   leadId       String?
   lead         Lead?    @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  clientId     String?
+  client       Client?  @relation(fields: [clientId], references: [id], onDelete: Cascade)
   invoiceId    String?
   invoice      Invoice? @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   uploadedById String
