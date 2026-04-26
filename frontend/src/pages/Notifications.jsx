@@ -3,7 +3,7 @@ import { useApp } from '../context/AppContextCore';
 import { Bell, Info, AlertTriangle, CheckCircle, Clock, ArrowLeft } from 'lucide-react';
 
 export default function Notifications() {
-  const { notifications } = useApp();
+  const { notifications, markNotificationRead, markAllNotificationsRead } = useApp();
   const navigate = useNavigate();
 
   const getIcon = (type) => {
@@ -34,15 +34,32 @@ export default function Notifications() {
       <div className="studio-card" style={{ padding: 0, overflow: 'hidden' }}>
         <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-surface)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)' }}>Recent Alerts</span>
-          <button className="btn btn-ghost btn-sm" style={{ fontSize: 12 }}>Mark all as read</button>
+          <button className="btn btn-ghost btn-sm" style={{ fontSize: 12 }} onClick={markAllNotificationsRead}>Mark all as read</button>
         </div>
         
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           {notifications && notifications.length > 0 ? (
             notifications.map(notif => (
-              <div key={notif.id} style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', gap: 16, alignItems: 'flex-start', transition: 'background 0.2s', cursor: 'pointer' }} className="hover-bg">
-                <div style={{ padding: 8, borderRadius: 10, background: 'var(--bg-surface)' }}>
+              <div 
+                key={notif.id} 
+                onClick={() => !notif.isRead && markNotificationRead(notif.id)}
+                style={{ 
+                  padding: '20px 24px', 
+                  borderBottom: '1px solid var(--border-subtle)', 
+                  display: 'flex', 
+                  gap: 16, 
+                  alignItems: 'flex-start', 
+                  transition: 'background 0.2s', 
+                  cursor: notif.isRead ? 'default' : 'pointer',
+                  background: notif.isRead ? 'transparent' : 'rgba(99, 102, 241, 0.03)' 
+                }} 
+                className="hover-bg"
+              >
+                <div style={{ padding: 8, borderRadius: 10, background: 'var(--bg-surface)', position: 'relative' }}>
                   {getIcon(notif.type)}
+                  {!notif.isRead && (
+                    <div style={{ position: 'absolute', top: -2, right: -2, width: 8, height: 8, borderRadius: '50%', background: '#6366f1', border: '2px solid var(--bg-surface)' }} />
+                  )}
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 14, color: 'var(--text-primary)', marginBottom: 4, lineHeight: 1.4 }}>{notif.text}</div>

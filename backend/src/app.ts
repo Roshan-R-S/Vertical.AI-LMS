@@ -17,6 +17,7 @@ import milestonesRouter from './modules/milestones/milestones.router';
 import dispositionsRouter from './modules/dispositions/dispositions.router';
 import attachmentsRouter from './modules/attachments/attachments.router';
 import auditLogsRouter  from './modules/audit-logs/audit-logs.router';
+import notificationsRouter from './modules/notifications/notifications.router';
 
 const app = express();
 
@@ -65,6 +66,7 @@ app.use('/api/v1/milestones',    milestonesRouter);
 app.use('/api/v1/dispositions',  dispositionsRouter);
 app.use('/api/v1',               attachmentsRouter);
 app.use('/api/v1/audit-logs',    auditLogsRouter);
+app.use('/api/v1/notifications', notificationsRouter);
 
 // 404 handler
 app.use((req, res) => {

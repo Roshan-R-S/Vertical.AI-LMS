@@ -71,6 +71,13 @@ enum InvoiceStatus {
   partial
 }
 
+enum NotificationType {
+  info
+  success
+  warning
+  danger
+}
+
 // ─────────────────────────────────────────
 // TEAMS
 // ─────────────────────────────────────────
@@ -111,6 +118,7 @@ model User {
   createdTasks   Task[]        @relation("CreatedTasks")
   attachments    Attachment[]
   auditLogs      AuditLog[]
+  notifications  Notification[]
 
   @@map("users")
 }
@@ -359,4 +367,21 @@ model AuditLog {
   createdAt  DateTime @default(now())
 
   @@map("audit_logs")
+}
+
+// ─────────────────────────────────────────
+// NOTIFICATIONS
+// ─────────────────────────────────────────
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  text      String
+  type      NotificationType @default(info)
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  @@index([userId])
+  @@map("notifications")
 }

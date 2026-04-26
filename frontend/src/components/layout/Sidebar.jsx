@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 
 export default function Sidebar() {
-  const { currentUser, theme, toggleTheme, logout } = useApp();
+  const { currentUser, theme, toggleTheme, logout, notifications } = useApp();
   const [openSection, setOpenSection] = useState('Core');
 
   const isAdmin = currentUser.role === 'Super Admin';
@@ -85,11 +85,30 @@ export default function Sidebar() {
           </>
         )}
 
-        {isAdmin && (
           <NavLink to="/settings" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} style={{ marginTop: 16 }}>
             <Settings size={18} /> Settings
           </NavLink>
         )}
+
+        <NavLink to="/notifications" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} style={{ marginTop: isAdmin ? 0 : 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1 }}>
+            <Bell size={18} /> Notifications
+          </div>
+          {notifications.filter(n => !n.isRead).length > 0 && (
+            <span style={{ 
+              background: 'var(--color-danger)', 
+              color: 'white', 
+              fontSize: 10, 
+              fontWeight: 700, 
+              padding: '2px 6px', 
+              borderRadius: 10,
+              minWidth: 18,
+              textAlign: 'center'
+            }}>
+              {notifications.filter(n => !n.isRead).length}
+            </span>
+          )}
+        </NavLink>
 
 
       </div>

@@ -19,11 +19,7 @@ export default function AppProvider({ children }) {
   const [theme, setTheme] = useState('light');
 
 
-  const [notifications] = useState([
-    { id: 1, text: 'FinEdge Capital — proposal follow-up due', type: 'warning', time: '2h ago' },
-    { id: 2, text: 'SwiftLogix deal moved to Negotiation', type: 'success', time: '3h ago' },
-    { id: 3, text: 'Invoice INV-2026-003 overdue', type: 'danger', time: '5h ago' },
-  ]);
+  const [notifications, setNotifications] = useState([]);
 
   const toggleTheme = () => setTheme(prev => prev === 'light' ? 'dark' : 'light');
 
@@ -34,7 +30,7 @@ export default function AppProvider({ children }) {
 
   const fetchInitialData = async () => {
     try {
-      const [l, c, u, m, d, t, i] = await Promise.all([
+      const [l, c, u, m, d, t, i, n] = await Promise.all([
 
         api.get('/leads'),
         api.get('/clients'),
@@ -43,6 +39,7 @@ export default function AppProvider({ children }) {
         api.get('/dispositions'),
         api.get('/tasks'),
         api.get('/invoices'),
+        api.get('/notifications'),
       ]);
 
       setLeads(l);
@@ -52,6 +49,7 @@ export default function AppProvider({ children }) {
       setDispositions(d);
       setTasks(t);
       setInvoices(i);
+      setNotifications(n);
 
     } catch (err) {
       console.error("Data fetch error:", err);
@@ -285,6 +283,24 @@ export default function AppProvider({ children }) {
     }
   };
 
+  const markNotificationRead = async (id) => {
+    try {
+      await api.patch(`/notifications/${id}/read`);
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+    } catch (err) {
+      console.error("Mark notification read error:", err);
+    }
+  };
+
+  const markAllNotificationsRead = async () => {
+    try {
+      await api.patch('/notifications/read-all');
+      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+    } catch (err) {
+      console.error("Mark all notifications read error:", err);
+    }
+  };
+
   const fetchDashboard = async (period = 'this-month', bdeId = 'All') => {
     try {
       const bdeQuery = bdeId !== 'All' ? `&bdeId=${bdeId}` : '';
@@ -306,6 +322,7 @@ export default function AppProvider({ children }) {
       addTask, updateTask,
       addInteraction,
       addInvoice, uploadInvoiceFile, markInvoicePaid, fetchDashboard,
+      markNotificationRead, markAllNotificationsRead,
       login, logout, loading, processing, formatError
     }}>
       {children}
