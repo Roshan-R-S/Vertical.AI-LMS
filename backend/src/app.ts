@@ -18,6 +18,7 @@ import dispositionsRouter from './modules/dispositions/dispositions.router';
 import attachmentsRouter from './modules/attachments/attachments.router';
 import auditLogsRouter  from './modules/audit-logs/audit-logs.router';
 import notificationsRouter from './modules/notifications/notifications.router';
+import settingsRouter from './modules/settings/settings.router';
 
 const app = express();
 
@@ -67,6 +68,7 @@ app.use('/api/v1/dispositions',  dispositionsRouter);
 app.use('/api/v1',               attachmentsRouter);
 app.use('/api/v1/audit-logs',    auditLogsRouter);
 app.use('/api/v1/notifications', notificationsRouter);
+app.use('/api/v1/settings',      settingsRouter);
 
 // 404 handler
 app.use((req, res) => {

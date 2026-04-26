@@ -20,6 +20,7 @@ export default function AppProvider({ children }) {
 
 
   const [notifications, setNotifications] = useState([]);
+  const [settings, setSettings] = useState({});
 
   const toggleTheme = () => setTheme(prev => prev === 'light' ? 'dark' : 'light');
 
@@ -30,7 +31,7 @@ export default function AppProvider({ children }) {
 
   const fetchInitialData = async () => {
     try {
-      const [l, c, u, m, d, t, i, n] = await Promise.all([
+      const [l, c, u, m, d, t, i, n, s] = await Promise.all([
 
         api.get('/leads'),
         api.get('/clients'),
@@ -40,6 +41,7 @@ export default function AppProvider({ children }) {
         api.get('/tasks'),
         api.get('/invoices'),
         api.get('/notifications'),
+        api.get('/settings'),
       ]);
 
       setLeads(l);
@@ -50,6 +52,7 @@ export default function AppProvider({ children }) {
       setTasks(t);
       setInvoices(i);
       setNotifications(n);
+      setSettings(s || {});
 
     } catch (err) {
       console.error("Data fetch error:", err);
@@ -311,6 +314,16 @@ export default function AppProvider({ children }) {
     }
   };
 
+  const updateSettings = async (updates) => {
+    try {
+      const res = await api.patch('/settings', updates);
+      setSettings(res);
+    } catch (err) {
+      alert(formatError(err));
+    }
+  };
+
+
 
   return (
     <AppContext.Provider value={{
@@ -323,6 +336,7 @@ export default function AppProvider({ children }) {
       addInteraction,
       addInvoice, uploadInvoiceFile, markInvoicePaid, fetchDashboard,
       markNotificationRead, markAllNotificationsRead,
+      settings, updateSettings,
       login, logout, loading, processing, formatError
     }}>
       {children}

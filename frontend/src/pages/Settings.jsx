@@ -142,7 +142,10 @@ function MilestoneRow({ milestone, dispositions, onAddDis, onEditDis, onToggleDi
 }
 
 export default function Settings() {
-  const { milestones, dispositions, addDisposition, updateDisposition, toggleDisposition, deleteDisposition, addMilestone } = useApp();
+  const { 
+    milestones, dispositions, addDisposition, updateDisposition, toggleDisposition, deleteDisposition, addMilestone,
+    settings, updateSettings
+  } = useApp();
   const [showAddDis, setShowAddDis] = useState(false);
   const [editDis, setEditDis] = useState(null);
   const [selectedMilestone, setSelectedMilestone] = useState(null);
@@ -223,14 +226,17 @@ export default function Settings() {
                 Auto-suggest dispositions based on call transcript & sentiment analysis.
               </div>
               {[
-                { label: 'Auto-Tag Disposition', checked: true },
-                { label: 'Sentiment-based Routing', checked: true },
-                { label: 'Force Manual Override', checked: false },
+                { key: 'autoTagDisposition', label: 'Auto-Tag Disposition' },
+                { key: 'sentimentBasedRouting', label: 'Sentiment-based Routing' },
+                { key: 'forceManualOverride', label: 'Force Manual Override' },
               ].map((item, i) => (
                 <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: i < 2 ? '1px solid var(--border-subtle)' : 'none' }}>
                   <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{item.label}</span>
                   <label className="toggle">
-                    <input type="checkbox" defaultChecked={item.checked} />
+                    <input type="checkbox" 
+                      checked={settings[item.key] || false} 
+                      onChange={e => updateSettings({ [item.key]: e.target.checked })} 
+                    />
                     <span className="toggle-slider" />
                   </label>
                 </div>
@@ -276,12 +282,12 @@ export default function Settings() {
           <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>Configure rules for lead stage transitions and mandatory disposition selection.</div>
 
           {[
-            { title: 'Force Disposition Selection', desc: 'Require BDE to select a disposition before moving a lead to next stage', value: true },
-            { title: 'Block Stage Skipping', desc: 'Prevent leads from jumping multiple stages without going through each one', value: true },
-            { title: 'Auto-advance on Completion', desc: 'Automatically move lead to next stage when all sub-tasks are done', value: false },
-            { title: 'Lock Historical Data', desc: 'Prevent editing of disposition data from past activities (recommended)', value: true },
-            { title: 'Multiple Dispositions per Stage', desc: 'Allow attaching more than one disposition to a single stage interaction', value: false },
-            { title: 'Email Alert on Stage Change', desc: 'Notify TL via email when BDE moves a lead to a new stage', value: true },
+            { key: 'forceDisposition', title: 'Force Disposition Selection', desc: 'Require BDE to select a disposition before moving a lead to next stage' },
+            { key: 'blockStageSkipping', title: 'Block Stage Skipping', desc: 'Prevent leads from jumping multiple stages without going through each one' },
+            { key: 'autoAdvanceOnCompletion', title: 'Auto-advance on Completion', desc: 'Automatically move lead to next stage when all sub-tasks are done' },
+            { key: 'lockHistoricalData', title: 'Lock Historical Data', desc: 'Prevent editing of disposition data from past activities (recommended)' },
+            { key: 'multipleDispositionsPerStage', title: 'Multiple Dispositions per Stage', desc: 'Allow attaching more than one disposition to a single stage interaction' },
+            { key: 'emailAlertOnStageChange', title: 'Email Alert on Stage Change', desc: 'Notify TL via email when BDE moves a lead to a new stage' },
           ].map((rule, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 14, padding: '16px 18px', background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border-subtle)' }}>
               <div style={{ flex: 1 }}>
@@ -289,7 +295,10 @@ export default function Settings() {
                 <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{rule.desc}</div>
               </div>
               <label className="toggle" style={{ marginTop: 2 }}>
-                <input type="checkbox" defaultChecked={rule.value} />
+                <input type="checkbox" 
+                  checked={settings[rule.key] || false} 
+                  onChange={e => updateSettings({ [rule.key]: e.target.checked })} 
+                />
                 <span className="toggle-slider" />
               </label>
             </div>
@@ -302,16 +311,16 @@ export default function Settings() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, maxWidth: 900 }}>
           {[
             { group: 'AI Settings', items: [
-              { label: 'Auto Lead Scoring', sub: 'AI scores leads based on engagement', checked: true },
-              { label: 'Call Transcription', sub: 'Transcribe all AI calls automatically', checked: true },
-              { label: 'Sentiment Analysis', sub: 'Analyze call sentiment in real-time', checked: true },
-              { label: 'AI Disposition Suggest', sub: 'Suggest disposition from transcript', checked: true },
+              { key: 'autoLeadScoring', label: 'Auto Lead Scoring', sub: 'AI scores leads based on engagement' },
+              { key: 'callTranscription', label: 'Call Transcription', sub: 'Transcribe all AI calls automatically' },
+              { key: 'sentimentAnalysis', label: 'Sentiment Analysis', sub: 'Analyze call sentiment in real-time' },
+              { key: 'aiDispositionSuggest', label: 'AI Disposition Suggest', sub: 'Suggest disposition from transcript' },
             ]},
             { group: 'Notifications', items: [
-              { label: 'Follow-up Reminders', sub: 'Alert BDE for pending follow-ups', checked: true },
-              { label: 'Deal Risk Alerts', sub: 'Notify TL when deal goes cold', checked: true },
-              { label: 'Invoice Due Alerts', sub: 'Finance team gets payment reminders', checked: true },
-              { label: 'Renewal Alerts', sub: 'Notify account manager 30 days before', checked: false },
+              { key: 'followUpReminders', label: 'Follow-up Reminders', sub: 'Alert BDE for pending follow-ups' },
+              { key: 'dealRiskAlerts', label: 'Deal Risk Alerts', sub: 'Notify TL when deal goes cold' },
+              { key: 'invoiceDueAlerts', label: 'Invoice Due Alerts', sub: 'Finance team gets payment reminders' },
+              { key: 'renewalAlerts', label: 'Renewal Alerts', sub: 'Notify account manager 30 days before' },
             ]},
           ].map((section, si) => (
             <div key={si} className="card">
@@ -325,7 +334,10 @@ export default function Settings() {
                     <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{item.sub}</div>
                   </div>
                   <label className="toggle">
-                    <input type="checkbox" defaultChecked={item.checked} />
+                    <input type="checkbox" 
+                      checked={settings[item.key] || false} 
+                      onChange={e => updateSettings({ [item.key]: e.target.checked })} 
+                    />
                     <span className="toggle-slider" />
                   </label>
                 </div>

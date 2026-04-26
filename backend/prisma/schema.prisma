@@ -385,3 +385,16 @@ model Notification {
   @@index([userId])
   @@map("notifications")
 }
+
+// ─────────────────────────────────────────
+// SYSTEM SETTINGS
+// ─────────────────────────────────────────
+
+model SystemSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     Json
+  updatedAt DateTime @updatedAt
+
+  @@map("system_settings")
+}

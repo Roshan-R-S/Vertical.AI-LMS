@@ -447,7 +447,7 @@ export default function Leads() {
     })
   );
 
-  const handleDragEnd = (event) => {
+  const handleDragEnd = async (event) => {
     const { active, over } = event;
     if (!over) return;
 
@@ -458,7 +458,11 @@ export default function Leads() {
     
     if (lead && lead.milestoneId !== newMilestoneId) {
       if (window.confirm(`Move "${lead.companyName}" to stage: ${milestone.name}?`)) {
-        updateLead(leadId, { milestoneId: newMilestoneId });
+        try {
+          await updateLead(leadId, { milestoneId: newMilestoneId });
+        } catch {
+          // Error alert handled by formatError in context, but we can add specific handling here if needed
+        }
       }
     }
   };

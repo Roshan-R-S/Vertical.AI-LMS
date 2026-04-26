@@ -177,6 +177,39 @@ export const updateLead = asyncHandler(async (req: Request, res: Response) => {
     where: { id: id as string, ...getLeadScopeFilter(user) }
   });
   if (!existing) return res.status(404).json({ error: 'Lead not found or access denied' });
+  const oldMilestoneId = existing.milestoneId;
+
+  // ─── Workflow Enforcement ───────────────────────────────────────
+  const settingsRecords = await prisma.systemSetting.findMany();
+  const settings = settingsRecords.reduce((acc: any, curr) => {
+    acc[curr.key] = curr.value;
+    return acc;
+  }, {});
+
+  // 1. Block Stage Skipping
+  if (settings.blockStageSkipping && milestoneId && milestoneId !== oldMilestoneId) {
+    const milestones = await prisma.milestone.findMany({ orderBy: { order: 'asc' } });
+    const oldIndex = milestones.findIndex(m => m.id === oldMilestoneId);
+    const newIndex = milestones.findIndex(m => m.id === milestoneId);
+    
+    // Allow only moving forward by 1 OR moving to any stage BEFORE or SAME
+    // This allows regression but prevents jumping over stages
+    if (newIndex > oldIndex + 1) {
+      return res.status(400).json({ 
+        error: 'Workflow Error: Stage skipping is blocked. You must move leads through each stage sequentially.' 
+      });
+    }
+  }
+
+  // 2. Force Disposition Selection
+  if (settings.forceDisposition && milestoneId && milestoneId !== oldMilestoneId) {
+    if (!dispositionId || dispositionId === existing.dispositionId) {
+      return res.status(400).json({ 
+        error: 'Workflow Error: Disposition selection is mandatory when changing lead stages.' 
+      });
+    }
+  }
+  // ──────────────────────────────────────────────────────────────────
 
   const lead = await prisma.lead.update({
     where: { id: id as string },

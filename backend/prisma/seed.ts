@@ -16,8 +16,36 @@ async function main() {
   await prisma.task.deleteMany({});
   await prisma.lead.deleteMany({});
   await prisma.disposition.deleteMany({});
+  await prisma.systemSetting.deleteMany({});
 
   console.log('Seeding database...');
+
+  // ─── SYSTEM SETTINGS ──────────────────────────────────────────────
+  const defaultSettings = [
+    { key: 'forceDisposition', value: true },
+    { key: 'blockStageSkipping', value: true },
+    { key: 'autoAdvanceOnCompletion', value: false },
+    { key: 'lockHistoricalData', value: true },
+    { key: 'multipleDispositionsPerStage', value: false },
+    { key: 'emailAlertOnStageChange', value: true },
+    { key: 'autoLeadScoring', value: true },
+    { key: 'callTranscription', value: true },
+    { key: 'sentimentAnalysis', value: true },
+    { key: 'aiDispositionSuggest', value: true },
+    { key: 'followUpReminders', value: true },
+    { key: 'dealRiskAlerts', value: true },
+    { key: 'invoiceDueAlerts', value: true },
+    { key: 'renewalAlerts', value: false },
+  ];
+
+  for (const s of defaultSettings) {
+    await prisma.systemSetting.upsert({
+      where: { key: s.key },
+      update: { value: s.value },
+      create: { key: s.key, value: s.value },
+    });
+  }
+  console.log('System settings seeded');
 
   // ─── TEAMS ────────────────────────────────────────────────────────
   const teamAlpha = await prisma.team.upsert({

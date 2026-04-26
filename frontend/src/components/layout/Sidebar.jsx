@@ -11,7 +11,6 @@ export default function Sidebar() {
   const [openSection, setOpenSection] = useState('Core');
 
   const isAdmin = currentUser.role === 'Super Admin';
-  const isTL = currentUser.role === 'Team Lead';
   const isBDE = currentUser.role === 'BDE';
 
   const toggleSection = (section) => {
@@ -88,7 +87,7 @@ export default function Sidebar() {
           <NavLink to="/settings" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} style={{ marginTop: 16 }}>
             <Settings size={18} /> Settings
           </NavLink>
-        )}
+
 
         <NavLink to="/notifications" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} style={{ marginTop: isAdmin ? 0 : 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1 }}>
