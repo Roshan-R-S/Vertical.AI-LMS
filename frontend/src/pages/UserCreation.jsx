@@ -104,16 +104,42 @@ function PermissionsPanel({ role }) {
   return (
     <div style={{ marginTop: 8 }}>
       <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 12 }}>Permissions for {role}</div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', padding: '4px 14px', marginBottom: 4 }}>
+          <div style={{ width: 90, fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Module</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 4, flex: 1, textAlign: 'center' }}>
+            {['View', 'Create', 'Edit', 'Delete', 'Assign'].map(h => (
+              <div key={h} style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{h}</div>
+            ))}
+          </div>
+        </div>
+
         {Object.entries(perms).map(([module, actions]) => (
           <div key={module} style={{ display: 'flex', alignItems: 'center', padding: '10px 14px', background: 'var(--bg-surface)', borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
-            <div style={{ width: 100, fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'capitalize' }}>{module}</div>
-            <div style={{ display: 'flex', gap: 6, flex: 1 }}>
-              {['view', 'create', 'edit', 'delete', 'assign'].map(action => (
-                <span key={action} style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 20, background: actions.includes(action) ? 'rgba(16,185,129,0.15)' : 'rgba(148,163,184,0.08)', color: actions.includes(action) ? '#34d399' : 'var(--text-muted)', border: `1px solid ${actions.includes(action) ? 'rgba(16,185,129,0.3)' : 'var(--border-subtle)'}` }}>
-                  {actions.includes(action) ? '✓' : '✗'} {action}
-                </span>
-              ))}
+            <div style={{ width: 90, fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', textTransform: 'capitalize' }}>{module}</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 4, flex: 1 }}>
+              {['view', 'create', 'edit', 'delete', 'assign'].map(action => {
+                const hasPerm = actions.includes(action);
+                return (
+                  <div key={action} style={{ display: 'flex', justifyContent: 'center' }}>
+                    <div style={{ 
+                      width: 20, 
+                      height: 20, 
+                      borderRadius: '50%', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center',
+                      background: hasPerm ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.05)',
+                      color: hasPerm ? '#10b981' : '#ef4444',
+                      fontSize: 10,
+                      border: `1px solid ${hasPerm ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.1)'}`
+                    }}>
+                      {hasPerm ? '✓' : '✕'}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         ))}

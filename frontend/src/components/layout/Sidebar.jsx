@@ -1,16 +1,26 @@
+import {
+  Bell,
+  ChevronDown, ChevronRight,
+  Clock,
+  LayoutDashboard,
+  LogOut,
+  Moon,
+  Rocket,
+  Settings,
+  Sun,
+  UserCheck,
+  Users as UsersIcon
+} from 'lucide-react';
 import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useApp } from '../../context/AppContextCore';
-import {
-  LayoutDashboard, FileText, ChevronDown, ChevronRight, Rocket, UserCheck,
-  Sun, Moon, LogOut, Settings, Bell, Clock, Users as UsersIcon
-} from 'lucide-react';
 
 export default function Sidebar() {
   const { currentUser, theme, toggleTheme, logout, notifications } = useApp();
   const [openSection, setOpenSection] = useState('Core');
 
   const isAdmin = currentUser.role === 'Super Admin';
+  const isTL = currentUser.role === 'Team Lead';
   const isBDE = currentUser.role === 'BDE';
 
   const toggleSection = (section) => {
@@ -32,22 +42,7 @@ export default function Sidebar() {
           <LayoutDashboard size={18} /> Dashboard
         </NavLink>
 
-        {isBDE ? (
-          <>
-            <NavLink to="/work-queue" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-              <Clock size={18} /> My Work Queue
-            </NavLink>
-            <NavLink to="/leads" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-              <UsersIcon size={18} /> Leads
-            </NavLink>
-            <NavLink to="/pipeline" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-              <Rocket size={18} /> Pipeline
-            </NavLink>
-            <NavLink to="/clients" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-              <UserCheck size={18} /> Clients
-            </NavLink>
-          </>
-        ) : (
+        {(isAdmin || isTL) && (
           <>
             {/* Nav Group 1 for Admins/TLs */}
             <div className="nav-section">
@@ -84,12 +79,29 @@ export default function Sidebar() {
           </>
         )}
 
+        {isBDE && (
+          <>
+            <NavLink to="/work-queue" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+              <Clock size={18} /> My Work Queue
+            </NavLink>
+            <NavLink to="/leads" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+              <UsersIcon size={18} /> Leads
+            </NavLink>
+            <NavLink to="/pipeline" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+              <Rocket size={18} /> Pipeline
+            </NavLink>
+            <NavLink to="/clients" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+              <UserCheck size={18} /> Clients
+            </NavLink>
+          </>
+        )}
+
           <NavLink to="/settings" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} style={{ marginTop: 16 }}>
             <Settings size={18} /> Settings
           </NavLink>
 
 
-        <NavLink to="/notifications" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} style={{ marginTop: isAdmin ? 0 : 16 }}>
+        <NavLink to="/notifications" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} style={{ marginTop: (isAdmin || isTL) ? 0 : 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1 }}>
             <Bell size={18} /> Notifications
           </div>

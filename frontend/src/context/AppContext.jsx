@@ -1,10 +1,8 @@
-import { useState, useEffect } from 'react';
-import { api } from '../utils/api';
-import { AppContext } from './AppContextCore';
-
+import { useEffect, useState } from "react";
+import { api } from "../utils/api";
+import { AppContext } from "./AppContextCore";
 
 export default function AppProvider({ children }) {
-
   const [currentUser, setCurrentUser] = useState(null);
   const [leads, setLeads] = useState([]);
   const [clients, setClients] = useState([]);
@@ -14,34 +12,35 @@ export default function AppProvider({ children }) {
   const [interactions, setInteractions] = useState([]);
   const [invoices, setInvoices] = useState([]);
   const [tasks, setTasks] = useState([]);
-  const [loading, setLoading] = useState(() => !!localStorage.getItem('lms_token'));
+  const [loading, setLoading] = useState(
+    () => !!localStorage.getItem("lms_token"),
+  );
   const [processing, setProcessing] = useState(false);
-  const [theme, setTheme] = useState('light');
-
+  const [theme, setTheme] = useState("light");
 
   const [notifications, setNotifications] = useState([]);
   const [settings, setSettings] = useState({});
 
-  const toggleTheme = () => setTheme(prev => prev === 'light' ? 'dark' : 'light');
+  const toggleTheme = () =>
+    setTheme((prev) => (prev === "light" ? "dark" : "light"));
 
   useEffect(() => {
-    document.documentElement.classList.remove('light', 'dark');
+    document.documentElement.classList.remove("light", "dark");
     document.documentElement.classList.add(theme);
   }, [theme]);
 
   const fetchInitialData = async () => {
     try {
       const [l, c, u, m, d, t, i, n, s] = await Promise.all([
-
-        api.get('/leads'),
-        api.get('/clients'),
-        api.get('/users'),
-        api.get('/milestones'),
-        api.get('/dispositions'),
-        api.get('/tasks'),
-        api.get('/invoices'),
-        api.get('/notifications'),
-        api.get('/settings'),
+        api.get("/leads"),
+        api.get("/clients"),
+        api.get("/users"),
+        api.get("/milestones"),
+        api.get("/dispositions"),
+        api.get("/tasks"),
+        api.get("/invoices"),
+        api.get("/notifications"),
+        api.get("/settings"),
       ]);
 
       setLeads(l);
@@ -53,7 +52,6 @@ export default function AppProvider({ children }) {
       setInvoices(i);
       setNotifications(n);
       setSettings(s || {});
-
     } catch (err) {
       console.error("Data fetch error:", err);
     } finally {
@@ -62,15 +60,16 @@ export default function AppProvider({ children }) {
   };
 
   useEffect(() => {
-    const token = localStorage.getItem('lms_token');
+    const token = localStorage.getItem("lms_token");
     if (token) {
-      api.get('/auth/me')
-        .then(res => {
+      api
+        .get("/auth/me")
+        .then((res) => {
           setCurrentUser(res.user);
           fetchInitialData();
         })
         .catch(() => {
-          localStorage.removeItem('lms_token');
+          localStorage.removeItem("lms_token");
           setLoading(false);
         });
     }
@@ -78,15 +77,15 @@ export default function AppProvider({ children }) {
 
   const formatError = (err) => {
     if (err.data && err.data.errors) {
-      return `${err.message}: ${err.data.errors.map(e => e.message).join(', ')}`;
+      return `${err.message}: ${err.data.errors.map((e) => e.message).join(", ")}`;
     }
     return err.message;
   };
 
   const login = async (role) => {
     try {
-      const result = await api.post('/auth/demo-login', { role });
-      localStorage.setItem('lms_token', result.token);
+      const result = await api.post("/auth/demo-login", { role });
+      localStorage.setItem("lms_token", result.token);
       setCurrentUser(result.user);
       await fetchInitialData();
     } catch (err) {
@@ -96,20 +95,20 @@ export default function AppProvider({ children }) {
   };
 
   const logout = () => {
-    localStorage.removeItem('lms_token');
+    localStorage.removeItem("lms_token");
     setCurrentUser(null);
   };
 
   // Lead actions
   const addLead = async (lead) => {
     try {
-      const res = await api.post('/leads', {
+      const res = await api.post("/leads", {
         ...lead,
         assignedToId: lead.assignedToId || currentUser.id,
         milestoneId: lead.milestoneId || milestones[0]?.id,
         dispositionId: lead.dispositionId || dispositions[0]?.id,
       });
-      setLeads(prev => [res, ...prev]);
+      setLeads((prev) => [res, ...prev]);
     } catch (err) {
       alert(formatError(err));
     }
@@ -118,7 +117,7 @@ export default function AppProvider({ children }) {
   const bulkAddLeads = async (leads) => {
     setProcessing(true);
     try {
-      await api.post('/leads/bulk', leads);
+      await api.post("/leads/bulk", leads);
       await fetchInitialData();
     } catch (err) {
       alert("Bulk import failed: " + formatError(err));
@@ -130,17 +129,17 @@ export default function AppProvider({ children }) {
   const updateLead = async (id, updates) => {
     try {
       const res = await api.patch(`/leads/${id}`, updates);
-      setLeads(prev => prev.map(l => l.id === id ? res : l));
+      setLeads((prev) => prev.map((l) => (l.id === id ? res : l)));
     } catch (err) {
       alert(formatError(err));
     }
   };
 
   const deleteLead = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this lead?')) return;
+    if (!window.confirm("Are you sure you want to delete this lead?")) return;
     try {
       await api.delete(`/leads/${id}`);
-      setLeads(prev => prev.filter(l => l.id !== id));
+      setLeads((prev) => prev.filter((l) => l.id !== id));
     } catch (err) {
       alert(formatError(err));
     }
@@ -149,8 +148,8 @@ export default function AppProvider({ children }) {
   // Client actions
   const addClient = async (client) => {
     try {
-      const res = await api.post('/clients', client);
-      setClients(prev => [res, ...prev]);
+      const res = await api.post("/clients", client);
+      setClients((prev) => [res, ...prev]);
     } catch (err) {
       alert(formatError(err));
     }
@@ -159,7 +158,7 @@ export default function AppProvider({ children }) {
   const updateClient = async (id, updates) => {
     try {
       const res = await api.patch(`/clients/${id}`, updates);
-      setClients(prev => prev.map(c => c.id === id ? res : c));
+      setClients((prev) => prev.map((c) => (c.id === id ? res : c)));
     } catch (err) {
       alert(formatError(err));
     }
@@ -168,8 +167,8 @@ export default function AppProvider({ children }) {
   // User actions (Super Admin only)
   const addUser = async (user) => {
     try {
-      const res = await api.post('/users', user);
-      setUsers(prev => [res, ...prev]);
+      const res = await api.post("/users", user);
+      setUsers((prev) => [res, ...prev]);
     } catch (err) {
       alert(formatError(err));
     }
@@ -178,18 +177,18 @@ export default function AppProvider({ children }) {
   const updateUser = async (id, updates) => {
     try {
       const res = await api.patch(`/users/${id}`, updates);
-      setUsers(prev => prev.map(u => u.id === id ? res : u));
+      setUsers((prev) => prev.map((u) => (u.id === id ? res : u)));
     } catch (err) {
       alert(formatError(err));
     }
   };
 
   const toggleUserStatus = async (id) => {
-    const user = users.find(u => u.id === id);
+    const user = users.find((u) => u.id === id);
     if (!user) return;
     try {
       const res = await api.patch(`/users/${id}/status`);
-      setUsers(prev => prev.map(u => u.id === id ? res : u));
+      setUsers((prev) => prev.map((u) => (u.id === id ? res : u)));
     } catch (err) {
       alert(formatError(err));
     }
@@ -198,11 +197,11 @@ export default function AppProvider({ children }) {
   // Tasks
   const addTask = async (task) => {
     try {
-      const res = await api.post('/tasks', {
+      const res = await api.post("/tasks", {
         ...task,
-        createdById: currentUser.id
+        createdById: currentUser.id,
       });
-      setTasks(prev => [res, ...prev]);
+      setTasks((prev) => [res, ...prev]);
     } catch (err) {
       alert(formatError(err));
     }
@@ -211,7 +210,7 @@ export default function AppProvider({ children }) {
   const updateTask = async (id, updates) => {
     try {
       const res = await api.patch(`/tasks/${id}`, updates);
-      setTasks(prev => prev.map(t => t.id === id ? res : t));
+      setTasks((prev) => prev.map((t) => (t.id === id ? res : t)));
     } catch (err) {
       alert(formatError(err));
     }
@@ -222,9 +221,9 @@ export default function AppProvider({ children }) {
     try {
       const res = await api.post(`/leads/${interaction.leadId}/interactions`, {
         ...interaction,
-        performedById: currentUser.id
+        performedById: currentUser.id,
       });
-      setInteractions(prev => [res, ...prev]);
+      setInteractions((prev) => [res, ...prev]);
     } catch (err) {
       alert(formatError(err));
     }
@@ -236,12 +235,18 @@ export default function AppProvider({ children }) {
       const res = await api.post(`/leads/${id}/convert`);
       const client = res.client;
       // Update local state
-      setLeads(prev => prev.map(l => l.id === id ? { ...l, status: 'won' } : l));
-      setClients(prev => [client, ...prev]);
+      setLeads((prev) =>
+        prev.map((l) => (l.id === id ? { ...l, status: "won" } : l)),
+      );
+      setClients((prev) => [client, ...prev]);
       // Update history references in local state
-      setInteractions(prev => prev.map(i => i.leadId === id ? { ...i, clientId: client.id } : i));
-      setTasks(prev => prev.map(t => t.leadId === id ? { ...t, clientId: client.id } : t));
-      
+      setInteractions((prev) =>
+        prev.map((i) => (i.leadId === id ? { ...i, clientId: client.id } : i)),
+      );
+      setTasks((prev) =>
+        prev.map((t) => (t.leadId === id ? { ...t, clientId: client.id } : t)),
+      );
+
       return client;
     } catch (err) {
       alert(formatError(err));
@@ -254,7 +259,7 @@ export default function AppProvider({ children }) {
   // Invoices
   const addInvoice = async (invoice) => {
     try {
-      const res = await api.post('/invoices', invoice);
+      const res = await api.post("/invoices", invoice);
       await fetchInitialData();
       return res;
     } catch (err) {
@@ -266,9 +271,9 @@ export default function AppProvider({ children }) {
   const uploadInvoiceFile = async (invoiceId, file) => {
     try {
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append("file", file);
       await api.post(`/invoices/${invoiceId}/attachments`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+        headers: { "Content-Type": "multipart/form-data" },
       });
       await fetchInitialData();
     } catch (err) {
@@ -289,7 +294,9 @@ export default function AppProvider({ children }) {
   const markNotificationRead = async (id) => {
     try {
       await api.patch(`/notifications/${id}/read`);
-      setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)),
+      );
     } catch (err) {
       console.error("Mark notification read error:", err);
     }
@@ -297,16 +304,16 @@ export default function AppProvider({ children }) {
 
   const markAllNotificationsRead = async () => {
     try {
-      await api.patch('/notifications/read-all');
-      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+      await api.patch("/notifications/read-all");
+      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
     } catch (err) {
       console.error("Mark all notifications read error:", err);
     }
   };
 
-  const fetchDashboard = async (period = 'this-month', bdeId = 'All') => {
+  const fetchDashboard = async (period = "this-month", bdeId = "All") => {
     try {
-      const bdeQuery = bdeId !== 'All' ? `&bdeId=${bdeId}` : '';
+      const bdeQuery = bdeId !== "All" ? `&bdeId=${bdeId}` : "";
       return await api.get(`/analytics/dashboard?period=${period}${bdeQuery}`);
     } catch (err) {
       console.error("Dashboard fetch error:", err);
@@ -316,29 +323,56 @@ export default function AppProvider({ children }) {
 
   const updateSettings = async (updates) => {
     try {
-      const res = await api.patch('/settings', updates);
+      const res = await api.patch("/settings", updates);
       setSettings(res);
     } catch (err) {
       alert(formatError(err));
     }
   };
 
-
-
   return (
-    <AppContext.Provider value={{
-      theme, toggleTheme,
-      currentUser, leads, clients, users, milestones, dispositions, interactions, invoices, notifications, tasks,
-      addLead, bulkAddLeads, updateLead, deleteLead, convertLead,
-      addClient, updateClient,
-      addUser, updateUser, toggleUserStatus,
-      addTask, updateTask,
-      addInteraction,
-      addInvoice, uploadInvoiceFile, markInvoicePaid, fetchDashboard,
-      markNotificationRead, markAllNotificationsRead,
-      settings, updateSettings,
-      login, logout, loading, processing, formatError
-    }}>
+    <AppContext.Provider
+      value={{
+        theme,
+        toggleTheme,
+        currentUser,
+        leads,
+        clients,
+        users,
+        milestones,
+        dispositions,
+        interactions,
+        invoices,
+        notifications,
+        tasks,
+        addLead,
+        bulkAddLeads,
+        updateLead,
+        deleteLead,
+        convertLead,
+        addClient,
+        updateClient,
+        addUser,
+        updateUser,
+        toggleUserStatus,
+        addTask,
+        updateTask,
+        addInteraction,
+        addInvoice,
+        uploadInvoiceFile,
+        markInvoicePaid,
+        fetchDashboard,
+        markNotificationRead,
+        markAllNotificationsRead,
+        settings,
+        updateSettings,
+        login,
+        logout,
+        loading,
+        processing,
+        formatError,
+      }}
+    >
       {children}
     </AppContext.Provider>
   );
