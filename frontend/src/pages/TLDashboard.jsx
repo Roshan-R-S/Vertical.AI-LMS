@@ -1,36 +1,87 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useApp } from '../context/AppContextCore';
-import { 
-  TrendingUp, Activity, Users, Target, Clock, AlertTriangle, 
-  Zap, PieChart as PieChartIcon, ArrowRight, DollarSign, 
-  BarChart2, PhoneCall, Filter, Calendar, CheckCircle, 
-  Phone, Briefcase, ChevronDown, ChevronRight, Timer
+import {
+    Activity,
+    AlertTriangle,
+    ArrowRight,
+    BarChart2,
+    Briefcase,
+    Calendar, CheckCircle,
+    Clock,
+    DollarSign,
+    Filter,
+    Phone,
+    PhoneCall,
+    Target,
+    Timer,
+    TrendingUp,
+    Users,
+    Zap
 } from 'lucide-react';
-import { 
-  AreaChart, Area, BarChart, Bar, LineChart, Line, XAxis, YAxis, 
-  Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend 
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+    Area,
+    AreaChart,
+    Legend,
+    Line,
+    LineChart,
+    ResponsiveContainer,
+    Tooltip,
+    XAxis, YAxis
 } from 'recharts';
+import { useApp } from '../context/AppContextCore';
 
 const COLORS = ['#6366f1', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444'];
 
 export default function TLDashboard() {
   const navigate = useNavigate();
-  const { currentUser, users, fetchDashboard } = useApp();
+  const { currentUser, users, tasks, leads, fetchDashboard } = useApp();
   const [dateRange, setDateRange] = useState('This Month');
   const [customDates, setCustomDates] = useState({ start: '', end: '' });
   const [selectedBDE, setSelectedBDE] = useState('All');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [activityFilter, setActivityFilter] = useState('all'); // 'all' | 'active' | 'inactive'
 
-  // Filter team-specific data
-  // Filter team-specific data
   const teamBDEs = users.filter(u => {
     if (u.role !== 'BDE') return false;
     if (currentUser?.role === 'Super Admin') return true;
-    if (!currentUser?.teamId) return !u.teamId; 
+    if (!currentUser?.teamId) return !u.teamId;
     return u.teamId === currentUser.teamId;
   });
+
+  // Build teamMap: count BDEs per team
+  const teamMap = {};
+  users.filter(u => u.role === 'TL').forEach(tl => {
+    teamMap[tl.team] = users.filter(u => u.teamId === tl.teamId && u.role === 'BDE').length;
+  });
+
+  // Live work queue stats from tasks context
+  const teamBDEIds = teamBDEs.map(u => u.id);
+  const teamTasks = tasks.filter(t => teamBDEIds.includes(t.assignedToId));
+  const today = new Date().toISOString().split('T')[0];
+  const scheduledToday = teamTasks.filter(t => t.dueDate === today).length;
+  const completedToday = teamTasks.filter(t => t.status === 'completed' && t.updatedAt?.startsWith(today)).length;
+  const pendingToday = teamTasks.filter(t => t.dueDate === today && t.status !== 'completed').length;
+
+  // Live pipeline health stats from leads context
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const oneWeekFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const teamLeads = leads.filter(l => teamBDEIds.includes(l.assignedToId) && l.status === 'active');
+  const stuckDeals = teamLeads.filter(l => l.updatedAt && new Date(l.updatedAt).toISOString() < sevenDaysAgo).length;
+  const closingThisWeek = teamLeads.filter(l => l.expectedClose && l.expectedClose <= oneWeekFromNow && l.expectedClose >= today);
+  const closingThisWeekValue = closingThisWeek.reduce((s, l) => s + (l.value || 0), 0);
+
+  // Live performance insight for Section G
+  const getPerformanceInsight = () => {
+    if (!data?.bdePerformance?.length) return 'Add more activity data to see performance insights.';
+    const sorted = [...data.bdePerformance].sort((a, b) => b.calls - a.calls);
+    const topCaller = sorted[0];
+    const topDealer = [...data.bdePerformance].sort((a, b) => b.deals - a.deals)[0];
+    if (topCaller?.id === topDealer?.id) {
+      return `${topCaller.name} leads both in calls (${topCaller.calls}) and deals closed (${topCaller.deals}) — strong activity-to-close correlation.`;
+    }
+    return `${topCaller?.name || '—'} has the most calls (${topCaller?.calls || 0}). ${topDealer?.name || '—'} leads in deals closed (${topDealer?.deals || 0}).`;
+  };
 
   useEffect(() => {
     let period = 'this-month';
@@ -48,7 +99,7 @@ export default function TLDashboard() {
     return <div className="p-8 text-center"><Activity className="animate-spin" /> Loading team analytics...</div>;
   }
 
-  const { kpis, monthlyTrend, bdePerformance, funnelData } = data;
+  const { kpis, monthlyTrend, bdePerformance, funnelData, teamExecution } = data;
 
   return (
     <div className="animate-fadeIn">
@@ -95,21 +146,19 @@ export default function TLDashboard() {
           <div className="studio-card" style={{ padding: 20 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
               <PhoneCall size={16} color="#6366f1" />
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#10b981' }}>+12% vs Yesterday</div>
             </div>
             <div style={{ fontSize: 28, fontWeight: 300 }}>{kpis.activeLeads}</div>
             <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>ACTIVE LEADS</div>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8 }}>Connect Rate: <b>62%</b></div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8 }}>Active leads in pipeline</div>
           </div>
           
           <div className="studio-card" style={{ padding: 20 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
               <Users size={16} color="#8b5cf6" />
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#10b981' }}>{dateRange === 'Today' ? '4 Done' : '24 Done'}</div>
             </div>
             <div style={{ fontSize: 28, fontWeight: 300 }}>{kpis.wonDeals}</div>
             <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>DEALS CLOSED</div>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8 }}>Completion Rate: <b>78%</b></div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8 }}>Deals closed this period</div>
           </div>
 
           <div className="studio-card" style={{ padding: 20 }}>
@@ -118,7 +167,7 @@ export default function TLDashboard() {
             </div>
             <div style={{ fontSize: 28, fontWeight: 300 }}>{kpis.overdueFollowUps}</div>
             <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>OVERDUE TASKS</div>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8 }}>Target SLA: 10m</div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8 }}>Tasks past due date</div>
           </div>
 
           <div className="studio-card" style={{ padding: 20 }}>
@@ -127,7 +176,7 @@ export default function TLDashboard() {
             </div>
             <div style={{ fontSize: 28, fontWeight: 300 }}>{kpis.staleLeads}</div>
             <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>STALE LEADS (&gt;7d)</div>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8 }}><b>42/48</b> Tasks Done</div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8 }}>No activity &gt; 7 days</div>
           </div>
         </div>
       </div>
@@ -139,12 +188,16 @@ export default function TLDashboard() {
           <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 20, borderLeft: '3px solid #10b981', paddingLeft: 12, textTransform: 'uppercase' }}>B. Lagging Indicators (Outcomes)</h3>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <div style={{ padding: 16, background: 'var(--bg-surface)', borderRadius: 12 }}>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>CLOSED REVENUE ({dateRange.toUpperCase()})</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>
+                <TrendingUp size={12} color="#10b981" /> CLOSED REVENUE ({dateRange.toUpperCase()})
+              </div>
               <div style={{ fontSize: 24, fontWeight: 600, color: '#10b981' }}>₹{kpis.closedRevenue.toLocaleString()}</div>
               <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>{kpis.wonDeals} Deals Closed</div>
             </div>
             <div style={{ padding: 16, background: 'var(--bg-surface)', borderRadius: 12 }}>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>WIN RATE %</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>
+                <TrendingUp size={12} color="#10b981" /> WIN RATE %
+              </div>
               <div style={{ fontSize: 24, fontWeight: 600 }}>
                 {kpis.wonDeals + kpis.lostDeals > 0 
                   ? Math.round((kpis.wonDeals / (kpis.wonDeals + kpis.lostDeals)) * 100) 
@@ -171,11 +224,15 @@ export default function TLDashboard() {
           <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 20, borderLeft: '3px solid #f59e0b', paddingLeft: 12, textTransform: 'uppercase' }}>C. Pipeline Health</h3>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <div style={{ padding: 16, background: 'var(--bg-surface)', borderRadius: 12 }}>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>TOTAL PIPELINE</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>
+                <DollarSign size={12} color="#f59e0b" /> TOTAL PIPELINE
+              </div>
               <div style={{ fontSize: 24, fontWeight: 600, color: '#f59e0b' }}>₹{(kpis.totalPipelineValue / 100000).toFixed(1)} L</div>
             </div>
             <div style={{ padding: 16, background: 'var(--bg-surface)', borderRadius: 12 }}>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>WEIGHTED VALUE</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>
+                <Clock size={12} color="#06b6d4" /> WEIGHTED VALUE
+              </div>
               <div style={{ fontSize: 24, fontWeight: 600 }}>₹{(kpis.weightedExpected / 100000).toFixed(1)} L</div>
               <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>Probability Adjusted</div>
             </div>
@@ -203,10 +260,10 @@ export default function TLDashboard() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div style={{ fontSize: 11, color: '#ef4444', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <AlertTriangle size={12} /> <b>12 Stuck Deals</b> (No movement &gt; 7 days)
+                <AlertTriangle size={12} /> <b>{stuckDeals} Stuck Deal{stuckDeals !== 1 ? 's' : ''}</b> (No movement &gt; 7 days)
               </div>
               <div style={{ fontSize: 11, color: '#10b981', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Target size={12} /> <b>5 Deals Closing This Week</b> (Value: ₹18L)
+                <Target size={12} /> <b>{closingThisWeek.length} Deal{closingThisWeek.length !== 1 ? 's' : ''} Closing This Week</b> {closingThisWeekValue > 0 ? `(Value: ₹${(closingThisWeekValue / 100000).toFixed(1)}L)` : ''}
               </div>
             </div>
           </div>
@@ -217,21 +274,35 @@ export default function TLDashboard() {
       <div className="form-grid" style={{ gridTemplateColumns: '1.5fr 1fr', gap: 24, marginBottom: 32 }}>
         {/* Team Activity Visibility */}
         <div className="studio-card" style={{ padding: 24 }}>
-          <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 20, borderLeft: '3px solid #06b6d4', paddingLeft: 12, textTransform: 'uppercase' }}>D. Team Activity Visibility</h3>
+          <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 20, borderLeft: '3px solid #06b6d4', paddingLeft: 12, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <BarChart2 size={16} color="#06b6d4" /> D. Team Activity Visibility
+          </h3>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+            {['all', 'active', 'inactive'].map(f => (
+              <button key={f} onClick={() => setActivityFilter(f)}
+                className={`btn btn-sm ${activityFilter === f ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ fontSize: 11, textTransform: 'capitalize', display: 'flex', alignItems: 'center', gap: 4 }}
+              >
+                {f === 'all' && <Filter size={11} />} {f === 'all' ? 'All BDEs' : f === 'active' ? 'Active Only' : 'Inactive Only'}
+              </button>
+            ))}
+          </div>
           <div className="table-wrapper" style={{ border: 'none' }}>
             <table className="table" style={{ fontSize: 12 }}>
               <thead>
                 <tr>
                   <th>BDE</th>
-                  <th>Calls</th>
+                  <th style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Phone size={11} /> Calls</th>
                   <th>Meetings</th>
-                  <th>Follow-ups</th>
+                  <th style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Briefcase size={11} /> Follow-ups</th>
                   <th>Last Activity</th>
                   <th>Status</th>
                 </tr>
               </thead>
               <tbody>
-                 {bdePerformance.map(bde => (
+                {bdePerformance
+                  .filter(bde => activityFilter === 'all' ? true : activityFilter === 'active' ? bde.isActive : !bde.isActive)
+                  .map(bde => (
                   <tr 
                     key={bde.id} 
                     onClick={() => { setLoading(true); setSelectedBDE(bde.id); }}
@@ -245,15 +316,15 @@ export default function TLDashboard() {
                     <td>{bde.calls}</td>
                     <td>{bde.meetings}</td>
                     <td>{bde.deals}</td>
-                    <td>—</td>
-                    <td><span className="badge badge-success">ACTIVE</span></td>
+                    <td>{bde.lastActivity || '—'}</td>
+                    <td><span className={`badge ${bde.isActive ? 'badge-success' : 'badge-neutral'}`}>{bde.isActive ? 'ACTIVE' : 'INACTIVE'}</span></td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
           <div style={{ marginTop: 16, padding: 12, background: 'var(--bg-surface)', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}><b>82%</b> of assigned leads touched today</div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Priority coverage: <b>{teamExecution?.priorityCoveragePct ?? '—'}%</b> | Team size: <b>{teamMap[currentUser.team] || 0} BDEs</b></div>
             <button 
               className="btn btn-ghost btn-sm" 
               style={{ fontSize: 11 }}
@@ -271,29 +342,29 @@ export default function TLDashboard() {
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 12 }}>
                 <span>Scheduled Today</span>
-                <span style={{ fontWeight: 700 }}>42</span>
+                <span style={{ fontWeight: 700 }}>{scheduledToday}</span>
               </div>
               <div style={{ height: 8, background: 'var(--bg-surface)', borderRadius: 4, overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: '65%', background: '#8b5cf6', borderRadius: 4 }}></div>
+                <div style={{ height: '100%', width: `${scheduledToday > 0 ? (completedToday / scheduledToday) * 100 : 0}%`, background: '#8b5cf6', borderRadius: 4 }}></div>
               </div>
-              <div style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)' }}>28 Completed / 14 Pending</div>
+              <div style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)' }}>{completedToday} Completed / {pendingToday} Pending</div>
             </div>
-            
+
             <div className="form-grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div style={{ padding: 12, background: 'rgba(239, 68, 68, 0.05)', borderRadius: 10, border: '1px solid rgba(239, 68, 68, 0.1)' }}>
-                <div style={{ fontSize: 20, fontWeight: 700, color: '#ef4444' }}>6</div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: '#ef4444' }}>{kpis.overdueFollowUps}</div>
                 <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>OVERDUE</div>
               </div>
               <div style={{ padding: 12, background: 'rgba(245, 158, 11, 0.05)', borderRadius: 10, border: '1px solid rgba(245, 158, 11, 0.1)' }}>
-                <div style={{ fontSize: 20, fontWeight: 700, color: '#f59e0b' }}>14</div>
-                <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>CALLBACKS</div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: '#f59e0b' }}>{kpis.staleLeads}</div>
+                <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>STALE LEADS</div>
               </div>
             </div>
 
             <div style={{ padding: 16, background: 'var(--bg-surface)', borderRadius: 12, border: '1px solid var(--border-subtle)' }}>
               <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8 }}>High-Priority Action Required</div>
               <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                <b>8 leads</b> with high intent scores are currently pending action for &gt;4 hours.
+                <b>{kpis.highValueProspects}</b> high-value leads (&gt;₹100K) are currently pending action.
               </div>
             </div>
           </div>
@@ -309,31 +380,30 @@ export default function TLDashboard() {
             <div style={{ padding: '12px 16px', background: 'rgba(239, 68, 68, 0.05)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: 12, display: 'flex', gap: 12 }}>
               <AlertTriangle size={18} color="#ef4444" style={{ flexShrink: 0 }} />
               <div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: '#ef4444' }}>SLA Breach (Contact Time)</div>
-                <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>5 new leads assigned &gt; 30m ago with zero contact.</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#ef4444' }}>Stale Leads</div>
+                <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}><b>{kpis.staleLeads}</b> leads have had no activity in &gt; 7 days.</div>
               </div>
             </div>
             <div style={{ padding: '12px 16px', background: 'rgba(245, 158, 11, 0.05)', border: '1px solid rgba(245, 158, 11, 0.2)', borderRadius: 12, display: 'flex', gap: 12 }}>
               <Zap size={18} color="#f59e0b" style={{ flexShrink: 0 }} />
               <div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: '#f59e0b' }}>Low Activity Alert</div>
-                <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}><b>Akash Patel</b> has recorded only 4 calls in the last 3 hours.</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#f59e0b' }}>Overdue Tasks</div>
+                <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}><b>{kpis.overdueFollowUps}</b> tasks are past their due date.</div>
               </div>
             </div>
             <div style={{ padding: '12px 16px', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 12, display: 'flex', gap: 12 }}>
               <Users size={18} color="#6366f1" style={{ flexShrink: 0 }} />
               <div>
-                <div style={{ fontSize: 13, fontWeight: 600 }}>Stuck Proposals</div>
-                <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>8 proposals have no client engagement in &gt; 48 hours.</div>
+                <div style={{ fontSize: 13, fontWeight: 600 }}>High Value Prospects</div>
+                <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}><b>{kpis.highValueProspects}</b> active leads worth &gt; ₹100K need attention.</div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Trends */}
         <div className="studio-card" style={{ padding: 24 }}>
           <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 20, borderLeft: '3px solid #8b5cf6', paddingLeft: 12, textTransform: 'uppercase' }}>G. Performance Trends</h3>
-          <div style={{ height: 260, width: '100%' }}>
+          <div style={{ height: 200, width: '100%' }}>
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={monthlyTrend}>
                 <defs>
@@ -345,14 +415,33 @@ export default function TLDashboard() {
                 <XAxis dataKey="name" fontSize={12} axisLine={false} tickLine={false} tick={{ fill: 'var(--text-muted)' }} />
                 <YAxis fontSize={12} axisLine={false} tickLine={false} tick={{ fill: 'var(--text-muted)' }} />
                 <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 8 }} />
-                <Legend wrapperStyle={{ fontSize: 12, paddingTop: 16 }} />
+                <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
                 <Area type="monotone" name="Revenue (L)" dataKey="revenue" stroke="#6366f1" fillOpacity={1} fill="url(#colorCalls)" />
                 <Area type="monotone" name="Pipeline (L)" dataKey="pipeline" stroke="#10b981" fillOpacity={1} fill="rgba(16, 185, 129, 0.1)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
-          <div style={{ marginTop: 12, fontSize: 12, textAlign: 'center', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-            Positive 0.82 correlation between high morning activity and evening closures.
+
+          {bdePerformance.length > 0 && (
+            <>
+              <div style={{ fontSize: 12, fontWeight: 600, margin: '16px 0 8px', color: 'var(--text-secondary)' }}>BDE CALLS vs DEALS (THIS PERIOD)</div>
+              <div style={{ height: 120, width: '100%' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={bdePerformance} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                    <XAxis dataKey="name" fontSize={10} axisLine={false} tickLine={false} tick={{ fill: 'var(--text-muted)' }} />
+                    <YAxis fontSize={10} axisLine={false} tickLine={false} tick={{ fill: 'var(--text-muted)' }} />
+                    <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 8, fontSize: 11 }} />
+                    <Legend wrapperStyle={{ fontSize: 11 }} />
+                    <Line type="monotone" name="Calls" dataKey="calls" stroke="#6366f1" dot={{ r: 3 }} strokeWidth={2} />
+                    <Line type="monotone" name="Deals" dataKey="deals" stroke="#10b981" dot={{ r: 3 }} strokeWidth={2} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </>
+          )}
+
+          <div style={{ marginTop: 12, fontSize: 12, color: 'var(--text-muted)', padding: '10px 14px', background: 'var(--bg-surface)', borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
+            💡 {getPerformanceInsight()}
           </div>
         </div>
       </div>

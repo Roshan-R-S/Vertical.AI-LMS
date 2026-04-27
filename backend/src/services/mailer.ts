@@ -1,19 +1,190 @@
 import nodemailer from 'nodemailer';
-import dotenv from 'dotenv';
+import { config } from '../config';
 
-dotenv.config();
-
-// For real production, use SMTP_HOST, SMTP_PORT, etc. from .env
-// For development, we'll log to console if no credentials are provided.
 const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'localhost',
-  port: parseInt(process.env.SMTP_PORT || '587'),
-  secure: false, // true for 465, false for other ports
+  host: config.smtp.host || 'localhost',
+  port: config.smtp.port || 587,
+  secure: false,
   auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
+    user: config.smtp.user,
+    pass: config.smtp.pass,
   },
 });
+
+const FRONTEND_URL = () => process.env.FRONTEND_URL || 'http://localhost:5173';
+
+const FROM = `"Vertical AI LMS" <${config.smtp.user || 'noreply@vertical.ai'}>`;
+
+const canSend = !!(config.smtp.user && config.smtp.pass);
+
+export const sendWelcomeEmail = async (
+  email: string,
+  name: string,
+  role: string,
+  resetToken: string
+) => {
+  const setPasswordUrl = `${FRONTEND_URL()}/reset-password?token=${resetToken}`;
+  console.log('[DEBUG] FRONTEND_URL value:', FRONTEND_URL());
+  console.log('[DEBUG] setPasswordUrl:', setPasswordUrl);
+  const mailOptions = {
+    from: FROM,
+    to: email,
+    subject: `Welcome to Vertical AI — Set Your Password`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 520px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #10b981, #06b6d4); padding: 32px; border-radius: 12px 12px 0 0; text-align: center;">
+          <h1 style="color: white; margin: 0; font-size: 24px;">Welcome to Vertical AI</h1>
+          <p style="color: rgba(255,255,255,0.85); margin: 8px 0 0;">Your account has been created</p>
+        </div>
+        <div style="background: #f8fafc; padding: 32px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 12px 12px;">
+          <p style="color: #374151;">Hello <strong>${name}</strong>,</p>
+          <p style="color: #374151;">Your <strong>${role}</strong> account on Vertical AI LMS has been created by your administrator.</p>
+          <p style="color: #374151;">Click the button below to set your password and activate your account:</p>
+          <div style="text-align: center; margin: 32px 0;">
+            <a href="${setPasswordUrl}" style="display: inline-block; background: #10b981; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">Set My Password</a>
+          </div>
+          <div style="background: #fef3c7; border: 1px solid #fcd34d; border-radius: 8px; padding: 14px; margin-bottom: 24px;">
+            <p style="margin: 0; color: #92400e; font-size: 13px;">⚠️ This link expires in <strong>5 minutes</strong>. If it expires, ask your admin to resend the invite.</p>
+          </div>
+          <p style="color: #6b7280; font-size: 13px;">Your login email: <strong>${email}</strong></p>
+        </div>
+      </div>
+    `,
+  };
+
+  try {
+    if (canSend) {
+      await transporter.sendMail(mailOptions);
+    } else {
+      console.log('--- [DEV MAIL LOG: WELCOME] ---');
+      console.log(`To: ${email} | Role: ${role}`);
+      console.log(`Set Password Link: ${setPasswordUrl}`);
+      console.log('-------------------------------');
+    }
+  } catch (error) {
+    console.error('Error sending welcome email:', error);
+  }
+};
+
+export const sendPartnerRequestEmail = async (
+  adminEmail: string,
+  partnerName: string,
+  partnerEmail: string,
+  companyName: string,
+  approveToken: string
+) => {
+  const baseUrl = process.env.APP_BASE_URL || 'http://localhost:5000';
+  const approveUrl = `${baseUrl}/api/v1/auth/partner-approve?token=${approveToken}`;
+  const rejectUrl  = `${baseUrl}/api/v1/auth/partner-reject?token=${approveToken}`;
+
+  const mailOptions = {
+    from: FROM,
+    to: adminEmail,
+    subject: `Channel Partner Request — ${partnerName} (${companyName})`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 520px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #6366f1, #8b5cf6); padding: 32px; border-radius: 12px 12px 0 0; text-align: center;">
+          <h1 style="color: white; margin: 0; font-size: 22px;">New Channel Partner Request</h1>
+        </div>
+        <div style="background: #f8fafc; padding: 32px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 12px 12px;">
+          <p style="color: #374151;">A new channel partner has requested access to Vertical AI LMS.</p>
+          <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 20px 0;">
+            <p style="margin: 0 0 8px;"><strong>Name:</strong> ${partnerName}</p>
+            <p style="margin: 0 0 8px;"><strong>Email:</strong> ${partnerEmail}</p>
+            <p style="margin: 0;"><strong>Company:</strong> ${companyName}</p>
+          </div>
+          <div style="display: flex; gap: 12px; margin-top: 24px;">
+            <a href="${approveUrl}" style="display: inline-block; background: #10b981; color: white; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-weight: 600;">Approve Access</a>
+            <a href="${rejectUrl}" style="display: inline-block; background: #ef4444; color: white; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-weight: 600;">Reject Request</a>
+          </div>
+          <p style="color: #6b7280; font-size: 12px; margin-top: 20px;">These links expire in 48 hours.</p>
+        </div>
+      </div>
+    `,
+  };
+
+  try {
+    if (canSend) {
+      await transporter.sendMail(mailOptions);
+    } else {
+      console.log('[DEV MAIL: PARTNER REQUEST]', { adminEmail, partnerName, approveUrl, rejectUrl });
+    }
+  } catch (err) {
+    console.error('Error sending partner request email:', err);
+  }
+};
+
+export const sendPartnerApprovedEmail = async (
+  email: string,
+  name: string,
+  resetToken: string
+) => {
+  const setPasswordUrl = `${FRONTEND_URL()}/reset-password?token=${resetToken}`;
+  const mailOptions = {
+    from: FROM,
+    to: email,
+    subject: `Your Channel Partner Access is Approved — Vertical AI`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 520px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #10b981, #06b6d4); padding: 32px; border-radius: 12px 12px 0 0; text-align: center;">
+          <h1 style="color: white; margin: 0; font-size: 22px;">✅ Access Approved!</h1>
+        </div>
+        <div style="background: #f8fafc; padding: 32px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 12px 12px;">
+          <p style="color: #374151;">Hello <strong>${name}</strong>,</p>
+          <p style="color: #374151;">Your Channel Partner access request has been <strong>approved</strong>. Click below to set your password and start using Vertical AI LMS.</p>
+          <div style="text-align: center; margin: 32px 0;">
+            <a href="${setPasswordUrl}" style="display: inline-block; background: #10b981; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">Set My Password & Login</a>
+          </div>
+          <div style="background: #fef3c7; border: 1px solid #fcd34d; border-radius: 8px; padding: 14px;">
+            <p style="margin: 0; color: #92400e; font-size: 13px;">⚠️ This link expires in <strong>24 hours</strong>.</p>
+          </div>
+          <p style="color: #6b7280; font-size: 13px; margin-top: 16px;">Your login email: <strong>${email}</strong></p>
+        </div>
+      </div>
+    `,
+  };
+
+  try {
+    if (canSend) {
+      await transporter.sendMail(mailOptions);
+    } else {
+      console.log('[DEV MAIL: PARTNER APPROVED]', { email, setPasswordUrl });
+    }
+  } catch (err) {
+    console.error('Error sending partner approved email:', err);
+  }
+};
+
+export const sendPartnerRejectedEmail = async (email: string, name: string) => {
+  const mailOptions = {
+    from: FROM,
+    to: email,
+    subject: `Your Channel Partner Request — Update`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 520px; margin: 0 auto;">
+        <div style="background: #ef4444; padding: 32px; border-radius: 12px 12px 0 0; text-align: center;">
+          <h1 style="color: white; margin: 0; font-size: 22px;">❌ Request Not Approved</h1>
+        </div>
+        <div style="background: #f8fafc; padding: 32px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 12px 12px;">
+          <p style="color: #374151;">Hello <strong>${name}</strong>,</p>
+          <p style="color: #374151;">We regret to inform you that your Channel Partner access request for Vertical AI LMS has not been approved at this time.</p>
+          <p style="color: #374151;">If you believe this is a mistake or would like more information, please contact your administrator directly.</p>
+          <p style="color: #6b7280; font-size: 13px; margin-top: 24px;">Thank you for your interest in Vertical AI.</p>
+        </div>
+      </div>
+    `,
+  };
+
+  try {
+    if (canSend) {
+      await transporter.sendMail(mailOptions);
+    } else {
+      console.log('[DEV MAIL: PARTNER REJECTED]', { email, name });
+    }
+  } catch (err) {
+    console.error('Error sending partner rejected email:', err);
+  }
+};
 
 export const sendApprovalEmail = async (
   teamLeadEmail: string,
@@ -76,12 +247,9 @@ export const sendNotificationEmail = async (email: string, subject: string, mess
 };
 
 export const sendPasswordResetEmail = async (email: string, name: string, token: string) => {
-  // We'll point this to the frontend URL since the user needs to enter the new password on a UI screen
-  const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-  const resetUrl = `${baseUrl}/reset-password?token=${token}`;
-
+  const resetUrl = `${FRONTEND_URL()}/reset-password?token=${token}`;
   const mailOptions = {
-    from: `"Vertical.AI Security" <${process.env.SMTP_USER || 'noreply@vertical.ai'}>`,
+    from: FROM,
     to: email,
     subject: `Password Reset Request — ${name}`,
     html: `

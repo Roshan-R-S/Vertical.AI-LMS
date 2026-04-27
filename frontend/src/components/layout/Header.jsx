@@ -12,7 +12,7 @@ const PAGE_META = {
 };
 
 export default function Header({ pathname }) {
-  const { notifications } = useApp();
+  useApp();
   const currentPath = Object.keys(PAGE_META).find(k => k === pathname) || '/';
   const meta = PAGE_META[currentPath] || PAGE_META['/'];
 

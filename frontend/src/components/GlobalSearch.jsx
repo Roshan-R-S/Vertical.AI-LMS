@@ -11,7 +11,7 @@ export default function GlobalSearch() {
   const [isOpen, setIsOpen] = useState(false);
   const wrapperRef = useRef(null);
 
-  const hasUnread = notifications && notifications.length > 0;
+  const hasUnread = notifications && notifications.some(n => !n.isRead);
 
   useEffect(() => {
     function handleClickOutside(event) {

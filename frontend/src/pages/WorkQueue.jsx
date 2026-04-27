@@ -6,7 +6,6 @@ import {
   MoreHorizontal,
   Phone,
   Search,
-  Star,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useApp } from "../context/AppContextCore";
@@ -14,41 +13,47 @@ import { useApp } from "../context/AppContextCore";
 export default function WorkQueue() {
   const { currentUser, leads, tasks, updateTask } = useApp();
   const [activeTab, setActiveTab] = useState("today");
+  const [search, setSearch] = useState("");
 
   // Filter tasks and leads for the BDE
   const bdeTasks = tasks.filter((t) => t.assignedToId === currentUser.id);
   const bdeLeads = leads.filter((l) => l.assignedToId === currentUser.id);
 
   const [loading, setLoading] = useState(true);
-
   const { fetchDashboard } = useApp();
 
   useEffect(() => {
-    fetchDashboard("today").then(() => {
-      setLoading(false);
-    });
+    fetchDashboard("today").then(() => setLoading(false));
   }, [fetchDashboard]);
 
-  // Grouping logic for "Execution Focused" view
   const today = new Date().toISOString().split("T")[0];
 
+  // Search filter helper
+  const matchesSearch = (item) => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    const lead = leads.find((l) => l.id === item.leadId) || item;
+    return (
+      (item.title || "").toLowerCase().includes(q) ||
+      (lead.companyName || "").toLowerCase().includes(q) ||
+      (lead.contactName || "").toLowerCase().includes(q)
+    );
+  };
+
   const todayFollowUps = bdeTasks.filter(
-    (t) => t.dueDate === today && t.status !== "completed",
+    (t) => t.dueDate === today && t.status !== "completed" && matchesSearch(t)
   );
   const overdueFollowUps = bdeTasks.filter(
-    (t) => t.dueDate < today && t.status !== "completed",
+    (t) => t.dueDate < today && t.status !== "completed" && matchesSearch(t)
   );
   const upcomingFollowUps = bdeTasks.filter(
-    (t) => t.dueDate > today && t.status !== "completed",
+    (t) => t.dueDate > today && t.status !== "completed" && matchesSearch(t)
   );
-
-  // Callbacks could be a specific disposition or tag
   const callbackQueue = bdeLeads.filter(
-    (l) => l.disposition === "Callback Requested",
+    (l) => l.disposition === "Callback Requested" && matchesSearch(l)
   );
-
   const priorityLeads = bdeLeads.filter(
-    (l) => l.priority === "High" && l.status === "active",
+    (l) => l.priority === "High" && l.status === "active" && matchesSearch(l)
   );
 
   const tabs = [
@@ -204,6 +209,8 @@ export default function WorkQueue() {
             <input
               className="search-input"
               placeholder="Search work queue..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
             />
           </div>
           <button className="btn btn-secondary">
@@ -406,7 +413,6 @@ export default function WorkQueue() {
             className="studio-card"
             style={{
               padding: 24,
-              marginBottom: 24,
               background:
                 "linear-gradient(135deg, var(--bg-card) 0%, rgba(99, 102, 241, 0.05) 100%)",
             }}
@@ -414,146 +420,27 @@ export default function WorkQueue() {
             <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>
               Queue Statistics
             </h3>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 16,
-              }}
-            >
-              <div
-                style={{
-                  background: "var(--bg-surface)",
-                  padding: 16,
-                  borderRadius: 12,
-                  border: "1px solid var(--border-subtle)",
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: 11,
-                    color: "var(--text-muted)",
-                    marginBottom: 4,
-                  }}
-                >
-                  Completed Today
-                </div>
-                <div
-                  style={{ fontSize: 20, fontWeight: 700, color: "#10b981" }}
-                >
-                  {
-                    bdeTasks.filter(
-                      (t) =>
-                        t.status === "completed" &&
-                        t.updatedAt?.startsWith(today),
-                    ).length
-                  }
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              <div style={{ background: "var(--bg-surface)", padding: 16, borderRadius: 12, border: "1px solid var(--border-subtle)" }}>
+                <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>Completed Today</div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: "#10b981" }}>
+                  {bdeTasks.filter((t) => t.status === "completed" && t.updatedAt?.startsWith(today)).length}
                 </div>
               </div>
-              <div
-                style={{
-                  background: "var(--bg-surface)",
-                  padding: 16,
-                  borderRadius: 12,
-                  border: "1px solid var(--border-subtle)",
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: 11,
-                    color: "var(--text-muted)",
-                    marginBottom: 4,
-                  }}
-                >
-                  Total Leads
-                </div>
-                <div
-                  style={{ fontSize: 20, fontWeight: 700, color: "#6366f1" }}
-                >
-                  {bdeLeads.length}
-                </div>
+              <div style={{ background: "var(--bg-surface)", padding: 16, borderRadius: 12, border: "1px solid var(--border-subtle)" }}>
+                <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>Total Leads</div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: "#6366f1" }}>{bdeLeads.length}</div>
               </div>
             </div>
 
             <div style={{ marginTop: 24 }}>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  fontSize: 12,
-                  marginBottom: 8,
-                }}
-              >
-                <span style={{ color: "var(--text-secondary)" }}>
-                  Daily Task Progress
-                </span>
-                <span style={{ fontWeight: 600 }}>
-                  {bdeTasks.filter((t) => t.status === "completed").length}/
-                  {bdeTasks.length} Done
-                </span>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 8 }}>
+                <span style={{ color: "var(--text-secondary)" }}>Daily Task Progress</span>
+                <span style={{ fontWeight: 600 }}>{bdeTasks.filter((t) => t.status === "completed").length}/{bdeTasks.length} Done</span>
               </div>
-              <div
-                style={{
-                  height: 8,
-                  background: "var(--bg-surface)",
-                  borderRadius: 4,
-                  overflow: "hidden",
-                }}
-              >
-                <div
-                  style={{
-                    height: "100%",
-                    width: `${(bdeTasks.filter((t) => t.status === "completed").length / (bdeTasks.length || 1)) * 100}%`,
-                    background: "linear-gradient(90deg, #6366f1, #8b5cf6)",
-                    borderRadius: 4,
-                  }}
-                ></div>
+              <div style={{ height: 8, background: "var(--bg-surface)", borderRadius: 4, overflow: "hidden" }}>
+                <div style={{ height: "100%", width: `${(bdeTasks.filter((t) => t.status === "completed").length / (bdeTasks.length || 1)) * 100}%`, background: "linear-gradient(90deg, #6366f1, #8b5cf6)", borderRadius: 4 }}></div>
               </div>
-            </div>
-          </div>
-
-          <div className="studio-card" style={{ padding: 24 }}>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                marginBottom: 16,
-              }}
-            >
-              <Star size={18} color="#f59e0b" fill="#f59e0b" />
-              <h3 style={{ fontSize: 15, fontWeight: 700 }}>
-                AI Suggested Next
-              </h3>
-            </div>
-            <div
-              style={{
-                background: "var(--bg-surface)",
-                padding: 16,
-                borderRadius: 12,
-                border: "1px solid #f59e0b40",
-              }}
-            >
-              <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>
-                {priorityLeads[0]?.companyName || "Next Lead"}
-              </div>
-              <p
-                style={{
-                  fontSize: 12,
-                  color: "var(--text-secondary)",
-                  lineHeight: 1.5,
-                }}
-              >
-                High intent score. Lead is in{" "}
-                <b>{priorityLeads[0]?.milestone || "Active"}</b> stage. Best
-                time to call: <b>Now</b>.
-              </p>
-              <button
-                className="btn btn-primary btn-sm"
-                style={{ width: "100%", marginTop: 12 }}
-              >
-                Quick Call
-              </button>
             </div>
           </div>
         </div>

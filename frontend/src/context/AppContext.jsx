@@ -13,13 +13,15 @@ export default function AppProvider({ children }) {
   const [invoices, setInvoices] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(
-    () => !!localStorage.getItem("lms_token"),
+    () => !!sessionStorage.getItem("lms_token"),
   );
   const [processing, setProcessing] = useState(false);
   const [theme, setTheme] = useState("light");
 
   const [notifications, setNotifications] = useState([]);
+  const [attachments, setAttachments] = useState([]);
   const [settings, setSettings] = useState({});
+  const [teams, setTeams] = useState([]);
 
   const toggleTheme = () =>
     setTheme((prev) => (prev === "light" ? "dark" : "light"));
@@ -30,37 +32,48 @@ export default function AppProvider({ children }) {
   }, [theme]);
 
   const fetchInitialData = async () => {
-    try {
-      const [l, c, u, m, d, t, i, n, s] = await Promise.all([
-        api.get("/leads"),
-        api.get("/clients"),
-        api.get("/users"),
-        api.get("/milestones"),
-        api.get("/dispositions"),
-        api.get("/tasks"),
-        api.get("/invoices"),
-        api.get("/notifications"),
-        api.get("/settings"),
-      ]);
+    const fetchSafe = async (path, fallback = []) => {
+      try {
+        const res = await api.get(path);
+        return res || fallback;
+      } catch (err) {
+        console.error(`Fetch error for ${path}:`, err);
+        return fallback;
+      }
+    };
 
-      setLeads(l);
-      setClients(c);
-      setUsers(u);
-      setMilestones(m);
-      setDispositions(d);
-      setTasks(t);
-      setInvoices(i);
-      setNotifications(n);
-      setSettings(s || {});
-    } catch (err) {
-      console.error("Data fetch error:", err);
-    } finally {
-      setLoading(false);
-    }
+    const [l, c, u, m, d, t, i, n, s, a, int, tm] = await Promise.all([
+      fetchSafe("/leads"),
+      fetchSafe("/clients"),
+      fetchSafe("/users"),
+      fetchSafe("/milestones"),
+      fetchSafe("/dispositions"),
+      fetchSafe("/tasks"),
+      fetchSafe("/invoices"),
+      fetchSafe("/notifications"),
+      fetchSafe("/settings", {}),
+      fetchSafe("/attachments"),
+      fetchSafe("/interactions"),
+      fetchSafe("/teams"),
+    ]);
+
+    setLeads(l);
+    setClients(c);
+    setUsers(u);
+    setMilestones(m);
+    setDispositions(d);
+    setTasks(t);
+    setInvoices(i);
+    setNotifications(n);
+    setSettings(s);
+    setAttachments(a);
+    setInteractions(int);
+    setTeams(tm);
+    setLoading(false);
   };
 
   useEffect(() => {
-    const token = localStorage.getItem("lms_token");
+    const token = sessionStorage.getItem("lms_token");
     if (token) {
       api
         .get("/auth/me")
@@ -69,7 +82,7 @@ export default function AppProvider({ children }) {
           fetchInitialData();
         })
         .catch(() => {
-          localStorage.removeItem("lms_token");
+          sessionStorage.removeItem("lms_token");
           setLoading(false);
         });
     }
@@ -82,20 +95,22 @@ export default function AppProvider({ children }) {
     return err.message;
   };
 
-  const login = async (role) => {
-    try {
-      const result = await api.post("/auth/demo-login", { role });
-      localStorage.setItem("lms_token", result.token);
-      setCurrentUser(result.user);
-      await fetchInitialData();
-    } catch (err) {
-      alert(formatError(err));
-      throw err;
-    }
+  const login = async (email, password) => {
+    const result = await api.post("/auth/login", { email, password });
+    // store token in sessionStorage to avoid persisting sensitive tokens in long-term storage
+    sessionStorage.setItem("lms_token", result.token);
+    setCurrentUser(result.user);
+    await fetchInitialData();
+  };
+
+  const loginWithToken = async (token, user) => {
+    sessionStorage.setItem("lms_token", token);
+    setCurrentUser(user);
+    await fetchInitialData();
   };
 
   const logout = () => {
-    localStorage.removeItem("lms_token");
+    sessionStorage.removeItem("lms_token");
     setCurrentUser(null);
   };
 
@@ -194,6 +209,16 @@ export default function AppProvider({ children }) {
     }
   };
 
+  const deleteUser = async (id) => {
+    if (!window.confirm('Are you sure you want to permanently delete this user? Their leads and tasks will be reassigned to you.')) return;
+    try {
+      await api.delete(`/users/${id}`);
+      setUsers((prev) => prev.filter((u) => u.id !== id));
+    } catch (err) {
+      alert(formatError(err));
+    }
+  };
+
   // Tasks
   const addTask = async (task) => {
     try {
@@ -272,12 +297,22 @@ export default function AppProvider({ children }) {
     try {
       const formData = new FormData();
       formData.append("file", file);
-      await api.post(`/invoices/${invoiceId}/attachments`, formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      await api.upload(`/invoices/${invoiceId}/attachments`, formData);
       await fetchInitialData();
     } catch (err) {
       alert("Failed to upload invoice file: " + formatError(err));
+      throw err;
+    }
+  };
+
+  const uploadAttachment = async (type, id, file) => {
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      await api.upload(`/${type}/${id}/attachments`, formData);
+      await fetchInitialData();
+    } catch (err) {
+      alert(`Failed to upload ${type} file: ` + formatError(err));
       throw err;
     }
   };
@@ -311,10 +346,20 @@ export default function AppProvider({ children }) {
     }
   };
 
-  const fetchDashboard = async (period = "this-month", bdeId = "All") => {
+  const fetchDashboard = async (filters = {}, legacyBdeId = "All") => {
     try {
-      const bdeQuery = bdeId !== "All" ? `&bdeId=${bdeId}` : "";
-      return await api.get(`/analytics/dashboard?period=${period}${bdeQuery}`);
+      const normalizedFilters =
+        typeof filters === "string"
+          ? { period: filters, bdeId: legacyBdeId }
+          : filters;
+      const params = new URLSearchParams();
+      Object.entries(normalizedFilters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== "" && value !== "All") {
+          params.set(key, value);
+        }
+      });
+      const query = params.toString();
+      return await api.get(`/analytics/dashboard${query ? `?${query}` : ""}`);
     } catch (err) {
       console.error("Dashboard fetch error:", err);
       return null;
@@ -327,6 +372,94 @@ export default function AppProvider({ children }) {
       setSettings(res);
     } catch (err) {
       alert(formatError(err));
+    }
+  };
+
+  // Disposition actions
+  const addDisposition = async (disposition) => {
+    try {
+      const res = await api.post("/dispositions", disposition);
+      setDispositions((prev) => [...prev, res]);
+    } catch (err) {
+      alert(formatError(err));
+    }
+  };
+
+  const updateDisposition = async (id, updates) => {
+    try {
+      const res = await api.patch(`/dispositions/${id}`, updates);
+      setDispositions((prev) => prev.map((d) => (d.id === id ? res : d)));
+    } catch (err) {
+      alert(formatError(err));
+    }
+  };
+
+  const toggleDisposition = async (id) => {
+    try {
+      const res = await api.patch(`/dispositions/${id}/toggle`);
+      setDispositions((prev) => prev.map((d) => (d.id === id ? res : d)));
+    } catch (err) {
+      alert(formatError(err));
+    }
+  };
+
+  const deleteDisposition = async (id) => {
+    try {
+      await api.delete(`/dispositions/${id}`);
+      setDispositions((prev) => prev.filter((d) => d.id !== id));
+    } catch (err) {
+      alert(formatError(err));
+    }
+  };
+
+  // Milestone actions
+  const addMilestone = async (milestone) => {
+    try {
+      const res = await api.post("/milestones", milestone);
+      setMilestones((prev) => [...prev, res]);
+    } catch (err) {
+      alert(formatError(err));
+    }
+  };
+
+  const updateMilestone = async (id, updates) => {
+    try {
+      const res = await api.patch(`/milestones/${id}`, updates);
+      setMilestones((prev) => prev.map((m) => (m.id === id ? res : m)));
+    } catch (err) {
+      alert(formatError(err));
+    }
+  };
+
+  const deleteMilestone = async (id) => {
+    if (!window.confirm('Delete this milestone? This will fail if any leads are assigned to it.')) return;
+    try {
+      await api.delete(`/milestones/${id}`);
+      setMilestones((prev) => prev.filter((m) => m.id !== id));
+    } catch (err) {
+      alert(formatError(err));
+    }
+  };
+
+  // Attachment delete
+  const deleteAttachment = async (id) => {
+    try {
+      await api.delete(`/attachments/${id}`);
+      setAttachments((prev) => prev.filter((a) => a.id !== id));
+    } catch (err) {
+      alert(formatError(err));
+    }
+  };
+
+  // Team actions
+  const addTeam = async (name) => {
+    try {
+      const res = await api.post("/teams", { name });
+      setTeams((prev) => [...prev, res]);
+      return res;
+    } catch (err) {
+      alert(formatError(err));
+      throw err;
     }
   };
 
@@ -345,6 +478,7 @@ export default function AppProvider({ children }) {
         invoices,
         notifications,
         tasks,
+        attachments,
         addLead,
         bulkAddLeads,
         updateLead,
@@ -355,22 +489,36 @@ export default function AppProvider({ children }) {
         addUser,
         updateUser,
         toggleUserStatus,
+        deleteUser,
         addTask,
         updateTask,
         addInteraction,
         addInvoice,
         uploadInvoiceFile,
+        uploadAttachment,
         markInvoicePaid,
         fetchDashboard,
         markNotificationRead,
         markAllNotificationsRead,
         settings,
         updateSettings,
+        addDisposition,
+        updateDisposition,
+        toggleDisposition,
+        deleteDisposition,
+        addMilestone,
+        updateMilestone,
+        deleteMilestone,
+        deleteAttachment,
+        teams,
+        addTeam,
         login,
+        loginWithToken,
         logout,
         loading,
         processing,
         formatError,
+        downloadUrl: (id) => `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1'}/attachments/${id}/download`,
       }}
     >
       {children}

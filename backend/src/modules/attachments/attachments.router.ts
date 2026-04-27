@@ -12,6 +12,8 @@ const upload = multer({
 
 router.use(authMiddleware);
 
+router.get('/attachments', AttachmentsController.listAllAttachments);
+
 /**
  * @openapi
  * /api/v1/leads/{id}/attachments:
@@ -41,6 +43,7 @@ router.use(authMiddleware);
  *         description: Uploaded
  */
 router.post('/leads/:id/attachments', upload.single('file'), AttachmentsController.uploadAttachment);
+router.post('/clients/:id/attachments', upload.single('file'), AttachmentsController.uploadClientAttachment);
 router.post('/invoices/:id/attachments', upload.single('file'), AttachmentsController.uploadInvoiceAttachment);
 
 /**
@@ -62,6 +65,7 @@ router.post('/invoices/:id/attachments', upload.single('file'), AttachmentsContr
  *         description: Success
  */
 router.get('/leads/:id/attachments', AttachmentsController.listAttachments);
+router.get('/clients/:id/attachments', AttachmentsController.listClientAttachments);
 
 /**
  * @openapi

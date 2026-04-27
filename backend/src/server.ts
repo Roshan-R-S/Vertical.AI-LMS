@@ -1,12 +1,14 @@
 import app from './app';
 import { initCronJobs } from './cron/meetings.cron';
 import { prisma } from './prisma';
+// reload 4
 
 const PORT = process.env.PORT || 5000;
 
 const server = app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
   console.log('DEBUG: Server restarted at', new Date().toISOString());
+  console.log('DEBUG: FRONTEND_URL =', process.env.FRONTEND_URL);
   
   // Start the background workers
   initCronJobs();

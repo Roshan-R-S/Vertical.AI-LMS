@@ -91,7 +91,7 @@ function InvoiceModal({ invoice, onClose }) {
             </button>
           )}
           {invoice.status !== 'paid' && (
-            <button className="btn btn-primary" onClick={() => { markInvoicePaid(invoice._id); onClose(); }}>
+            <button className="btn btn-primary" onClick={() => { markInvoicePaid(invoice.id); onClose(); }}>
               <CheckCircle size={14} /> Mark as Paid
             </button>
           )}
@@ -414,7 +414,7 @@ export default function Billing() {
                           <button 
                             className="btn btn-ghost btn-sm btn-icon" 
                             style={{ color: '#10b981' }}
-                            onClick={() => markInvoicePaid(inv._id)}
+                            onClick={() => markInvoicePaid(inv.id)}
                           >
                             <CheckCircle size={14} />
                           </button>

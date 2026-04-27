@@ -8,6 +8,7 @@ import { authMiddleware } from './middleware/auth.middleware';
 
 import authRouter       from './modules/auth/auth.router';
 import usersRouter      from './modules/users/users.router';
+import teamsRouter      from './modules/users/teams.router';
 import leadsRouter      from './modules/leads/leads.router';
 import tasksRouter      from './modules/tasks/tasks.router';
 import clientsRouter    from './modules/clients/clients.router';
@@ -19,12 +20,13 @@ import attachmentsRouter from './modules/attachments/attachments.router';
 import auditLogsRouter  from './modules/audit-logs/audit-logs.router';
 import notificationsRouter from './modules/notifications/notifications.router';
 import settingsRouter from './modules/settings/settings.router';
+import interactionsRouter from './modules/leads/interactions.router';
+
 
 const app = express();
 
 const allowedOrigins = [
   'http://localhost:5173',
-  'http://localhost:3000',
   'http://localhost:5174',
   process.env.FRONTEND_URL,
 ].filter(Boolean) as string[];
@@ -58,7 +60,9 @@ app.use('/api/v1/auth',          authRouter);
 app.use(authMiddleware);
 
 app.use('/api/v1/users',         usersRouter);
+app.use('/api/v1/teams',         teamsRouter);
 app.use('/api/v1/leads',         leadsRouter);
+app.use('/api/v1/interactions',  interactionsRouter);
 app.use('/api/v1/tasks',         tasksRouter);
 app.use('/api/v1/clients',       clientsRouter);
 app.use('/api/v1/invoices',      invoicesRouter);
@@ -70,6 +74,7 @@ app.use('/api/v1/audit-logs',    auditLogsRouter);
 app.use('/api/v1/notifications', notificationsRouter);
 app.use('/api/v1/settings',      settingsRouter);
 
+
 // 404 handler
 app.use((req, res) => {
   res.status(404).json({ error: `No route matched: ${req.method} ${req.originalUrl}` });
@@ -78,3 +83,4 @@ app.use((req, res) => {
 app.use(errorMiddleware);
 
 export default app;
+ 

@@ -14,6 +14,7 @@ enum Role {
   SUPER_ADMIN
   TEAM_LEAD
   BDE
+  CHANNEL_PARTNER
 }
 
 enum LeadStatus {
@@ -103,9 +104,14 @@ model User {
   role          Role      @default(BDE)
   avatar        String?
   phone         String?
-  isActive      Boolean   @default(true)
-  lastLoginAt   DateTime?
-  teamId        String?
+  isActive               Boolean   @default(true)
+  lastLoginAt            DateTime?
+  passwordResetToken     String?
+  passwordResetExpiresAt DateTime?
+  approvalToken          String?   @unique
+  isPending              Boolean   @default(false)
+  companyName            String?
+  teamId                 String?
   team          Team?     @relation(fields: [teamId], references: [id])
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt

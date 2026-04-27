@@ -1,11 +1,13 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
-  Plus, Search, Eye, Edit2, FileText, Upload, Download,
-  X, CheckCircle, Building2, Calendar, RefreshCw, AlertCircle,
-  File, Trash2, ExternalLink, Phone, Mail
+  Search, Eye, Edit2, FileText, Upload, Download,
+  X, CheckCircle, Building2, AlertCircle,
+  Trash2, Phone, Mail, Rocket, Lightbulb, AlertTriangle
 } from 'lucide-react';
 import { useApp } from '../context/AppContextCore';
 import Pagination from '../components/Pagination';
+import { useRef } from 'react';
 
 
 const STATUS_COLORS = {
@@ -15,32 +17,20 @@ const STATUS_COLORS = {
 };
 
 function ClientModal({ client, onClose, onSave }) {
-  const [form, setForm] = useState(client || {
-    companyName: '', contactName: '', email: '', phone: '',
-    products: [], orderValue: '', contractDuration: '12 months',
-    startDate: '', renewalDate: '', accountManager: '', industry: '', status: 'active'
+  const { users } = useApp();
+  const [form, setForm] = useState({
+    ...client,
+    accountManagerId: client?.accountManagerId || '',
   });
 
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal modal-lg animate-slideUp">
         <div className="modal-header">
-          <h2 className="modal-title">{client ? 'Edit Client' : 'Add New Client'}</h2>
+          <h2 className="modal-title">Edit Client</h2>
           <button className="modal-close" onClick={onClose}><X size={16} /></button>
         </div>
         <div className="modal-body">
-          <div className="form-grid">
-            <div className="form-group">
-              <label className="form-label">Company Name *</label>
-              <input className="form-input" value={form.companyName} onChange={e => setForm(p => ({ ...p, companyName: e.target.value }))} placeholder="Apex Manufacturing" />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Industry</label>
-              <select className="form-select" value={form.industry} onChange={e => setForm(p => ({ ...p, industry: e.target.value }))}>
-                {['Technology', 'Manufacturing', 'Finance', 'Healthcare', 'EdTech', 'Retail', 'Real Estate', 'Trade', 'Other'].map(i => <option key={i}>{i}</option>)}
-              </select>
-            </div>
-          </div>
           <div className="form-grid">
             <div className="form-group">
               <label className="form-label">Contact Person</label>
@@ -58,13 +48,9 @@ function ClientModal({ client, onClose, onSave }) {
             </div>
             <div className="form-group">
               <label className="form-label">Account Manager</label>
-              <select 
-                className="form-select" 
-                value={form.accountManagerId || ''} 
-                onChange={e => setForm(p => ({ ...p, accountManagerId: e.target.value }))}
-              >
+              <select className="form-select" value={form.accountManagerId} onChange={e => setForm(p => ({ ...p, accountManagerId: e.target.value }))}>
                 <option value="">Select Manager</option>
-                {useApp().users.filter(u => u.role !== 'SUPER_ADMIN').map(u => (
+                {users.filter(u => u.role !== 'Super Admin' && u.role !== 'SUPER_ADMIN').map(u => (
                   <option key={u.id} value={u.id}>{u.name}</option>
                 ))}
               </select>
@@ -72,16 +58,16 @@ function ClientModal({ client, onClose, onSave }) {
           </div>
           <div className="form-grid-3">
             <div className="form-group">
-              <label className="form-label">Order Value (₹)</label>
-              <input className="form-input" type="number" value={form.orderValue} onChange={e => setForm(p => ({ ...p, orderValue: e.target.value }))} />
+              <label className="form-label">Contract Duration</label>
+              <input className="form-input" value={form.contractDuration || ''} onChange={e => setForm(p => ({ ...p, contractDuration: e.target.value }))} />
             </div>
             <div className="form-group">
               <label className="form-label">Start Date</label>
-              <input className="form-input" type="date" value={form.startDate} onChange={e => setForm(p => ({ ...p, startDate: e.target.value }))} />
+              <input className="form-input" type="date" value={form.startDate?.split('T')[0] || ''} onChange={e => setForm(p => ({ ...p, startDate: e.target.value }))} />
             </div>
             <div className="form-group">
               <label className="form-label">Renewal Date</label>
-              <input className="form-input" type="date" value={form.renewalDate} onChange={e => setForm(p => ({ ...p, renewalDate: e.target.value }))} />
+              <input className="form-input" type="date" value={form.renewalDate?.split('T')[0] || ''} onChange={e => setForm(p => ({ ...p, renewalDate: e.target.value }))} />
             </div>
           </div>
           <div className="form-group">
@@ -96,7 +82,7 @@ function ClientModal({ client, onClose, onSave }) {
         <div className="modal-footer">
           <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
           <button className="btn btn-primary" onClick={() => { onSave(form); onClose(); }}>
-            <CheckCircle size={15} /> {client ? 'Update Client' : 'Add Client'}
+            <CheckCircle size={15} /> Save Changes
           </button>
         </div>
       </div>
@@ -105,12 +91,27 @@ function ClientModal({ client, onClose, onSave }) {
 }
 
 function ClientDetailModal({ client, onClose }) {
-  const { interactions, attachments } = useApp();
-  const [tab, setTab] = useState('overview');
-  const s = STATUS_COLORS[client.status] || STATUS_COLORS.active;
+  const { interactions = [], attachments = [], downloadUrl, uploadAttachment, deleteAttachment } = useApp();
+  const [tab, setTab] = useState(client?.initialTab || 'overview');
+  const fileInputRef = useRef(null);
+  const navigate = useNavigate();
+  
+  if (!client) return null;
 
-  const clientInteractions = interactions.filter(i => i.clientId === client.id);
-  const clientDocs = attachments.filter(a => a.clientId === client.id);
+  const handleFileUpload = async (e) => {
+    try {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      await uploadAttachment('clients', client.id, file);
+      alert('Document uploaded successfully');
+    } catch (err) {
+      alert('Upload failed: ' + err.message);
+    }
+  };
+
+  const s = STATUS_COLORS[client.status] || STATUS_COLORS.active;
+  const clientInteractions = Array.isArray(interactions) ? interactions.filter(i => i.clientId === client.id) : [];
+  const clientDocs = Array.isArray(attachments) ? attachments.filter(a => a.clientId === client.id) : [];
 
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
@@ -118,14 +119,14 @@ function ClientDetailModal({ client, onClose }) {
         <div className="modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
             <div className="avatar avatar-lg" style={{ background: 'var(--gradient-brand)', borderRadius: 12 }}>
-              {client.companyName.slice(0, 2).toUpperCase()}
+              {client.companyName?.slice(0, 2).toUpperCase() || 'CL'}
             </div>
             <div>
               <h2 className="modal-title">{client.companyName}</h2>
               <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{client.industry} • {client.contactName}</p>
             </div>
             <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 600, padding: '4px 12px', borderRadius: 20, background: s.bg, color: s.color, border: `1px solid ${s.border}` }}>
-              {client.status?.replace('_', ' ').toUpperCase()}
+              {(client.status || 'active').replace('_', ' ').toUpperCase()}
             </span>
           </div>
           <button className="modal-close" onClick={onClose}><X size={16} /></button>
@@ -141,9 +142,9 @@ function ClientDetailModal({ client, onClose }) {
             <div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 20 }}>
                 {[
-                  { label: 'Order Value', value: `₹${(client.orderValue / 1000).toFixed(0)}K`, color: '#6366f1' },
-                  { label: 'Contract', value: client.contractDuration, color: '#06b6d4' },
-                  { label: 'Renewal', value: client.renewalDate, color: client.status === 'renewal_due' ? '#f59e0b' : '#10b981' },
+                  { label: 'Order Value', value: `₹${((client.orderValue || 0) / 1000).toFixed(0)}K`, color: '#6366f1' },
+                  { label: 'Contract', value: client.contractDuration || 'N/A', color: '#06b6d4' },
+                  { label: 'Renewal', value: client.renewalDate || 'TBD', color: client.status === 'renewal_due' ? '#f59e0b' : '#10b981' },
                 ].map((s, i) => (
                   <div key={i} style={{ background: 'var(--bg-surface)', borderRadius: 10, padding: 14, border: '1px solid var(--border-subtle)', textAlign: 'center' }}>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6 }}>{s.label}</div>
@@ -167,7 +168,7 @@ function ClientDetailModal({ client, onClose }) {
                 </div>
                 <div>
                   <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Products / Services</div>
-                  {(client.products || []).map((p, i) => (
+                  {Array.isArray(client.products) && client.products.map((p, i) => (
                     <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', borderBottom: '1px solid var(--border-subtle)' }}>
                       <CheckCircle size={14} color="#10b981" />
                       <span style={{ fontSize: 13 }}>{p}</span>
@@ -195,8 +196,8 @@ function ClientDetailModal({ client, onClose }) {
                     </div>
                     <div style={{ flex: 1 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                        <div style={{ fontWeight: 700, fontSize: 13 }}>{item.type.toUpperCase()} • {item.subject || 'No Subject'}</div>
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{item.date}</div>
+                        <div style={{ fontWeight: 700, fontSize: 13 }}>{(item.type || 'note').toUpperCase()} • {item.subject || 'No Subject'}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{item.date || 'No Date'}</div>
                       </div>
                       <div style={{ fontSize: 12, color: 'var(--text-secondary)', background: 'var(--bg-surface)', padding: 10, borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
                         {item.summary}
@@ -211,30 +212,50 @@ function ClientDetailModal({ client, onClose }) {
           {tab === 'documents' && (
             <div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-                <button className="btn btn-secondary btn-sm"><Upload size={14} /> Upload Document</button>
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  style={{ display: 'none' }} 
+                  onChange={handleFileUpload} 
+                />
+                <button 
+                  className="btn btn-secondary btn-sm" 
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Upload size={14} /> Upload Document
+                </button>
               </div>
               {clientDocs.length === 0 ? (
                 <div className="empty-state">
-                  <div className="empty-icon">📁</div>
+                  <div className="flex justify-center mb-4">
+                    <FileText size={48} style={{ opacity: 0.2, color: 'var(--text-muted)' }} />
+                  </div>
                   <div className="empty-title">No documents yet</div>
                   <div className="empty-desc">Upload proposals, contracts, invoices and KYC documents</div>
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {clientDocs.map((doc, i) => {
-                    const ext = doc.fileName.split('.').pop().toUpperCase();
+                    const ext = (doc.fileName || 'FILE').split('.').pop()?.toUpperCase() || 'DOC';
                     return (
                       <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: 'var(--bg-surface)', borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
                         <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(99,102,241,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           <span style={{ fontSize: 10, fontWeight: 800, color: '#6366f1' }}>{ext}</span>
                         </div>
                         <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: 13, fontWeight: 600 }}>{doc.fileName}</div>
-                          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{(doc.fileSize / 1024).toFixed(0)} KB</div>
+                          <div style={{ fontSize: 13, fontWeight: 600 }}>{doc.fileName || 'Untitled Document'}</div>
+                          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{((doc.fileSize || 0) / 1024).toFixed(0)} KB</div>
                         </div>
                         <div style={{ display: 'flex', gap: 6 }}>
-                          <button className="btn btn-ghost btn-sm btn-icon"><Download size={14} /></button>
-                          <button className="btn btn-ghost btn-sm btn-icon" style={{ color: 'var(--brand-danger)' }} onClick={() => window.confirm('Are you sure you want to delete this document?') && console.log('Delete logic needed')}><Trash2 size={14} /></button>
+                          <a 
+                            href={downloadUrl(doc.id)} 
+                            className="btn btn-ghost btn-sm btn-icon" 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                          >
+                            <Download size={14} />
+                          </a>
+                          <button className="btn btn-ghost btn-sm btn-icon" style={{ color: 'var(--brand-danger)' }} onClick={() => window.confirm('Are you sure you want to delete this document?') && deleteAttachment(doc.id)}><Trash2 size={14} /></button>
                         </div>
                       </div>
                     );
@@ -247,20 +268,25 @@ function ClientDetailModal({ client, onClose }) {
           {tab === 'transactions' && (
             <div style={{ fontSize: 13, color: 'var(--text-secondary)', textAlign: 'center', padding: 40 }}>
               Transaction history integrated with Billing module.<br />
-              <button className="btn btn-primary btn-sm" style={{ marginTop: 16 }}>View in Billing</button>
+          <button className="btn btn-primary btn-sm" style={{ marginTop: 16 }} onClick={() => { onClose(); navigate('/billing'); }}>View in Billing</button>
             </div>
           )}
 
           {tab === 'ai insights' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {[
-                { label: 'Upsell Opportunity', value: 'Client is on Basic plan. Analytics usage is high — recommend premium tier upgrade.', color: '#10b981', icon: '🚀' },
-                { label: 'Churn Risk', value: client.status === 'renewal_due' ? '⚠️ Renewal is due soon. Initiate renewal discussions immediately.' : '✅ Low churn risk. Client is engaged and happy.', color: client.status === 'renewal_due' ? '#f59e0b' : '#10b981', icon: '⚡' },
-                { label: 'Cross-Sell Suggestion', value: 'Client does not have WhatsApp automation module. High potential based on their use case.', color: '#6366f1', icon: '💡' },
+                { label: 'Upsell Opportunity', value: 'Client is on Basic plan. Analytics usage is high — recommend premium tier upgrade.', color: '#10b981', Icon: Rocket },
+                { label: 'Churn Risk', value: client.status === 'renewal_due' ? 'Renewal is due soon. Initiate renewal discussions immediately.' : 'Low churn risk. Client is engaged and happy.', color: client.status === 'renewal_due' ? '#f59e0b' : '#10b981', Icon: client.status === 'renewal_due' ? AlertTriangle : CheckCircle },
+                { label: 'Cross-Sell Suggestion', value: 'Client does not have WhatsApp automation module. High potential based on their use case.', color: '#6366f1', Icon: Lightbulb },
               ].map((item, i) => (
-                <div key={i} style={{ background: 'var(--bg-surface)', borderRadius: 12, padding: 16, border: '1px solid var(--border-subtle)' }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: item.color, marginBottom: 6 }}>{item.label}</div>
-                  <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{item.value}</div>
+                <div key={i} style={{ background: 'var(--bg-surface)', borderRadius: 12, padding: 16, border: '1px solid var(--border-subtle)', display: 'flex', gap: 16 }}>
+                  <div style={{ width: 32, height: 32, borderRadius: 8, background: `${item.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <item.Icon size={16} color={item.color} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: item.color, marginBottom: 4 }}>{item.label}</div>
+                    <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{item.value}</div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -278,12 +304,14 @@ export default function Clients() {
   const [viewClient, setViewClient] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(5);
+  const [showRenewalsOnly, setShowRenewalsOnly] = useState(false);
 
 
   const filtered = clients.filter(c => {
     const matchSearch = !search || c.companyName.toLowerCase().includes(search.toLowerCase()) || c.contactName.toLowerCase().includes(search.toLowerCase());
     const matchBDE = currentUser?.role !== 'BDE' || c.accountManager === currentUser?.name;
-    return matchSearch && matchBDE;
+    const matchRenewal = !showRenewalsOnly || c.status === 'renewal_due';
+    return matchSearch && matchBDE && matchRenewal;
   });
 
   const totalARR = filtered.reduce((s, c) => s + (Number(c.orderValue) || 0), 0);
@@ -296,15 +324,24 @@ export default function Clients() {
           <h1 className="page-title">Clients</h1>
           <p className="page-subtitle">{filtered.length} active clients • ₹{(totalARR / 100000).toFixed(1)}L ARR</p>
         </div>
-        <div className="flex gap-2 items-center">
-        </div>
       </div>
 
       {renewalDue > 0 && (
         <div style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 12, padding: '12px 16px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 10 }}>
           <AlertCircle size={16} color="#f59e0b" />
-          <span style={{ fontSize: 13, color: '#fbbf24', fontWeight: 500 }}>{renewalDue} client{renewalDue > 1 ? 's' : ''} have renewals due — take action now</span>
-          <button className="btn btn-sm" style={{ marginLeft: 'auto', background: 'rgba(245,158,11,0.2)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.4)' }}>View</button>
+          <span style={{ fontSize: 13, color: '#fbbf24', fontWeight: 500 }}>
+            {showRenewalsOnly 
+              ? `Showing all ${renewalDue} renewals due` 
+              : `${renewalDue} client${renewalDue > 1 ? 's' : ''} have renewals due — take action now`
+            }
+          </span>
+          <button 
+            className="btn btn-sm" 
+            style={{ marginLeft: 'auto', background: 'rgba(245,158,11,0.2)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.4)' }}
+            onClick={() => setShowRenewalsOnly(!showRenewalsOnly)}
+          >
+            {showRenewalsOnly ? 'Show All Clients' : 'View Renewals'}
+          </button>
         </div>
       )}
 
@@ -386,7 +423,7 @@ export default function Clients() {
                     <div className="table-actions">
                       <button className="btn btn-ghost btn-sm btn-icon" onClick={() => setViewClient(client)}><Eye size={14} /></button>
                       <button className="btn btn-ghost btn-sm btn-icon" onClick={() => setEditClient(client)}><Edit2 size={14} /></button>
-                      <button className="btn btn-ghost btn-sm btn-icon"><FileText size={14} /></button>
+                      <button className="btn btn-ghost btn-sm btn-icon" onClick={() => setViewClient({ ...client, initialTab: 'documents' })}><FileText size={14} /></button>
                     </div>
                   </td>
                 </tr>

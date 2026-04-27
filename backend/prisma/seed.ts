@@ -143,10 +143,12 @@ async function main() {
     { name: 'First Call',       order: 2,  color: '#06b6d4' },
     { name: 'Demo Scheduled',   order: 3,  color: '#8b5cf6' },
     { name: 'Demo Completed',   order: 4,  color: '#f59e0b' },
-    { name: 'Proposal Shared',  order: 5,  color: '#3b82f6' },
-    { name: 'Negotiation',      order: 6,  color: '#ec4899' },
-    { name: 'Deal Closed',      order: 7,  color: '#10b981' },
-    { name: 'Not Interested',   order: 8,  color: '#ef4444' },
+    { name: 'Demo Postponed',   order: 5,  color: '#f97316' },
+    { name: 'Proposal Shared',  order: 6,  color: '#3b82f6' },
+    { name: 'PS & Dropped',     order: 7,  color: '#94a3b8' },
+    { name: 'Negotiation',      order: 8,  color: '#ec4899' },
+    { name: 'Deal Closed',      order: 9,  color: '#10b981' },
+    { name: 'Not Interested',   order: 10, color: '#ef4444' },
   ];
 
   const milestones: Record<string, any> = {};

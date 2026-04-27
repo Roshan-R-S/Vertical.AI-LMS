@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContextCore';
 import { 
   Clock, PhoneCall, CheckCircle, Target, 
@@ -7,7 +8,7 @@ import {
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, Tooltip, 
-  ResponsiveContainer, Cell, PieChart, Pie
+  ResponsiveContainer, Cell, PieChart, Pie, Legend
 } from 'recharts';
 
 function FocusCard({ title, value, sub, icon: Icon, color, urgent = false }) {
@@ -28,11 +29,13 @@ function FocusCard({ title, value, sub, icon: Icon, color, urgent = false }) {
 }
 
 export default function BDEDashboard() {
+  const navigate = useNavigate();
   const { currentUser, leads, tasks, fetchDashboard } = useApp();
   const [dateRange, setDateRange] = useState('Today');
   const [customDates, setCustomDates] = useState({ start: '', end: '' });
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [pipelineFilter, setPipelineFilter] = useState('All');
   
   useEffect(() => {
     let period = 'today';
@@ -104,7 +107,7 @@ export default function BDEDashboard() {
 
           <div style={{ background: 'var(--bg-surface)', padding: '8px 16px', borderRadius: 12, display: 'flex', alignItems: 'center', gap: 12, border: '1px solid var(--border-subtle)' }}>
             <Zap size={14} color="#8b5cf6" />
-            <span style={{ fontSize: 13, fontWeight: 600 }}>Health: <span style={{ color: '#10b981' }}>88/100</span></span>
+            <span style={{ fontSize: 13, fontWeight: 600 }}>Score: <span style={{ color: progressPercent >= 80 ? '#10b981' : progressPercent >= 50 ? '#f59e0b' : '#ef4444' }}>{Math.round(progressPercent)}/100</span></span>
           </div>
         </div>
       </div>
@@ -122,7 +125,7 @@ export default function BDEDashboard() {
         {/* 2. Activity Tracker */}
         <div className="studio-card" style={{ padding: 24 }}>
           <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <TrendingUp size={18} color="#6366f1" /> Activity Summary (Today)
+            <BarChart2 size={18} color="#6366f1" /> Activity Summary ({dateRange})
           </h3>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
             {activityData.map((act, i) => (
@@ -173,24 +176,40 @@ export default function BDEDashboard() {
       <div className="form-grid" style={{ gridTemplateColumns: '1fr 1.2fr', gap: 24 }}>
         {/* 3. Pipeline Snapshot */}
         <div className="studio-card" style={{ padding: 24 }}>
-          <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 20 }}>Quick Pipeline Snapshot</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {funnelData.map((stage, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                <div style={{ width: 100, fontSize: 13, color: 'var(--text-secondary)' }}>{stage.name}</div>
-                <div style={{ flex: 1, height: 24, background: 'var(--bg-surface)', borderRadius: 12, position: 'relative', overflow: 'hidden' }}>
-                  <div style={{ 
-                    height: '100%', 
-                    width: `${Math.max(10, (stage.value / (kpis.totalLeads || 1)) * 100)}%`, 
-                    background: stage.fill || '#6366f1',
-                    borderRadius: 12
-                  }}></div>
-                  <span style={{ position: 'absolute', right: 12, top: 4, fontSize: 11, fontWeight: 700 }}>{stage.value}</span>
-                </div>
-              </div>
-            ))}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>Quick Pipeline Snapshot</h3>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {['All', 'active', 'won', 'lost'].map(f => (
+                <button key={f} onClick={() => setPipelineFilter(f)}
+                  className={`btn btn-sm ${pipelineFilter === f ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{ fontSize: 10, padding: '3px 8px', display: 'flex', alignItems: 'center', gap: 3 }}
+                >
+                  {f === 'All' && <Filter size={10} />}
+                  {f === 'All' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}
+                </button>
+              ))}
+            </div>
           </div>
-          <div style={{ marginTop: 24, padding: 16, borderTop: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ height: 220, width: '100%' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart layout="vertical"
+                data={pipelineFilter === 'All' ? funnelData : funnelData.map(s => ({
+                  ...s,
+                  value: bdeLeads.filter(l => l.status === pipelineFilter && l.milestoneId === s.id).length
+                }))}
+                margin={{ top: 0, right: 30, left: 60, bottom: 0 }}>
+                <XAxis type="number" hide />
+                <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} fontSize={11} tick={{ fill: 'var(--text-secondary)' }} />
+                <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 8, fontSize: 12 }} />
+                <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={16}>
+                  {funnelData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.fill || '#6366f1'} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <div style={{ marginTop: 16, padding: 16, borderTop: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Weighted Value:</span>
             <span style={{ fontSize: 18, fontWeight: 700, color: '#10b981' }}>₹{(kpis.weightedExpected / 100000).toFixed(2)} L</span>
           </div>
@@ -198,20 +217,37 @@ export default function BDEDashboard() {
 
         {/* 5. Alerts & Insights */}
         <div className="studio-card" style={{ padding: 24 }}>
-          <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 20 }}>Action Alerts</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Deal Health</h3>
+          <div style={{ height: 180, width: '100%' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={[
+                    { name: 'Won', value: kpis.wonDeals || 0 },
+                    { name: 'Lost', value: kpis.lostDeals || 0 },
+                    { name: 'Active', value: kpis.activeLeads || 0 },
+                  ]}
+                  innerRadius={50}
+                  outerRadius={70}
+                  paddingAngle={4}
+                  dataKey="value"
+                  stroke="none"
+                >
+                  <Cell fill="#10b981" />
+                  <Cell fill="#ef4444" />
+                  <Cell fill="#6366f1" />
+                </Pie>
+                <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 8, fontSize: 12 }} />
+                <Legend wrapperStyle={{ fontSize: 12, color: 'var(--text-secondary)' }} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 8 }}>
             <div style={{ display: 'flex', gap: 16, padding: '12px 16px', background: 'rgba(239, 68, 68, 0.05)', borderRadius: 12, border: '1px solid rgba(239, 68, 68, 0.1)' }}>
               <AlertTriangle size={18} color="#ef4444" style={{ flexShrink: 0 }} />
               <div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: '#ef4444' }}>Missed Callbacks</div>
                 <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>You have <b>{overdueCount}</b> overdue tasks that require immediate attention.</div>
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 16, padding: '12px 16px', background: 'rgba(245, 158, 11, 0.05)', borderRadius: 12, border: '1px solid rgba(245, 158, 11, 0.1)' }}>
-              <Clock size={18} color="#f59e0b" style={{ flexShrink: 0 }} />
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#f59e0b' }}>Stale Leads</div>
-                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>{kpis.staleLeads} leads have had no activity in over 7 days.</div>
               </div>
             </div>
             <div style={{ display: 'flex', gap: 16, padding: '12px 16px', background: 'rgba(99, 102, 241, 0.05)', borderRadius: 12, border: '1px solid rgba(99, 102, 241, 0.1)' }}>
@@ -222,7 +258,7 @@ export default function BDEDashboard() {
               </div>
             </div>
           </div>
-          <button className="btn btn-ghost" style={{ width: '100%', marginTop: 20, fontSize: 13, fontWeight: 600 }}>
+          <button className="btn btn-ghost" style={{ width: '100%', marginTop: 16, fontSize: 13, fontWeight: 600 }} onClick={() => navigate('/tasks')}>
             View All Execution Tasks <ArrowRight size={14} style={{ marginLeft: 8 }} />
           </button>
         </div>

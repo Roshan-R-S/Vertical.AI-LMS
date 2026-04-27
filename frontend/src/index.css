@@ -40,6 +40,53 @@
   --bg-nav-active: rgba(255, 255, 255, 0.08);
 }
 
+/* Text Utility Classes */
+.text-primary { color: var(--text-primary); }
+.text-secondary { color: var(--text-secondary); }
+.text-muted { color: var(--text-muted); }
+.text-xxs { font-size: 10px; }
+.text-xs { font-size: 11px; }
+.text-sm { font-size: 13px; }
+.text-base { font-size: 14px; }
+.text-lg { font-size: 16px; }
+.text-xl { font-size: 20px; }
+.text-2xl { font-size: 24px; }
+.font-bold { font-weight: 700; }
+.font-semibold { font-weight: 600; }
+.font-medium { font-weight: 500; }
+
+/* Margin/Padding Utility Classes */
+.mb-0 { margin-bottom: 0 !important; }
+.mb-1 { margin-bottom: 4px !important; }
+.mb-2 { margin-bottom: 8px !important; }
+.mb-3 { margin-bottom: 12px !important; }
+.mb-4 { margin-bottom: 16px !important; }
+.mb-5 { margin-bottom: 20px !important; }
+.mt-0 { margin-top: 0 !important; }
+.mt-1 { margin-top: 4px !important; }
+.mt-2 { margin-top: 8px !important; }
+
+/* Layout Utilities */
+.flex { display: flex !important; }
+.items-center { align-items: center !important; }
+.justify-between { justify-content: space-between !important; }
+.gap-1 { gap: 4px !important; }
+.gap-2 { gap: 8px !important; }
+.gap-3 { gap: 12px !important; }
+.gap-4 { gap: 16px !important; }
+.gap-5 { gap: 20px !important; }
+.grid { display: grid !important; }
+.grid-cols-5 { grid-template-columns: repeat(5, 1fr) !important; }
+.w-full { width: 100% !important; }
+.w-auto { width: auto !important; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+.thin-scrollbar::-webkit-scrollbar { height: 4px; }
+.thin-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.thin-scrollbar::-webkit-scrollbar-thumb { background: var(--border-default); border-radius: 4px; }
+.thin-scrollbar::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
 .light {
   --bg-page: #f0f2f5;
   --bg-sidebar: #ffffff;
@@ -532,10 +579,11 @@ body {
 .btn-ghost {
   background: transparent;
   color: var(--text-secondary);
+  border: none !important;
 }
 .btn-ghost:hover { background: var(--bg-surface); color: var(--text-primary); }
 .btn-sm { padding: 6px 12px; font-size: 12px; }
-.btn-icon { padding: 6px; border-radius: 50%; }
+.btn-icon { padding: 6px; border-radius: 50%; border: none !important; display: flex; align-items: center; justify-content: center; }
 
 /* Status Badges */
 .badge {
@@ -680,6 +728,30 @@ body {
   background: rgba(138, 180, 248, 0.05) !important;
 }
 
+.kanban-board {
+  display: flex;
+  gap: 20px;
+  overflow-x: auto;
+  padding-bottom: 16px;
+  height: calc(100vh - 320px);
+  align-items: flex-start;
+}
+
+.kanban-column-content {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 100px;
+  padding-right: 4px;
+}
+
+.kanban-column-content::-webkit-scrollbar {
+  width: 4px;
+}
+.kanban-column-content::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border-radius: 4px;
+}
+
 /* Timeline Custom Styles */
 .timeline {
   position: relative;
@@ -740,4 +812,56 @@ body {
   .grid-main-sidebar {
     grid-template-columns: 1fr;
   }
+}
+/* Milestone Filter Cards */
+.milestones-container {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.milestone-card {
+  flex: 0 0 auto;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 20px;
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 85px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.milestone-card:hover {
+  border-color: var(--text-muted);
+  background: var(--bg-card-hover);
+}
+
+.milestone-card.active {
+  background: var(--bg-surface-active);
+  border-color: var(--text-primary);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.light .milestone-card {
+  background: #ffffff;
+  border-color: rgba(0,0,0,0.06);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.light .milestone-card:hover {
+  border-color: rgba(0,0,0,0.1);
+  background: #f8fafc;
+}
+
+.light .milestone-card.active {
+  background: #ffffff;
+  border-color: #1f2937;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
 }

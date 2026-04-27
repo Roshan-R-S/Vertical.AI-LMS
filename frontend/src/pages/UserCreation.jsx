@@ -1,29 +1,47 @@
 import { useState } from 'react';
 import {
   Plus, Search, Edit2, X, CheckCircle, Shield,
-  UserCheck, User, ToggleLeft, ToggleRight, Eye, EyeOff,
-  Lock, Users as UsersIcon, Map
+  UserCheck, User, Eye, EyeOff, Lock, Trash2, Handshake,
+  Users as UsersIcon, Check
 } from 'lucide-react';
 import { useApp } from '../context/AppContextCore';
 import Pagination from '../components/Pagination';
 
 
 const ROLE_CONFIG = {
-  'Super Admin': { color: '#6366f1', bg: 'rgba(99,102,241,0.15)', border: 'rgba(99,102,241,0.3)', icon: Shield },
-  'Team Lead': { color: '#06b6d4', bg: 'rgba(6,182,212,0.15)', border: 'rgba(6,182,212,0.3)', icon: UserCheck },
-  'BDE': { color: '#10b981', bg: 'rgba(16,185,129,0.15)', border: 'rgba(16,185,129,0.3)', icon: User },
+  'Super Admin':     { color: '#6366f1', bg: 'rgba(99,102,241,0.15)',  border: 'rgba(99,102,241,0.3)',  icon: Shield },
+  'Team Lead':       { color: '#06b6d4', bg: 'rgba(6,182,212,0.15)',   border: 'rgba(6,182,212,0.3)',   icon: UserCheck },
+  'BDE':             { color: '#10b981', bg: 'rgba(16,185,129,0.15)',  border: 'rgba(16,185,129,0.3)',  icon: User },
+  'Channel Partner': { color: '#8b5cf6', bg: 'rgba(139,92,246,0.15)', border: 'rgba(139,92,246,0.3)', icon: Handshake },
 };
 
 const PERMISSIONS = {
-  'Super Admin': { dashboard: ['view', 'export'], leads: ['view', 'edit', 'delete', 'assign'], clients: ['view', 'edit', 'delete'], users: ['view', 'create', 'edit', 'disable'], billing: ['view', 'create', 'edit'], settings: ['view', 'edit'] },
-  'Team Lead': { dashboard: ['view'], leads: ['view', 'edit', 'assign'], clients: ['view', 'edit'], users: ['view'], billing: ['view'], settings: ['view'] },
-  'BDE': { dashboard: ['view'], leads: ['view', 'edit'], clients: ['view'], users: [], billing: [], settings: [] },
+  'Super Admin':     { dashboard: ['view', 'export'], leads: ['view', 'edit', 'delete', 'assign'], clients: ['view', 'edit', 'delete'], users: ['view', 'create', 'edit', 'disable'], billing: ['view', 'create', 'edit'], settings: ['view', 'edit'] },
+  'Team Lead':       { dashboard: ['view'], leads: ['view', 'edit', 'assign'], clients: ['view', 'edit'], users: ['view'], billing: ['view'], settings: ['view'] },
+  'BDE':             { dashboard: ['view'], leads: ['view', 'edit'], clients: ['view'], users: [], billing: [], settings: [] },
+  'Channel Partner': { dashboard: ['view'], leads: ['view', 'edit'], clients: ['view'], users: [], billing: [], settings: [] },
 };
 
 function UserModal({ user, onClose, onSave, allUsers }) {
+  const { teams, addTeam } = useApp();
   const [form, setForm] = useState(user || {
     name: '', email: '', phone: '', role: 'BDE', teamId: '', status: 'active'
   });
+  const [newTeamName, setNewTeamName] = useState('');
+  const [showNewTeam, setShowNewTeam] = useState(false);
+  const [creatingTeam, setCreatingTeam] = useState(false);
+
+  const handleCreateTeam = async () => {
+    if (!newTeamName.trim()) return;
+    setCreatingTeam(true);
+    try {
+      const team = await addTeam(newTeamName.trim());
+      setForm(p => ({ ...p, teamId: team.id }));
+      setNewTeamName('');
+      setShowNewTeam(false);
+    } catch {}
+    finally { setCreatingTeam(false); }
+  };
 
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
@@ -50,46 +68,84 @@ function UserModal({ user, onClose, onSave, allUsers }) {
             </div>
             <div className="form-group">
               <label className="form-label">Role *</label>
-              <select className="form-select" value={form.role} onChange={e => setForm(p => ({ ...p, role: e.target.value }))}>
-                {['Super Admin', 'Team Lead', 'BDE'].map(r => <option key={r}>{r}</option>)}
+              <select className="form-select" value={form.role} onChange={e => setForm(p => ({ ...p, role: e.target.value, teamId: '' }))}>
+                {['Super Admin', 'Team Lead', 'BDE', 'Channel Partner'].map(r => <option key={r}>{r}</option>)}
               </select>
             </div>
           </div>
+
           {(form.role === 'BDE' || form.role === 'Team Lead') && (
             <div className="form-group">
-              <label className="form-label">{form.role === 'BDE' ? 'Reporting Team Lead / Team' : 'Assign to Team'}</label>
-              <select className="form-select" value={form.teamId} onChange={e => setForm(p => ({ ...p, teamId: e.target.value }))}>
-                <option value="">Select Team</option>
-                {/* Extract unique teams from existing users */}
-                {Array.from(new Set(allUsers.map(u => u.teamId).filter(Boolean))).map(tId => {
-                  const teamName = allUsers.find(u => u.teamId === tId)?.team;
-                  return <option key={tId} value={tId}>{teamName || tId}</option>;
-                })}
-              </select>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <label className="form-label" style={{ margin: 0 }}>
+                  {form.role === 'BDE' ? 'Assign to Team' : 'Assign to Team'}
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowNewTeam(v => !v)}
+                  style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--brand-primary-light)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, padding: 0 }}
+                >
+                  <Plus size={12} /> New Team
+                </button>
+              </div>
+
+              {showNewTeam ? (
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input
+                    className="form-input"
+                    placeholder="e.g. Team Alpha"
+                    value={newTeamName}
+                    onChange={e => setNewTeamName(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleCreateTeam()}
+                    autoFocus
+                  />
+                  <button
+                    className="btn btn-primary btn-sm"
+                    onClick={handleCreateTeam}
+                    disabled={creatingTeam || !newTeamName.trim()}
+                    style={{ whiteSpace: 'nowrap' }}
+                  >
+                    {creatingTeam ? '...' : 'Create'}
+                  </button>
+                  <button className="btn btn-secondary btn-sm" onClick={() => { setShowNewTeam(false); setNewTeamName(''); }}>
+                    <X size={14} />
+                  </button>
+                </div>
+              ) : (
+                <select className="form-select" value={form.teamId} onChange={e => setForm(p => ({ ...p, teamId: e.target.value }))}>
+                  <option value="">Select Team</option>
+                  {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                </select>
+              )}
+
+              {teams.length === 0 && !showNewTeam && (
+                <p style={{ fontSize: 11, color: '#f59e0b', marginTop: 6 }}>
+                  No teams yet. Click "+ New Team" to create one.
+                </p>
+              )}
             </div>
           )}
 
           {!user && (
-            <div className="form-group">
-              <label className="form-label">Temporary Password</label>
-              <div style={{ position: 'relative' }}>
-                <input className="form-input" type="text" value="Vertical@123" readOnly style={{ background: 'var(--bg-surface)', cursor: 'not-allowed', paddingRight: 40 }} />
-                <Lock size={14} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-              </div>
-              <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>User will be prompted to change on first login</p>
+            <div style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 8, padding: '12px 14px', fontSize: 12, color: 'var(--text-secondary)' }}>
+              A welcome email with a <strong>Set Password</strong> link will be sent to this user. The link expires in <strong>5 minutes</strong>.
             </div>
           )}
         </div>
         <div className="modal-footer">
           <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" onClick={() => { 
-            const payload = { 
-              ...form, 
-              avatar: form.name.split(' ').map(n => n[0]).join('').toUpperCase() 
+          <button className="btn btn-primary" onClick={() => {
+            if (!form.name || !form.email) return alert('Name and email are required');
+            const payload = {
+              name: form.name,
+              email: form.email,
+              phone: form.phone,
+              role: form.role,
+              teamId: form.teamId,
+              avatar: form.name.split(' ').map(n => n[0]).join('').toUpperCase()
             };
-            if (!user) payload.password = 'Vertical@123';
-            onSave(payload); 
-            onClose(); 
+            onSave(payload);
+            onClose();
           }}>
             <CheckCircle size={15} /> {user ? 'Save Changes' : 'Create User'}
           </button>
@@ -135,7 +191,7 @@ function PermissionsPanel({ role }) {
                       fontSize: 10,
                       border: `1px solid ${hasPerm ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.1)'}`
                     }}>
-                      {hasPerm ? '✓' : '✕'}
+                      {hasPerm ? <Check size={10} /> : <X size={10} />}
                     </div>
                   </div>
                 );
@@ -149,7 +205,8 @@ function PermissionsPanel({ role }) {
 }
 
 export default function UserCreation() {
-  const { currentUser, users, addUser, updateUser, toggleUserStatus } = useApp();
+  const { currentUser, users, addUser, updateUser, toggleUserStatus, deleteUser } = useApp();
+  const isSuperAdmin = currentUser?.role === 'Super Admin' || currentUser?.role === 'SUPER_ADMIN';
   const [search, setSearch] = useState('');
   const [filterRole, setFilterRole] = useState('All');
   const [showAdd, setShowAdd] = useState(false);
@@ -167,7 +224,7 @@ export default function UserCreation() {
 
   const teamMap = {};
   users.filter(u => u.role === 'Team Lead').forEach(tl => {
-    teamMap[tl.team] = users.filter(u => u.team === tl.team && u.role === 'BDE').length;
+    teamMap[tl.teamId] = users.filter(u => u.teamId === tl.teamId && u.role === 'BDE').length;
   });
 
   return (
@@ -181,7 +238,7 @@ export default function UserCreation() {
       </div>
 
       {/* Role stats */}
-      <div className="form-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', marginBottom: 24 }}>
+      <div className="form-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', marginBottom: 24 }}>
         {Object.entries(ROLE_CONFIG).map(([role, cfg]) => {
           const count = users.filter(u => u.role === role).length;
           const Icon = cfg.icon;
@@ -208,7 +265,7 @@ export default function UserCreation() {
               <input className="search-input" placeholder="Search users..." value={search} onChange={e => setSearch(e.target.value)} />
             </div>
             <select className="form-select" style={{ width: 'auto', padding: '8px 12px', fontSize: 13 }} value={filterRole} onChange={e => setFilterRole(e.target.value)}>
-              {['All', 'Super Admin', 'Team Lead', 'BDE'].map(r => <option key={r}>{r}</option>)}
+              {['All', 'Super Admin', 'Team Lead', 'BDE', 'Channel Partner'].map(r => <option key={r}>{r}</option>)}
             </select>
           </div>
           <table className="table">
@@ -266,6 +323,17 @@ export default function UserCreation() {
                         >
                           {user.status === 'active' ? <EyeOff size={14} /> : <Eye size={14} />}
                         </button>
+                        {isSuperAdmin && (
+                          <button
+                            className="btn btn-ghost btn-sm btn-icon"
+                            onClick={() => deleteUser(user.id)}
+                            title={user.id === currentUser?.id ? 'Cannot delete yourself' : 'Delete user'}
+                            style={{ color: 'var(--brand-danger)', opacity: user.id === currentUser?.id ? 0.3 : 1, cursor: user.id === currentUser?.id ? 'not-allowed' : 'pointer' }}
+                            disabled={user.id === currentUser?.id}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -291,14 +359,14 @@ export default function UserCreation() {
               <UsersIcon size={16} color="var(--brand-primary-light)" /> Team Hierarchy
             </div>
             {users.filter(u => u.role === 'Team Lead').map(tl => {
-              const bdes = users.filter(u => u.team === tl.team && u.role === 'BDE');
+              const bdes = users.filter(u => u.teamId === tl.teamId && u.role === 'BDE');
               return (
                 <div key={tl.id} style={{ marginBottom: 12 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: 'rgba(6,182,212,0.08)', borderRadius: 8, border: '1px solid rgba(6,182,212,0.2)', marginBottom: 6 }}>
                     <div className="avatar avatar-sm" style={{ background: 'rgba(6,182,212,0.3)', fontSize: 10, color: '#22d3ee' }}>{tl.avatar}</div>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 12, fontWeight: 700 }}>{tl.name}</div>
-                      <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{tl.team} • TL</div>
+                      <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{tl.team} • TL • {teamMap[tl.teamId] || 0} BDEs</div>
                     </div>
                   </div>
                   {bdes.map(bde => (

@@ -9,8 +9,23 @@ export async function uploadAttachment(req: Request, res: Response, next: NextFu
     }
     const leadId = req.params.id as string;
     const uploadedById = (req as any).user.id as string;
-    const attachment = await attachmentsService.upload(leadId, null, uploadedById, req.file, (req as any).user);
+    const attachment = await attachmentsService.upload(leadId, null, null, uploadedById, req.file, (req as any).user);
     res.status(201).json({ statusCode: 201, data: attachment, message: 'File uploaded successfully.' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function uploadClientAttachment(req: Request, res: Response, next: NextFunction) {
+  try {
+    if (!req.file) {
+      res.status(400).json({ statusCode: 400, message: 'No file provided.' });
+      return;
+    }
+    const clientId = req.params.id as string;
+    const uploadedById = (req as any).user.id as string;
+    const attachment = await attachmentsService.upload(null, clientId, null, uploadedById, req.file, (req as any).user);
+    res.status(201).json({ statusCode: 201, data: attachment, message: 'Client file uploaded successfully.' });
   } catch (err) {
     next(err);
   }
@@ -24,7 +39,7 @@ export async function uploadInvoiceAttachment(req: Request, res: Response, next:
     }
     const invoiceId = req.params.id as string;
     const uploadedById = (req as any).user.id as string;
-    const attachment = await attachmentsService.upload(null, invoiceId, uploadedById, req.file, (req as any).user);
+    const attachment = await attachmentsService.upload(null, null, invoiceId, uploadedById, req.file, (req as any).user);
     res.status(201).json({ statusCode: 201, data: attachment, message: 'Invoice file uploaded successfully.' });
   } catch (err) {
     next(err);
@@ -35,6 +50,25 @@ export async function listAttachments(req: Request, res: Response, next: NextFun
   try {
     const leadId = req.params.id as string;
     const attachments = await attachmentsService.listByLead(leadId, (req as any).user);
+    res.json({ statusCode: 200, data: attachments });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function listClientAttachments(req: Request, res: Response, next: NextFunction) {
+  try {
+    const clientId = req.params.id as string;
+    const attachments = await attachmentsService.listByClient(clientId, (req as any).user);
+    res.json({ statusCode: 200, data: attachments });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function listAllAttachments(req: Request, res: Response, next: NextFunction) {
+  try {
+    const attachments = await attachmentsService.listAll((req as any).user);
     res.json({ statusCode: 200, data: attachments });
   } catch (err) {
     next(err);

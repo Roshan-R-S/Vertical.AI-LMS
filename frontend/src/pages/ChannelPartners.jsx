@@ -16,13 +16,12 @@ export default function ChannelPartners() {
   const [pageSize, setPageSize] = useState(5);
 
 
-  const handleAssignToTL = (leadId, tlName) => {
-    // Look up the TL to get their team name
-    const tl = tls.find(u => u.name === tlName);
-    if (!tl) return;
-    
-    // Automatically assign to the TL and reset BDE to "Unassigned" so the TL can delegate it
-    updateLead(leadId, { assignedTL: tlName, assignedBDE: 'Unassigned' });
+  const handleAssignToTL = (leadId, tlId) => {
+    if (!tlId) {
+      // "Hold" selected — unassign by setting back to first available admin or keep as is
+      return;
+    }
+    updateLead(leadId, { assignedToId: tlId });
   };
 
   return (
@@ -82,7 +81,7 @@ export default function ChannelPartners() {
                   <td>
                     <span className="badge badge-warning">{lead.milestone}</span>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
-                      Current TL: {lead.assignedTL || 'Unassigned'}
+                      Assigned to: {lead.assignedTo?.name || lead.assignedBDE || 'Unassigned'}
                     </div>
                   </td>
                   <td>
@@ -90,12 +89,12 @@ export default function ChannelPartners() {
                       <select 
                         className="form-select btn-sm" 
                         style={{ width: 160, padding: '6px 10px', fontSize: 12 }}
-                        value={lead.assignedTL}
+                        value={lead.assignedToId || ''}
                         onChange={(e) => handleAssignToTL(lead.id, e.target.value)}
                       >
-                        <option value="Unassigned">Hold (Unassigned)</option>
+                        <option value="">Hold (Unassigned)</option>
                         {tls.map(tl => (
-                          <option key={tl.id} value={tl.name}>{tl.name} ({tl.team})</option>
+                          <option key={tl.id} value={tl.id}>{tl.name} ({tl.team})</option>
                         ))}
                       </select>
                       <ArrowRight size={14} color="var(--text-muted)" />

@@ -125,8 +125,15 @@ export const createLead = asyncHandler(async (req: Request, res: Response) => {
   const assignedToId = body.assignedToId as string | undefined;
   const score = body.score as number | undefined;
 
-  if (!companyName || !contactName || !phone || !assignedToId) {
-    return res.status(400).json({ error: 'companyName, contactName, phone, assignedToId are required' });
+  if (!companyName || !contactName || !phone) {
+    return res.status(400).json({ error: 'companyName, contactName, phone are required' });
+  }
+
+  const user = (req as any).user;
+  // CP can only assign leads to themselves
+  const finalAssignedToId = user.role === 'CHANNEL_PARTNER' ? user.id : (assignedToId ?? user.id);
+  if (!finalAssignedToId) {
+    return res.status(400).json({ error: 'assignedToId is required' });
   }
 
   const lead = await prisma.lead.create({
@@ -139,8 +146,8 @@ export const createLead = asyncHandler(async (req: Request, res: Response) => {
       probability: probability ?? 0,
       expectedClose: expectedClose ? new Date(expectedClose) : undefined,
       notes, score: score ?? 0,
-      assignedToId,
-      createdById: assignedToId,
+      assignedToId: finalAssignedToId,
+      createdById: finalAssignedToId,
       status: 'active',
     },
     include: LEAD_INCLUDE,
@@ -202,11 +209,21 @@ export const updateLead = asyncHandler(async (req: Request, res: Response) => {
   }
 
   // 2. Force Disposition Selection
+  let finalDispositionId = dispositionId;
   if (settings.forceDisposition && milestoneId && milestoneId !== oldMilestoneId) {
     if (!dispositionId || dispositionId === existing.dispositionId) {
-      return res.status(400).json({ 
-        error: 'Workflow Error: Disposition selection is mandatory when changing lead stages.' 
+      // Find a default disposition for the new milestone instead of erroring
+      const defaultDisp = await prisma.disposition.findFirst({
+        where: { milestoneId, isDefault: true }
       });
+      
+      if (defaultDisp) {
+        finalDispositionId = defaultDisp.id;
+      } else {
+        return res.status(400).json({ 
+          error: 'Workflow Error: Disposition selection is mandatory and no default was found for this stage.' 
+        });
+      }
     }
   }
   // ──────────────────────────────────────────────────────────────────
@@ -222,7 +239,7 @@ export const updateLead = asyncHandler(async (req: Request, res: Response) => {
       ...(industry !== undefined && { industry }),
       ...(tags !== undefined && { tags }),
       ...(milestoneId !== undefined && { milestoneId }),
-      ...(dispositionId !== undefined && { dispositionId }),
+      ...(finalDispositionId !== undefined && { dispositionId: finalDispositionId }),
       ...(status && { status: status as LeadStatus }),
       ...(priority && { priority: priority as LeadPriority }),
       ...(value !== undefined && { value }),

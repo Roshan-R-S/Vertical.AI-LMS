@@ -1,10 +1,11 @@
 import { prisma } from '../../prisma';
 
 export const attachmentsService = {
-  async upload(leadId: string | null, invoiceId: string | null, uploadedById: string, file: Express.Multer.File, user: any) {
+  async upload(leadId: string | null, clientId: string | null, invoiceId: string | null, uploadedById: string, file: Express.Multer.File, user: any) {
     const attachment = await prisma.attachment.create({
       data: {
         leadId: leadId ?? undefined,
+        clientId: clientId ?? undefined,
         invoiceId: invoiceId ?? undefined,
         uploadedById,
         fileName: file.originalname,
@@ -27,6 +28,23 @@ export const attachmentsService = {
     const attachments = await prisma.attachment.findMany({
       where: { leadId },
       select: { id: true, fileName: true, mimeType: true, fileSize: true, createdAt: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    return attachments;
+  },
+
+  async listByClient(clientId: string, user: any) {
+    const attachments = await prisma.attachment.findMany({
+      where: { clientId },
+      select: { id: true, fileName: true, mimeType: true, fileSize: true, createdAt: true, clientId: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    return attachments;
+  },
+
+  async listAll(user: any) {
+    const attachments = await prisma.attachment.findMany({
+      select: { id: true, fileName: true, mimeType: true, fileSize: true, createdAt: true, leadId: true, clientId: true, invoiceId: true },
       orderBy: { createdAt: 'desc' },
     });
     return attachments;

@@ -6,10 +6,13 @@ import {
   DollarSign, TrendingUp, Calendar, ArrowRight,
   Target, Clock, AlertCircle
 } from 'lucide-react';
+import LeadModal from './leads/LeadModal';
 
 export default function Pipeline() {
-  const { currentUser, leads, milestones, users } = useApp();
+  const { currentUser, leads, milestones, dispositions, users, addLead } = useApp();
   const [filterBDE, setFilterBDE] = useState(currentUser?.role === 'BDE' ? currentUser.name : 'All');
+  const [search, setSearch] = useState('');
+  const [showAddModal, setShowAddModal] = useState(false);
 
   // Stages that count as "Pipeline"
   const pipelineStages = ['Demo Scheduled', 'Demo Completed', 'Proposal Shared', 'Negotiation'];
@@ -17,10 +20,17 @@ export default function Pipeline() {
   // Filter leads that are in pipeline
   let pipelineLeads = leads.filter(l => pipelineStages.includes(l.milestone) && l.status === 'active');
   
+  if (search) {
+    pipelineLeads = pipelineLeads.filter(l =>
+      l.companyName.toLowerCase().includes(search.toLowerCase()) ||
+      l.contactName.toLowerCase().includes(search.toLowerCase())
+    );
+  }
+  
   if (currentUser?.role === 'BDE') {
-    pipelineLeads = pipelineLeads.filter(l => l.assignedBDE === currentUser.name);
+    pipelineLeads = pipelineLeads.filter(l => l.assignedTo?.name === currentUser.name);
   } else if (filterBDE !== 'All') {
-    pipelineLeads = pipelineLeads.filter(l => l.assignedBDE === filterBDE);
+    pipelineLeads = pipelineLeads.filter(l => l.assignedTo?.name === filterBDE);
   }
 
   const totalValue = pipelineLeads.reduce((sum, l) => sum + (l.value || 0), 0);
@@ -56,9 +66,9 @@ export default function Pipeline() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div className="avatar avatar-sm" style={{ width: 24, height: 24, fontSize: 10 }}>
-            {lead.assignedBDE ? lead.assignedBDE.split(' ').map(n=>n[0]).join('') : '??'}
+            {lead.assignedTo?.name ? lead.assignedTo.name.split(' ').map(n=>n[0]).join('') : '??'}
           </div>
-          <span style={{ fontSize: 12 }}>{lead.assignedBDE || 'Unassigned'}</span>
+          <span style={{ fontSize: 12 }}>{lead.assignedTo?.name || 'Unassigned'}</span>
         </div>
         <div style={{ padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: `${getStageColor(lead.milestone)}15`, color: getStageColor(lead.milestone), border: `1px solid ${getStageColor(lead.milestone)}30` }}>
           {lead.milestone.toUpperCase()}
@@ -77,7 +87,12 @@ export default function Pipeline() {
         <div style={{ display: 'flex', gap: 12 }}>
           <div className="search-wrapper" style={{ width: 240 }}>
             <Search className="search-icon" size={16} />
-            <input className="search-input" placeholder="Search deals..." />
+            <input
+              className="search-input"
+              placeholder="Search deals..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
           </div>
           {currentUser?.role !== 'BDE' && (
             <select className="form-select" style={{ width: 150 }} value={filterBDE} onChange={e => setFilterBDE(e.target.value)}>
@@ -87,7 +102,7 @@ export default function Pipeline() {
               ))}
             </select>
           )}
-          <button className="btn btn-primary">
+          <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
             <Plus size={16} /> New Deal
           </button>
         </div>
@@ -147,6 +162,15 @@ export default function Pipeline() {
           );
         })}
       </div>
+
+      {showAddModal && (
+        <LeadModal
+          onClose={() => setShowAddModal(false)}
+          onSave={addLead}
+          milestones={milestones}
+          dispositions={dispositions}
+        />
+      )}
     </div>
   );
 }
