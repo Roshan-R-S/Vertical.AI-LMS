@@ -1,16 +1,5 @@
-import {
-  Bell,
-  ChevronDown, ChevronRight,
-  Clock,
-  LayoutDashboard,
-  LogOut,
-  Moon,
-  Rocket,
-  Settings,
-  Sun,
-  UserCheck,
-  Users as UsersIcon
-} from 'lucide-react';
+import { Bell, ChevronDown, ChevronRight, Clock, LayoutDashboard, LogOut, Moon, Rocket,
+        Settings, Sun, UserCheck, Users as UsersIcon } from 'lucide-react';
 import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useApp } from '../../context/AppContextCore';
