@@ -152,6 +152,8 @@ export default function AppProvider({ children }) {
         ...(updates.value !== undefined && { value: Number(updates.value) }),
       });
       setLeads((prev) => prev.map((l) => (l.id === id ? res : l)));
+      // Refresh notifications in case a milestone change triggered new ones
+      api.get('/notifications').then(n => setNotifications(n)).catch(() => {});
     } catch (err) {
       alert(formatError(err));
     }

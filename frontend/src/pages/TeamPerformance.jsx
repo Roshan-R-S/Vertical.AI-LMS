@@ -3,12 +3,6 @@ import { api } from '../utils/api';
 import { ChevronDown, ChevronRight, Activity, Users, Target, Phone } from 'lucide-react';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
-const THREE_MONTH_DATA = [
-  { name: 'Feb', Target: 500000, Actual: 420000 },
-  { name: 'Mar', Target: 550000, Actual: 580000 },
-  { name: 'Apr', Target: 600000, Actual: 450000 },
-];
-
 export default function TeamPerformance() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -112,9 +106,9 @@ export default function TeamPerformance() {
                     <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 16 }}>3-Month Performance Trend (Team)</div>
                     <div style={{ height: 160, width: '100%' }}>
                       <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={THREE_MONTH_DATA}>
+                        <BarChart data={team.trend}>
                           <XAxis dataKey="name" stroke="var(--text-muted)" fontSize={12} tickLine={false} axisLine={false} />
-                          <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)', borderRadius: 8 }} />
+                          <Tooltip formatter={(v) => `₹${(v/1000).toFixed(0)}K`} contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)', borderRadius: 8 }} />
                           <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
                           <Bar dataKey="Target" fill="var(--border-default)" radius={[4, 4, 0, 0]} />
                           <Bar dataKey="Actual" fill="var(--accent-blue)" radius={[4, 4, 0, 0]} />
@@ -239,9 +233,9 @@ export default function TeamPerformance() {
                                 <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 16 }}>3-Month Performance Trend (BDE)</div>
                                 <div style={{ height: 160, width: '100%' }}>
                                   <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={THREE_MONTH_DATA.map(d => ({ ...d, Actual: d.Actual * (bde.revenue / 1000000) }))}>
+                                    <BarChart data={bde.trend}>
                                       <XAxis dataKey="name" stroke="var(--text-muted)" fontSize={12} tickLine={false} axisLine={false} />
-                                      <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)', borderRadius: 8 }} />
+                                      <Tooltip formatter={(v) => `₹${(v/1000).toFixed(0)}K`} contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)', borderRadius: 8 }} />
                                       <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
                                       <Bar dataKey="Target" fill="var(--border-subtle)" radius={[4, 4, 0, 0]} />
                                       <Bar dataKey="Actual" fill="var(--color-success)" radius={[4, 4, 0, 0]} />

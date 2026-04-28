@@ -16,7 +16,14 @@ const LeadModal = ({ lead, onClose, onSave, milestones, dispositions, forcedAssi
 
   const [form, setForm] = useState(
     lead
-      ? { ...lead, assignedToId: lead.assignedBDEId || lead.assignedToId }
+      ? { 
+          ...lead,
+          assignedToId: lead.assignedBDEId || lead.assignedToId,
+          notes: lead.notes ?? '',
+          email: lead.email ?? '',
+          industry: lead.industry ?? '',
+          source: lead.source ?? 'Website',
+        }
       : {
           companyName: "", contactName: "", email: "", phone: "",
           source: "Website",

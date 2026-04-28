@@ -556,29 +556,25 @@ export const getLeaderboard = asyncHandler(async (req: Request, res: Response) =
   const period = (req.query.period as string) || 'month-0';
   const dateFilter = getDateRangeForPeriod(period);
 
+  const now = new Date();
+  const currentMonth = now.getMonth() + 1;
+  const currentYear = now.getFullYear();
+
   const bdeUsers = await prisma.user.findMany({
     where: { 
       role: 'BDE', 
       isActive: true,
       ...(user.role === Role.TEAM_LEAD && { teamId: user.teamId }),
-      ...(user.role === Role.BDE && { teamId: user.teamId }), // show teammates to BDE
+      ...(user.role === Role.BDE && { teamId: user.teamId }),
     },
     include: {
       team: true,
       assignedLeads: {
-        where: { 
-          status: 'won',
-          updatedAt: dateFilter, // Using updatedAt as "wonAt" proxy
-        },
+        where: { status: 'won', updatedAt: dateFilter },
         select: { value: true },
       },
-      _count: { 
-        select: { 
-          interactions: {
-            where: { createdAt: dateFilter }
-          } 
-        } 
-      },
+      _count: { select: { interactions: { where: { createdAt: dateFilter } } } },
+      targets: { where: { month: currentMonth, year: currentYear } },
     },
     orderBy: { name: 'asc' },
   });
@@ -587,12 +583,11 @@ export const getLeaderboard = asyncHandler(async (req: Request, res: Response) =
     id: u.id,
     name: u.name,
     avatar: u.avatar,
-
     team: u.team?.name ?? null,
     revenue: u.assignedLeads.reduce((s, l) => s + l.value, 0),
     deals: u.assignedLeads.length,
     calls: u._count.interactions,
-    target: 500000,
+    target: u.targets[0]?.amount ?? u.monthlyTarget ?? 500000,
   })).sort((a, b) => b.revenue - a.revenue);
 
   const tlUsers = await prisma.user.findMany({
@@ -639,11 +634,21 @@ export const getLeaderboard = asyncHandler(async (req: Request, res: Response) =
 // GET /api/v1/analytics/team-performance
 export const getTeamPerformance = asyncHandler(async (req: Request, res: Response) => {
   const user = (req as any).user;
+  const now = new Date();
+  const currentMonth = now.getMonth() + 1;
+  const currentYear = now.getFullYear();
+
+  // Last 3 months metadata
+  const last3Months = Array.from({ length: 3 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - (2 - i), 1);
+    return { month: d.getMonth() + 1, year: d.getFullYear(), label: MONTH_LABELS[d.getMonth()] };
+  });
+
   const tls = await prisma.user.findMany({
-    where: { 
-      role: 'TEAM_LEAD', 
+    where: {
+      role: 'TEAM_LEAD',
       isActive: true,
-      ...(user.role !== Role.SUPER_ADMIN && { id: user.id }), // TL only sees self, Super Admin sees all
+      ...(user.role !== Role.SUPER_ADMIN && { id: user.id }),
     },
     include: { team: true },
   });
@@ -652,46 +657,71 @@ export const getTeamPerformance = asyncHandler(async (req: Request, res: Respons
     const teamBDEs = await prisma.user.findMany({
       where: { teamId: tl.teamId ?? '', role: 'BDE' },
       include: {
-        assignedLeads: { where: { status: 'won' }, select: { value: true } },
+        assignedLeads: { where: { status: 'won' }, select: { value: true, updatedAt: true } },
         _count: { select: { interactions: true, assignedLeads: true } },
+        targets: { where: { month: currentMonth, year: currentYear } },
       },
     });
 
-    const bdeStats = teamBDEs.map(b => ({
-      id: b.id,
-      name: b.name,
-      avatar: b.avatar,
+    const bdeIds = teamBDEs.map(b => b.id);
 
-      calls: b._count.interactions,
-      meetings: Math.round(b._count.interactions * 0.2),
-      deals: b.assignedLeads.length,
-      revenue: b.assignedLeads.reduce((s, l) => s + l.value, 0),
-      target: 500000,
-      executionScore: Math.min(100, Math.round((b._count.interactions / 40) * 100)), // 40 calls target
-      workQueue: {
-        done: b._count.interactions,
-        total: 50
-      },
-      alerts: {
-        staleLeads: 0, // Placeholder or compute
-        overdueTasks: 0 // Placeholder or compute
-      }
+    // Build real 3-month trend for the team
+    const teamTrend = await Promise.all(last3Months.map(async ({ month, year, label }) => {
+      const monthStart = new Date(year, month - 1, 1);
+      const monthEnd = new Date(year, month, 0, 23, 59, 59, 999);
+
+      const actualAgg = await prisma.lead.aggregate({
+        _sum: { value: true },
+        where: { assignedToId: { in: bdeIds }, status: 'won', updatedAt: { gte: monthStart, lte: monthEnd } },
+      });
+
+      const monthTargets = await prisma.target.findMany({ where: { userId: { in: bdeIds }, month, year } });
+      const targetSum = monthTargets.length > 0
+        ? monthTargets.reduce((s, t) => s + t.amount, 0)
+        : teamBDEs.reduce((s, b) => s + (b.monthlyTarget ?? 500000), 0);
+
+      return { name: label, Target: targetSum, Actual: actualAgg._sum.value ?? 0 };
     }));
+
+    const teamTotalRevenue = teamBDEs.reduce((s, b) => s + b.assignedLeads.reduce((ss, l) => ss + l.value, 0), 0);
+
+    const bdeStats = teamBDEs.map(b => {
+      const monthTarget = b.targets[0]?.amount ?? b.monthlyTarget ?? 500000;
+      const bdeRevenue = b.assignedLeads.reduce((s, l) => s + l.value, 0);
+      const bdeShare = teamTotalRevenue > 0 ? bdeRevenue / teamTotalRevenue : 0;
+
+      // Per-BDE trend: scale team actual by BDE's revenue share, use BDE's own target
+      const bdeTrend = teamTrend.map(t => ({
+        name: t.name,
+        Target: monthTarget,
+        Actual: Math.round(t.Actual * bdeShare),
+      }));
+
+      return {
+        id: b.id,
+        name: b.name,
+        avatar: b.avatar,
+        calls: b._count.interactions,
+        meetings: Math.round(b._count.interactions * 0.2),
+        deals: b.assignedLeads.length,
+        revenue: bdeRevenue,
+        target: monthTarget,
+        executionScore: Math.min(100, Math.round((b._count.interactions / 40) * 100)),
+        workQueue: { done: b._count.interactions, total: 50 },
+        alerts: { staleLeads: 0, overdueTasks: 0 },
+        trend: bdeTrend,
+      };
+    });
 
     const teamRevenue = bdeStats.reduce((s, b) => s + b.revenue, 0);
     const teamTarget = bdeStats.reduce((s, b) => s + b.target, 0);
 
     return {
-      tl: {
-        id: tl.id,
-        name: tl.name,
-        avatar: tl.avatar,
-        team: tl.team?.name,
-
-      },
+      tl: { id: tl.id, name: tl.name, avatar: tl.avatar, team: tl.team?.name },
       teamRevenue,
       teamTarget,
       pct: teamTarget ? Math.round((teamRevenue / teamTarget) * 100) : 0,
+      trend: teamTrend,
       bdes: bdeStats,
     };
   }));

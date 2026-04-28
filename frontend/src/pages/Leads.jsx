@@ -138,7 +138,7 @@ export default function Leads() {
       filterMilestone === "All" || l.milestone === filterMilestone;
     const matchSource = filterSource === "All" || l.source === filterSource;
     const matchDisposition = filterDisposition === "All" || l.disposition === filterDisposition;
-    const matchBde = filterBde === "All" || l.assignedTo?.name === filterBde;
+    const matchBde = filterBde === "All" || l.assignedBDE === filterBde;
 
     let matchDate = true;
     if (dateRange !== "All") {
@@ -167,7 +167,7 @@ export default function Leads() {
   ];
   const bdes = [
     "All",
-    ...new Set(leads.map((l) => l.assignedTo?.name).filter(Boolean)),
+    ...new Set(leads.map((l) => l.assignedBDE).filter(Boolean)),
   ];
   const allDispositions = [
     "All",
@@ -371,7 +371,7 @@ export default function Leads() {
                         {lead.disposition || "Not Contacted"}
                       </div>
                     </td>
-                    <td className="text-sm">{lead.assignedTo?.name || "Unassigned"}</td>
+                    <td className="text-sm">{lead.assignedBDE || "Unassigned"}</td>
                     <td className="font-bold text-sm">₹{(lead.value / 1000).toFixed(0)}K</td>
                     <td>
                       <span
@@ -456,6 +456,7 @@ export default function Leads() {
           onSave={addLead}
           milestones={milestones}
           dispositions={dispositions}
+          forcedAssignedToId={currentUser?.role === 'BDE' ? currentUser.id : undefined}
         />
       )}
       {editLead && (
@@ -465,6 +466,7 @@ export default function Leads() {
           onSave={(d) => updateLead(editLead.id, d)}
           milestones={milestones}
           dispositions={dispositions}
+          forcedAssignedToId={currentUser?.role === 'BDE' ? currentUser.id : undefined}
         />
       )}
       {viewLead && (

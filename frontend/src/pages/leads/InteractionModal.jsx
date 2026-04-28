@@ -125,7 +125,7 @@ const InteractionModal = ({ lead, interactions, onClose, onAdd }) => {
                       • {int.direction || ""}
                     </div>
                     <div className="timeline-meta">
-                      {new Date(int.createdAt).toLocaleDateString()} • {int.performedBy?.name || int.by}{" "}
+                      {int.date || new Date(int.createdAt).toLocaleDateString()} • {int.performedBy?.name || int.by}{" "}
                       {int.duration && `• ${int.duration}`}
                     </div>
                     <div className="timeline-body">{int.summary}</div>

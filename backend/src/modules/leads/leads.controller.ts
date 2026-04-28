@@ -193,24 +193,25 @@ export const updateLead = asyncHandler(async (req: Request, res: Response) => {
     return acc;
   }, {});
 
-  // 1. Block Stage Skipping
-  if (settings.blockStageSkipping && milestoneId && milestoneId !== oldMilestoneId) {
+  // 1. Block Stage Skipping — not enforced for Super Admin
+  if (settings.blockStageSkipping && milestoneId && milestoneId !== oldMilestoneId && user.role !== 'SUPER_ADMIN') {
     const milestones = await prisma.milestone.findMany({ orderBy: { order: 'asc' } });
-    const oldIndex = milestones.findIndex(m => m.id === oldMilestoneId);
-    const newIndex = milestones.findIndex(m => m.id === milestoneId);
-    
-    // Allow only moving forward by 1 OR moving to any stage BEFORE or SAME
-    // This allows regression but prevents jumping over stages
-    if (newIndex > oldIndex + 1) {
+    // Exclude branch/dead-end stages from sequential check
+    const BRANCH_STAGES = ['Demo Postponed', 'PS & Dropped', 'Not Interested'];
+    const mainMilestones = milestones.filter(m => !BRANCH_STAGES.includes(m.name));
+    const oldIndex = mainMilestones.findIndex(m => m.id === oldMilestoneId);
+    const newIndex = mainMilestones.findIndex(m => m.id === milestoneId);
+    // Only enforce sequential check if both stages are in the main pipeline
+    if (oldIndex !== -1 && newIndex !== -1 && newIndex > oldIndex + 1) {
       return res.status(400).json({ 
         error: 'Workflow Error: Stage skipping is blocked. You must move leads through each stage sequentially.' 
       });
     }
   }
 
-  // 2. Force Disposition Selection
+  // 2. Force Disposition Selection — not enforced for Super Admin
   let finalDispositionId = dispositionId;
-  if (settings.forceDisposition && milestoneId && milestoneId !== oldMilestoneId) {
+  if (settings.forceDisposition && milestoneId && milestoneId !== oldMilestoneId && user.role !== 'SUPER_ADMIN') {
     if (!dispositionId || dispositionId === existing.dispositionId) {
       // Find a default disposition for the new milestone instead of erroring
       const defaultDisp = await prisma.disposition.findFirst({
@@ -252,6 +253,49 @@ export const updateLead = asyncHandler(async (req: Request, res: Response) => {
     },
     include: LEAD_INCLUDE,
   });
+
+  // ─── Milestone Change Notifications ───────────────────────────────
+  if (milestoneId && milestoneId !== oldMilestoneId) {
+    const newMilestone = await prisma.milestone.findUnique({ where: { id: milestoneId } });
+    const NOTIFY_STAGES = ['Demo Postponed', 'PS & Dropped', 'Not Interested', 'Deal Closed'];
+
+    if (newMilestone && NOTIFY_STAGES.includes(newMilestone.name)) {
+      const notifyUserIds = new Set<string>();
+
+      // Always notify the assigned BDE
+      notifyUserIds.add(lead.assignedToId);
+
+      // Also notify their Team Lead
+      const bde = await prisma.user.findUnique({
+        where: { id: lead.assignedToId },
+        include: { team: { include: { users: { where: { role: 'TEAM_LEAD' } } } } },
+      });
+      bde?.team?.users.forEach(tl => notifyUserIds.add(tl.id));
+
+      const notifText: Record<string, string> = {
+        'Demo Postponed':  `Demo postponed for "${lead.companyName}" — follow up to reschedule.`,
+        'PS & Dropped':    `Lead "${lead.companyName}" dropped after proposal shared.`,
+        'Not Interested':  `Lead "${lead.companyName}" marked as Not Interested.`,
+        'Deal Closed':     `🎉 Deal closed for "${lead.companyName}"! Great work.`,
+      };
+      const notifType: Record<string, string> = {
+        'Demo Postponed': 'warning',
+        'PS & Dropped':   'warning',
+        'Not Interested': 'danger',
+        'Deal Closed':    'success',
+      };
+
+      await prisma.notification.createMany({
+        data: Array.from(notifyUserIds).map(userId => ({
+          userId,
+          text: notifText[newMilestone.name],
+          type: notifType[newMilestone.name] as any,
+        })),
+      });
+    }
+  }
+  // ──────────────────────────────────────────────────────────────────
+
   return res.json(formatLead(lead));
 });
 
