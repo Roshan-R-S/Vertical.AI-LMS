@@ -1,18 +1,17 @@
 import {
-  DndContext,
-  PointerSensor,
-  useSensor,
-  useSensors,
+    DndContext,
+    PointerSensor,
+    useSensor,
+    useSensors,
 } from "@dnd-kit/core";
 import {
-  Calendar,
-  Download,
-  Edit2,
-  Eye,
-  Plus,
-  Search,
-  Trash2,
-  Upload,
+    Calendar,
+    Edit2,
+    Eye,
+    Plus,
+    Search,
+    Trash2,
+    Upload
 } from "lucide-react";
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -20,17 +19,17 @@ import Pagination from "../components/Pagination";
 import { useApp } from "../context/AppContextCore";
 
 // UI Components
-import Button from "../components/ui/Button";
 import Badge from "../components/ui/Badge";
-import Input from "../components/ui/Input";
+import Button from "../components/ui/Button";
 import Select from "../components/ui/Select";
 
 // Page Sub-components
-import LeadCard from "./leads/LeadCard";
-import KanbanColumn from "./leads/KanbanColumn";
-import LeadModal from "./leads/LeadModal";
-import InteractionModal from "./leads/InteractionModal";
+import FollowUpModal from "./leads/FollowUpModal";
 import ImportModal from "./leads/ImportModal";
+import InteractionModal from "./leads/InteractionModal";
+import KanbanColumn from "./leads/KanbanColumn";
+import LeadCard from "./leads/LeadCard";
+import LeadModal from "./leads/LeadModal";
 
 const MILESTONE_COLORS = {
   New: "#6366f1",
@@ -82,6 +81,8 @@ export default function Leads() {
   const [filterType, setFilterType] = useState(
     searchParams.get("filter") || "All",
   );
+  const [showFollowUpModal, setShowFollowUpModal] = useState(false);
+  const [pendingStageChange, setPendingStageChange] = useState(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -102,6 +103,7 @@ export default function Leads() {
 
     if (lead && lead.milestoneId !== newMilestoneId) {
       const isDealClosed = milestone.name === "Deal Closed";
+      const isDemoPostponed = milestone.name === "Demo Postponed";
       
       if (isDealClosed) {
         if (window.confirm(`Move "${lead.companyName}" to Deal Closed and convert to Client?`)) {
@@ -115,6 +117,13 @@ export default function Leads() {
         }
       }
 
+      // For Demo Postponed, show follow-up date picker
+      if (isDemoPostponed) {
+        setPendingStageChange({ leadId, newMilestoneId });
+        setShowFollowUpModal(true);
+        return;
+      }
+
       if (
         window.confirm(
           `Move "${lead.companyName}" to stage: ${milestone.name}?`,
@@ -126,6 +135,24 @@ export default function Leads() {
           // Error alert handled by context
         }
       }
+    }
+  };
+
+  const handleFollowUpConfirm = async (followUpDates) => {
+    if (!pendingStageChange) return;
+
+    try {
+      const lead = leads.find((l) => l.id === pendingStageChange.leadId);
+      await updateLead(pendingStageChange.leadId, {
+        milestoneId: pendingStageChange.newMilestoneId,
+        ...followUpDates,
+      });
+      setShowFollowUpModal(false);
+      setPendingStageChange(null);
+    } catch (error) {
+      // Error alert handled by context
+      setShowFollowUpModal(false);
+      setPendingStageChange(null);
     }
   };
 
@@ -483,6 +510,16 @@ export default function Leads() {
           onImport={async (data) => {
             await bulkAddLeads(data);
             setShowImportModal(false);
+          }}
+        />
+      )}
+      {showFollowUpModal && pendingStageChange && (
+        <FollowUpModal
+          lead={leads.find((l) => l.id === pendingStageChange.leadId)}
+          onConfirm={handleFollowUpConfirm}
+          onCancel={() => {
+            setShowFollowUpModal(false);
+            setPendingStageChange(null);
           }}
         />
       )}

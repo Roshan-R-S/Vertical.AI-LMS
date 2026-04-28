@@ -1,8 +1,8 @@
+import { TaskStatus } from '@prisma/client';
 import { Request, Response } from 'express';
 import { prisma } from '../../prisma';
-import { Role, TaskStatus } from '@prisma/client';
-import { getTaskScopeFilter } from '../../utils/scoping';
 import { asyncHandler } from '../../utils/async-handler';
+import { getTaskScopeFilter } from '../../utils/scoping';
 
 // GET /api/v1/tasks
 export const getTasks = asyncHandler(async (req: Request, res: Response) => {
@@ -34,23 +34,35 @@ const formatTask = (t: any) => ({
   bdeId: t.assignedToId,
   tl: t.assignedTo?.team?.name ?? null,
   dueDate: t.dueDate.toISOString().split('T')[0],
+  followUpDateTo: t.followUpDateTo ? t.followUpDateTo.toISOString().split('T')[0] : null,
   status: t.status,
+  type: t.type,
+  followUpReason: t.followUpReason,
   createdAt: t.createdAt,
 });
 
 // POST /api/v1/tasks
 export const createTask = asyncHandler(async (req: Request, res: Response) => {
-  const { title, leadId, assignedToId, createdById, dueDate } = req.body;
+  const { title, leadId, assignedToId, createdById, dueDate, type, followUpDateTo, followUpReason } = req.body;
   if (!title || !assignedToId || !dueDate) {
     return res.status(400).json({ error: 'title, assignedToId, dueDate are required' });
   }
   const task = await prisma.task.create({
     data: {
-      title, leadId: leadId || null,
-      assignedToId, createdById: createdById ?? assignedToId,
-      dueDate: new Date(dueDate), status: 'pending',
+      title,
+      leadId: leadId || null,
+      assignedToId,
+      createdById: createdById ?? assignedToId,
+      dueDate: new Date(dueDate),
+      type: type || 'general',
+      followUpDateTo: followUpDateTo ? new Date(followUpDateTo) : null,
+      followUpReason: followUpReason || null,
+      status: 'pending',
     },
-    include: { assignedTo: { include: { team: true } }, lead: { select: { id: true, companyName: true } } },
+    include: {
+      assignedTo: { include: { team: true } },
+      lead: { select: { id: true, companyName: true } },
+    },
   });
   return res.status(201).json(formatTask(task));
 });
@@ -59,7 +71,7 @@ export const createTask = asyncHandler(async (req: Request, res: Response) => {
 export const updateTask = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
   const user = (req as any).user;
-  const { title, status, dueDate, assignedToId } = req.body;
+  const { title, status, dueDate, assignedToId, type, followUpDateTo, followUpReason } = req.body;
 
   const existing = await prisma.task.findFirst({
     where: { id: id as string, ...getTaskScopeFilter(user) }
@@ -73,8 +85,14 @@ export const updateTask = asyncHandler(async (req: Request, res: Response) => {
       ...(status && { status: status as TaskStatus }),
       ...(dueDate && { dueDate: new Date(dueDate) }),
       ...(assignedToId && { assignedToId }),
+      ...(type && { type }),
+      ...(followUpDateTo !== undefined && { followUpDateTo: followUpDateTo ? new Date(followUpDateTo) : null }),
+      ...(followUpReason !== undefined && { followUpReason }),
     },
-    include: { assignedTo: { include: { team: true } }, lead: { select: { id: true, companyName: true } } },
+    include: {
+      assignedTo: { include: { team: true } },
+      lead: { select: { id: true, companyName: true } },
+    },
   });
   return res.json(formatTask(task));
 });

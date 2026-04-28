@@ -244,24 +244,28 @@ model Interaction {
 // ─────────────────────────────────────────
 
 model Task {
-  id           String     @id @default(cuid())
-  title        String
-  leadId       String?
-  lead         Lead?      @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  clientId     String?
-  client       Client?    @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  assignedToId String
-  assignedTo   User       @relation("AssignedTasks", fields: [assignedToId], references: [id])
-  createdById  String
-  createdBy    User       @relation("CreatedTasks", fields: [createdById], references: [id])
-  dueDate      DateTime
-  status       TaskStatus @default(pending)
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-  deletedAt    DateTime?
+  id               String     @id @default(cuid())
+  title            String
+  leadId           String?
+  lead             Lead?      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  clientId         String?
+  client           Client?    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  assignedToId     String
+  assignedTo       User       @relation("AssignedTasks", fields: [assignedToId], references: [id])
+  createdById      String
+  createdBy        User       @relation("CreatedTasks", fields: [createdById], references: [id])
+  dueDate          DateTime
+  status           TaskStatus @default(pending)
+  type             String     @default("general")  // general | follow_up | reminder
+  followUpDateTo   DateTime?  // End date for follow-up range (from dueDate to followUpDateTo)
+  followUpReason   String?    // Reason for follow-up (e.g., "Demo Postponed")
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  deletedAt        DateTime?
 
   @@index([assignedToId])
   @@index([leadId])
+  @@index([type])
   @@map("tasks")
 }
 

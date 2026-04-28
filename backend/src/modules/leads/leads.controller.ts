@@ -1,8 +1,15 @@
+import { LeadPriority, LeadStatus } from '@prisma/client';
 import { Request, Response } from 'express';
 import { prisma } from '../../prisma';
-import { LeadStatus, LeadPriority } from '@prisma/client';
-import { getLeadScopeFilter } from '../../utils/scoping';
 import { asyncHandler } from '../../utils/async-handler';
+import { getLeadScopeFilter } from '../../utils/scoping';
+import {
+    ALLOWED_TRANSITIONS,
+    FOLLOWUP_TRIGGER_STAGES,
+    NOTIFY_STAGES,
+    getNotificationMessage,
+    isTransitionAllowed,
+} from './leads.constants';
 
 // Shape a lead into the frontend contract
 function formatLead(lead: any) {
@@ -193,18 +200,14 @@ export const updateLead = asyncHandler(async (req: Request, res: Response) => {
     return acc;
   }, {});
 
-  // 1. Block Stage Skipping — not enforced for Super Admin
+  // 1. Validate Stage Transition — not enforced for Super Admin
   if (settings.blockStageSkipping && milestoneId && milestoneId !== oldMilestoneId && user.role !== 'SUPER_ADMIN') {
-    const milestones = await prisma.milestone.findMany({ orderBy: { order: 'asc' } });
-    // Exclude branch/dead-end stages from sequential check
-    const BRANCH_STAGES = ['Demo Postponed', 'PS & Dropped', 'Not Interested'];
-    const mainMilestones = milestones.filter(m => !BRANCH_STAGES.includes(m.name));
-    const oldIndex = mainMilestones.findIndex(m => m.id === oldMilestoneId);
-    const newIndex = mainMilestones.findIndex(m => m.id === milestoneId);
-    // Only enforce sequential check if both stages are in the main pipeline
-    if (oldIndex !== -1 && newIndex !== -1 && newIndex > oldIndex + 1) {
-      return res.status(400).json({ 
-        error: 'Workflow Error: Stage skipping is blocked. You must move leads through each stage sequentially.' 
+    const targetMilestone = await prisma.milestone.findUnique({ where: { id: milestoneId } });
+    
+    if (targetMilestone && !isTransitionAllowed(oldMilestoneId, milestoneId, existing.milestone?.name, targetMilestone.name)) {
+      return res.status(400).json({
+        error: `Workflow Error: Cannot move from "${existing.milestone?.name || 'New'}" to "${targetMilestone.name}". This transition is not allowed in the pipeline.`,
+        allowedTransitions: ALLOWED_TRANSITIONS[existing.milestone?.name || ''] || [],
       });
     }
   }
@@ -213,7 +216,7 @@ export const updateLead = asyncHandler(async (req: Request, res: Response) => {
   let finalDispositionId = dispositionId;
   if (settings.forceDisposition && milestoneId && milestoneId !== oldMilestoneId && user.role !== 'SUPER_ADMIN') {
     if (!dispositionId || dispositionId === existing.dispositionId) {
-      // Find a default disposition for the new milestone instead of erroring
+      // Find a default disposition for the new milestone
       const defaultDisp = await prisma.disposition.findFirst({
         where: { milestoneId, isDefault: true }
       });
@@ -221,8 +224,8 @@ export const updateLead = asyncHandler(async (req: Request, res: Response) => {
       if (defaultDisp) {
         finalDispositionId = defaultDisp.id;
       } else {
-        return res.status(400).json({ 
-          error: 'Workflow Error: Disposition selection is mandatory and no default was found for this stage.' 
+        return res.status(400).json({
+          error: 'Workflow Error: Disposition selection is mandatory and no default was found for this stage.'
         });
       }
     }
@@ -251,15 +254,18 @@ export const updateLead = asyncHandler(async (req: Request, res: Response) => {
       ...(score !== undefined && { score }),
       ...(nextFollowUp !== undefined && { nextFollowUp: nextFollowUp ? new Date(nextFollowUp) : null }),
     },
-    include: LEAD_INCLUDE,
+    include: {
+      ...LEAD_INCLUDE,
+      milestone: true,
+    },
   });
 
-  // ─── Milestone Change Notifications ───────────────────────────────
-  if (milestoneId && milestoneId !== oldMilestoneId) {
-    const newMilestone = await prisma.milestone.findUnique({ where: { id: milestoneId } });
-    const NOTIFY_STAGES = ['Demo Postponed', 'PS & Dropped', 'Not Interested', 'Deal Closed'];
+  // ─── Milestone Change Logic ──────────────────────────────────────
+  if (milestoneId && milestoneId !== oldMilestoneId && lead.milestone) {
+    const newMilestoneName = lead.milestone.name;
 
-    if (newMilestone && NOTIFY_STAGES.includes(newMilestone.name)) {
+    // 1. Send Notifications for key stages
+    if (NOTIFY_STAGES.includes(newMilestoneName)) {
       const notifyUserIds = new Set<string>();
 
       // Always notify the assigned BDE
@@ -272,25 +278,47 @@ export const updateLead = asyncHandler(async (req: Request, res: Response) => {
       });
       bde?.team?.users.forEach(tl => notifyUserIds.add(tl.id));
 
-      const notifText: Record<string, string> = {
-        'Demo Postponed':  `Demo postponed for "${lead.companyName}" — follow up to reschedule.`,
-        'PS & Dropped':    `Lead "${lead.companyName}" dropped after proposal shared.`,
-        'Not Interested':  `Lead "${lead.companyName}" marked as Not Interested.`,
-        'Deal Closed':     `🎉 Deal closed for "${lead.companyName}"! Great work.`,
-      };
-      const notifType: Record<string, string> = {
-        'Demo Postponed': 'warning',
-        'PS & Dropped':   'warning',
-        'Not Interested': 'danger',
-        'Deal Closed':    'success',
-      };
+      const { text: notifText, type: notifType } = getNotificationMessage(newMilestoneName, lead.companyName);
 
       await prisma.notification.createMany({
         data: Array.from(notifyUserIds).map(userId => ({
           userId,
-          text: notifText[newMilestone.name],
-          type: notifType[newMilestone.name] as any,
+          text: notifText,
+          type: notifType as any,
         })),
+      });
+    }
+
+    // 2. Create Follow-up Task for Demo Postponed
+    if (FOLLOWUP_TRIGGER_STAGES.includes(newMilestoneName)) {
+      const followUpDateFrom = body.followUpDateFrom ? new Date(body.followUpDateFrom) : new Date();
+      const followUpDateTo = body.followUpDateTo ? new Date(body.followUpDateTo) : null;
+
+      const task = await prisma.task.create({
+        data: {
+          title: `Follow-up: Reschedule demo for ${lead.companyName}`,
+          leadId: lead.id,
+          assignedToId: lead.assignedToId,
+          createdById: user.id,
+          dueDate: followUpDateFrom,
+          type: 'follow_up',
+          followUpDateTo: followUpDateTo,
+          followUpReason: 'Demo Postponed - reschedule required',
+          status: 'pending',
+        },
+        include: {
+          assignedTo: { include: { team: true } },
+          lead: { select: { id: true, companyName: true } },
+        },
+      });
+
+      // Notify the assigned user about follow-up task
+      await prisma.notification.create({
+        data: {
+          userId: lead.assignedToId,
+          text: `📋 Follow-up task created for "${lead.companyName}" - reschedule demo before ${followUpDateFrom.toDateString()}`,
+          type: 'warning',
+        },
       });
     }
   }
