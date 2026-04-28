@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Trophy, Star, Medal, Award, Crown } from 'lucide-react';
 import { api } from '../utils/api';
 import Pagination from '../components/Pagination';
+import { formatCurrency } from '../utils/formatCurrency';
 
 
 const generateFilterOptions = () => {
@@ -91,7 +92,7 @@ export default function Leaderboard() {
           </div>
           <div className="card-desc" style={{ marginBottom: 4, color: '#fdd663', fontWeight: 600 }}>Top Team of the Period</div>
           <div className="card-title" style={{ fontSize: 28, marginBottom: 8 }}>{topTeam?.teamName || 'N/A'}</div>
-          <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Led by {topTeam?.tlName || '—'} &bull; ₹{( (topTeam?.revenue || 0) / 100000).toFixed(1)} L Revenue</div>
+          <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Led by {topTeam?.tlName || '—'} &bull; {formatCurrency(topTeam?.revenue || 0)} Revenue</div>
         </div>
 
 
@@ -101,7 +102,7 @@ export default function Leaderboard() {
           </div>
           <div className="card-desc" style={{ marginBottom: 4, color: '#8ab4f8', fontWeight: 600 }}>Top Individual Performer</div>
           <div className="card-title" style={{ fontSize: 28, marginBottom: 8 }}>{topIndividual.name}</div>
-          <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{topIndividual.deals} Deals Won — ₹{(topIndividual.revenue / 100000).toFixed(1)} L Revenue</div>
+          <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{topIndividual.deals} Deals Won — {formatCurrency(topIndividual.revenue)} Revenue</div>
         </div>
 
       </div>
@@ -114,7 +115,7 @@ export default function Leaderboard() {
           </div>
           <div className="card-desc" style={{ marginBottom: 4, color: '#81c995', fontWeight: 600 }}>Runner Up</div>
           <div className="card-title" style={{ fontSize: 24, marginBottom: 8 }}>{runnerUp.name}</div>
-          <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>₹{(runnerUp.revenue / 100000).toFixed(1)} L Realized Revenue</div>
+          <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{formatCurrency(runnerUp.revenue)} Realized Revenue</div>
         </div>
 
         <div className="studio-card" style={{ background: 'linear-gradient(145deg, rgba(197, 138, 255, 0.1) 0%, rgba(20,20,20,1) 100%)', border: '1px solid rgba(197, 138, 255, 0.2)' }}>
@@ -123,7 +124,7 @@ export default function Leaderboard() {
           </div>
           <div className="card-desc" style={{ marginBottom: 4, color: '#c58aff', fontWeight: 600 }}>Third Place</div>
           <div className="card-title" style={{ fontSize: 24, marginBottom: 8 }}>{thirdPlace.name}</div>
-          <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>₹{(thirdPlace.revenue / 100000).toFixed(1)} L Realized Revenue</div>
+          <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{formatCurrency(thirdPlace.revenue)} Realized Revenue</div>
         </div>
 
       </div>
@@ -154,13 +155,13 @@ export default function Leaderboard() {
                 </td>
                 <td style={{ fontWeight: 500 }}>{bde.name}</td>
                 <td style={{ color: 'var(--text-secondary)' }}>{bde.team || '—'}</td>
-                <td style={{ fontWeight: 600 }}>₹{(bde.revenue / 1000).toFixed(0)}K</td>
+                <td style={{ fontWeight: 600 }}>{formatCurrency(bde.revenue)}</td>
                 <td>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <div style={{ flex: 1, height: 6, background: 'var(--border-default)', borderRadius: 3, overflow: 'hidden' }}>
-                       <div style={{ height: '100%', width: `${Math.min(100, (bde.revenue / 500000) * 100)}%`, background: i === 0 ? '#fdd663' : 'var(--accent-blue)' }}></div>
+                       <div style={{ height: '100%', width: `${Math.min(100, (bde.revenue / (bde.target || 500000)) * 100)}%`, background: i === 0 ? '#fdd663' : 'var(--accent-blue)' }}></div>
                     </div>
-                    <span style={{ fontSize: 11 }}>{Math.round((bde.revenue / 500000) * 100)}%</span>
+                    <span style={{ fontSize: 11 }}>{Math.round((bde.revenue / (bde.target || 500000)) * 100)}%</span>
                   </div>
                 </td>
                 <td>{bde.deals}</td>

@@ -1,12 +1,18 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../../context/AppContextCore';
-import { Plus, Search, Eye, Edit2, Trash2, Upload } from 'lucide-react';
+import { Plus, Search, Eye, Edit2, Trash2, Upload, Calendar } from 'lucide-react';
+import { DndContext, PointerSensor, useSensor, useSensors, useDraggable, useDroppable } from '@dnd-kit/core';
 import Pagination from '../../components/Pagination';
 import LeadModal from '../leads/LeadModal';
 import InteractionModal from '../leads/InteractionModal';
 import ImportModal from '../leads/ImportModal';
+import LeadCard from '../leads/LeadCard';
+import KanbanColumn from '../leads/KanbanColumn';
 import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
+import Select from '../../components/ui/Select';
+import { formatCurrency } from '../../utils/formatCurrency';
 
 const MILESTONE_COLORS = {
   'New': '#6366f1', 'First Call': '#06b6d4', 'Demo Scheduled': '#8b5cf6',
@@ -15,17 +21,24 @@ const MILESTONE_COLORS = {
 };
 
 export default function CPLeads() {
+  const [searchParams] = useSearchParams();
   const { currentUser, leads, milestones, dispositions, interactions, addLead, updateLead, deleteLead, addInteraction, bulkAddLeads } = useApp();
 
-  // CP only sees their own leads
-  const myLeads = leads.filter(l => l.assignedToId === currentUser.id);
+  // CP only sees their own active (not converted) leads
+  const myLeads = leads.filter(l => l.assignedToId === currentUser.id && l.status !== 'won');
 
   // Always assign to self — backend enforces this too, but we set it explicitly
   const cpAddLead = (leadData) => addLead({ ...leadData, assignedToId: currentUser.id });
   const cpBulkAdd = (rows) => bulkAddLeads(rows.map(r => ({ ...r, assignedToId: currentUser.id })));
 
   const [search, setSearch] = useState('');
-  const [filterMilestone, setFilterMilestone] = useState('All');
+  const [filterMilestone, setFilterMilestone] = useState(searchParams.get('milestone') || 'All');
+  const [filterSource, setFilterSource] = useState('All');
+  const [filterDisposition, setFilterDisposition] = useState('All');
+  const [filterType, setFilterType] = useState(searchParams.get('filter') || 'All');
+  const [dateRange, setDateRange] = useState('All');
+  const [customDates, setCustomDates] = useState({ start: '', end: '' });
+  const [viewMode, setViewMode] = useState('table');
   const [showAddModal, setShowAddModal] = useState(false);
   const [editLead, setEditLead] = useState(null);
   const [viewLead, setViewLead] = useState(null);
@@ -33,11 +46,58 @@ export default function CPLeads() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+    })
+  );
+
+  const handleDragEnd = async (event) => {
+    const { active, over } = event;
+    if (!over) return;
+
+    const leadId = active.id;
+    const newMilestoneId = over.id;
+    const lead = myLeads.find((l) => l.id === leadId);
+    const milestone = milestones.find((m) => m.id === newMilestoneId);
+
+    if (lead && lead.milestoneId !== newMilestoneId) {
+      if (window.confirm(`Move "${lead.companyName}" to stage: ${milestone.name}?`)) {
+        try {
+          await updateLead(leadId, { milestoneId: newMilestoneId });
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    }
+  };
+
   const filtered = myLeads.filter(l => {
     const matchSearch = !search || l.companyName.toLowerCase().includes(search.toLowerCase()) || l.contactName.toLowerCase().includes(search.toLowerCase());
     const matchMilestone = filterMilestone === 'All' || l.milestone === filterMilestone;
-    return matchSearch && matchMilestone;
+    const matchSource = filterSource === 'All' || l.source === filterSource;
+    const matchDisposition = filterDisposition === 'All' || l.disposition === filterDisposition;
+
+    let matchDate = true;
+    if (dateRange !== 'All') {
+      const leadDate = l.createdAt;
+      const today = new Date().toISOString().split('T')[0];
+      if (dateRange === 'Today') matchDate = leadDate === today;
+      else if (dateRange === 'Custom' && customDates.start && customDates.end) {
+        matchDate = leadDate >= customDates.start && leadDate <= customDates.end;
+      }
+    }
+
+    if (filterType === 'Untouched') {
+      const hasInteractions = interactions.some((i) => i.leadId === l.id);
+      if (hasInteractions) return false;
+    }
+
+    return matchSearch && matchMilestone && matchSource && matchDisposition && matchDate;
   });
+
+  const sources = ['All', ...new Set(myLeads.map((l) => l.source).filter(Boolean))];
+  const allDispositions = ['All', ...new Set(myLeads.map((l) => l.disposition).filter(Boolean))];
 
   return (
     <div className="animate-fadeIn">
@@ -55,15 +115,20 @@ export default function CPLeads() {
       {/* Milestone quick stats */}
       <div className="milestones-container thin-scrollbar mb-6">
         <div onClick={() => setFilterMilestone('All')} className={`milestone-card ${filterMilestone === 'All' ? 'active' : ''}`}>
-          <div className="text-lg font-bold mb-0.5">{myLeads.length}</div>
+          <div className="text-lg font-bold text-[#1f2937] mb-0.5">{myLeads.length}</div>
           <div className="text-xxs text-[#64748b] font-medium">All Leads</div>
         </div>
         {milestones.map(m => {
           const count = myLeads.filter(l => l.milestoneId === m.id).length;
+          const isActive = filterMilestone === m.name;
           return (
-            <div key={m.id} onClick={() => setFilterMilestone(filterMilestone === m.name ? 'All' : m.name)}
-              className={`milestone-card ${filterMilestone === m.name ? 'active' : ''}`}
-              style={{ borderColor: filterMilestone === m.name ? m.color : undefined }}>
+            <div key={m.id} onClick={() => setFilterMilestone(isActive ? 'All' : m.name)}
+              className={`milestone-card ${isActive ? 'active' : ''}`}
+              style={{
+                backgroundColor: isActive ? `${m.color}08` : undefined,
+                borderColor: isActive ? m.color : undefined,
+                boxShadow: isActive ? `0 4px 12px ${m.color}15` : undefined
+              }}>
               <div className="text-lg font-bold mb-0.5" style={{ color: m.color }}>{count}</div>
               <div className="text-xxs text-[#64748b] font-medium">{m.name}</div>
             </div>
@@ -77,50 +142,156 @@ export default function CPLeads() {
             <Search className="search-icon" size={15} />
             <input className="search-input" placeholder="Search leads..." value={search} onChange={e => setSearch(e.target.value)} />
           </div>
-        </div>
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Lead</th><th>Contact</th><th>Source</th><th>Stage</th>
-              <th>Disposition</th><th>Value</th><th>Score</th><th>Priority</th><th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize).map(lead => (
-              <tr key={lead.id} className="hover-row">
-                <td>
-                  <div className="font-semibold text-sm">{lead.companyName}</div>
-                  <div className="text-xs text-muted">{lead.createdAt}</div>
-                </td>
-                <td>
-                  <div className="text-sm">{lead.contactName}</div>
-                  <div className="text-xs text-muted">{lead.email}</div>
-                </td>
-                <td><Badge>{lead.source}</Badge></td>
-                <td>
-                  <Badge variant="primary" style={{ background: `${MILESTONE_COLORS[lead.milestone]}20`, color: MILESTONE_COLORS[lead.milestone], borderColor: `${MILESTONE_COLORS[lead.milestone]}40` }}>
-                    {lead.milestone}
-                  </Badge>
-                </td>
-                <td className="text-sm text-secondary font-medium">{lead.disposition || 'Not Contacted'}</td>
-                <td className="font-bold text-sm">₹{(lead.value / 1000).toFixed(0)}K</td>
-                <td><span className={`font-bold text-sm ${lead.score >= 80 ? 'text-[#10b981]' : lead.score >= 60 ? 'text-[#f59e0b]' : 'text-[#ef4444]'}`}>{lead.score}</span></td>
-                <td><Badge variant={lead.priority === 'High' ? 'danger' : lead.priority === 'Medium' ? 'warning' : 'neutral'}>{lead.priority}</Badge></td>
-                <td>
-                  <div className="table-actions">
-                    <Button variant="ghost" size="sm" iconOnly onClick={() => setViewLead(lead)} icon={<Eye size={14} />} />
-                    <Button variant="ghost" size="sm" iconOnly onClick={() => setEditLead(lead)} icon={<Edit2 size={14} />} />
-                    <Button variant="ghost" size="sm" iconOnly className="text-brand-danger"
-                      onClick={() => window.confirm(`Delete "${lead.companyName}"?`) && deleteLead(lead.id)}
-                      icon={<Trash2 size={14} />} />
-                  </div>
-                </td>
-              </tr>
+
+          <Select 
+            wrapperClassName="mb-0"
+            className="w-auto py-2 h-9 text-xs"
+            value={filterSource}
+            onChange={(e) => setFilterSource(e.target.value)}
+            options={sources.map(s => ({ label: `Source: ${s}`, value: s }))}
+          />
+
+          <Select 
+            wrapperClassName="mb-0"
+            className="w-auto py-2 h-9 text-xs"
+            value={filterDisposition}
+            onChange={(e) => setFilterDisposition(e.target.value)}
+            options={allDispositions.map(d => ({ label: `Result: ${d}`, value: d }))}
+          />
+
+          <Select 
+            wrapperClassName="mb-0"
+            className={`w-auto py-2 h-9 text-xs ${filterType === 'Untouched' ? 'border-[#f59e0b]' : ''}`}
+            value={filterType}
+            onChange={(e) => setFilterType(e.target.value)}
+            options={[
+              { label: 'All Status', value: 'All' },
+              { label: 'Untouched Leads', value: 'Untouched' }
+            ]}
+          />
+
+          <div className="flex rounded-lg bg-surface border border-default overflow-hidden h-9">
+            <div className="px-2.5 border-r border-default flex items-center bg-card">
+              <Calendar size={13} className="text-muted" />
+            </div>
+            <select
+              className="form-select border-none bg-transparent outline-none px-2.5 text-xs h-full"
+              value={dateRange}
+              onChange={(e) => setDateRange(e.target.value)}
+            >
+              <option value="All">All Time</option>
+              {['Today', 'This Week', 'This Month', 'Custom'].map((m) => (
+                <option key={m}>{m}</option>
+              ))}
+            </select>
+          </div>
+
+          {dateRange === 'Custom' && (
+            <div className="flex gap-1.5 items-center bg-card px-2.5 py-0.5 rounded-lg border border-default h-9">
+              <input
+                type="date"
+                className="form-input w-[120px] h-7 text-[11px] p-1"
+                value={customDates.start}
+                onChange={(e) => setCustomDates((p) => ({ ...p, start: e.target.value }))}
+              />
+              <span className="text-[10px] text-muted">-</span>
+              <input
+                type="date"
+                className="form-input w-[120px] h-7 text-[11px] p-1"
+                value={customDates.end}
+                onChange={(e) => setCustomDates((p) => ({ ...p, end: e.target.value }))}
+              />
+            </div>
+          )}
+
+          <div className="ml-auto flex gap-1.5">
+            {['table', 'kanban'].map((m) => (
+              <Button
+                key={m}
+                variant={viewMode === m ? 'primary' : 'secondary'}
+                size="sm"
+                onClick={() => setViewMode(m)}
+                className="capitalize"
+              >
+                {m}
+              </Button>
             ))}
-          </tbody>
-        </table>
-        <Pagination total={filtered.length} pageSize={pageSize} currentPage={currentPage}
-          onPageChange={setCurrentPage} onPageSizeChange={s => { setPageSize(s); setCurrentPage(1); }} />
+          </div>
+        </div>
+
+        {viewMode === 'kanban' ? (
+          <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+            <div className="p-4">
+              <div className="kanban-board thin-scrollbar">
+                {milestones.map((m) => {
+                    const stageLeads = filtered.filter((l) => l.milestoneId === m.id);
+                    return (
+                      <KanbanColumnWrapper
+                        key={m.id}
+                        milestone={m}
+                        count={stageLeads.length}
+                      >
+                        {stageLeads.map((lead) => (
+                          <KanbanCardWrapper 
+                            key={lead.id} 
+                            lead={lead} 
+                            onView={setViewLead} 
+                          />
+                        ))}
+                      </KanbanColumnWrapper>
+                    );
+                  })}
+              </div>
+            </div>
+          </DndContext>
+        ) : (
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Lead</th><th>Contact</th><th>Source</th><th>Stage</th>
+                <th>Disposition</th><th>Value</th><th>Score</th><th>Priority</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize).map(lead => (
+                <tr key={lead.id} className="hover-row">
+                  <td>
+                    <div className="font-semibold text-sm">{lead.companyName}</div>
+                    <div className="text-xs text-muted">Created on {lead.createdAt}</div>
+                  </td>
+                  <td>
+                    <div className="text-sm">{lead.contactName}</div>
+                    <div className="text-xs text-muted">{lead.email}</div>
+                  </td>
+                  <td><Badge>{lead.source}</Badge></td>
+                  <td>
+                    <Badge variant="primary" style={{ background: `${MILESTONE_COLORS[lead.milestone]}20`, color: MILESTONE_COLORS[lead.milestone], borderColor: `${MILESTONE_COLORS[lead.milestone]}40` }}>
+                      {lead.milestone}
+                    </Badge>
+                  </td>
+                  <td className="text-sm text-secondary font-medium">{lead.disposition || 'Not Contacted'}</td>
+                  <td className="font-bold text-sm">{formatCurrency(lead.value)}</td>
+                  <td><span className={`font-bold text-sm ${lead.score >= 80 ? 'text-[#10b981]' : lead.score >= 60 ? 'text-[#f59e0b]' : 'text-[#ef4444]'}`}>{lead.score}</span></td>
+                  <td><Badge variant={lead.priority === 'High' ? 'danger' : lead.priority === 'Medium' ? 'warning' : 'neutral'}>{lead.priority}</Badge></td>
+                  <td>
+                    <div className="table-actions">
+                      <Button variant="ghost" size="sm" iconOnly title="View" onClick={() => setViewLead(lead)} icon={<Eye size={14} />} />
+                      <Button variant="ghost" size="sm" iconOnly title="Edit" onClick={() => setEditLead(lead)} icon={<Edit2 size={14} />} />
+                      <Button variant="ghost" size="sm" iconOnly title="Delete" className="text-brand-danger"
+                        onClick={() => window.confirm(`Delete "${lead.companyName}"?`) && deleteLead(lead.id)}
+                        icon={<Trash2 size={14} />} />
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+
+        {viewMode === 'table' && (
+          <Pagination total={filtered.length} pageSize={pageSize} currentPage={currentPage}
+            onPageChange={setCurrentPage} onPageSizeChange={s => { setPageSize(s); setCurrentPage(1); }} />
+        )}
       </div>
 
       {showAddModal && <LeadModal onClose={() => setShowAddModal(false)} onSave={cpAddLead} milestones={milestones} dispositions={dispositions} forcedAssignedToId={currentUser.id} />}
@@ -128,5 +299,40 @@ export default function CPLeads() {
       {viewLead && <InteractionModal lead={viewLead} interactions={interactions} onClose={() => setViewLead(null)} onAdd={addInteraction} />}
       {showImportModal && <ImportModal onClose={() => setShowImportModal(false)} onImport={async d => { await cpBulkAdd(d); setShowImportModal(false); }} />}
     </div>
+  );
+}
+
+// Internal wrappers for DND
+function KanbanCardWrapper({ lead, onView }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: lead.id,
+  });
+
+  return (
+    <LeadCard 
+      lead={lead} 
+      onView={onView} 
+      attributes={attributes} 
+      listeners={listeners} 
+      setNodeRef={setNodeRef} 
+      transform={transform} 
+      isDragging={isDragging} 
+    />
+  );
+}
+
+function KanbanColumnWrapper({ milestone, children, count }) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: milestone.id,
+  });
+
+  return (
+    <KanbanColumn 
+      milestone={milestone} 
+      children={children} 
+      count={count} 
+      isOver={isOver} 
+      setNodeRef={setNodeRef} 
+    />
   );
 }

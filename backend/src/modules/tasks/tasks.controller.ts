@@ -3,6 +3,7 @@ import { prisma } from '../../prisma';
 import { Role, TaskStatus } from '@prisma/client';
 import { getTaskScopeFilter } from '../../utils/scoping';
 import { asyncHandler } from '../../utils/async-handler';
+import { notify } from '../../utils/notify';
 
 // GET /api/v1/tasks
 export const getTasks = asyncHandler(async (req: Request, res: Response) => {
@@ -32,6 +33,7 @@ const formatTask = (t: any) => ({
   leadCompany: t.lead?.companyName ?? null,
   bde: t.assignedTo?.name ?? 'Unassigned',
   bdeId: t.assignedToId,
+  assignedToId: t.assignedToId, // alias for frontend compat
   tl: t.assignedTo?.team?.name ?? null,
   dueDate: t.dueDate.toISOString().split('T')[0],
   status: t.status,
@@ -52,6 +54,14 @@ export const createTask = asyncHandler(async (req: Request, res: Response) => {
     },
     include: { assignedTo: { include: { team: true } }, lead: { select: { id: true, companyName: true } } },
   });
+
+  // Notify the assignee (only if assigned by someone else)
+  const requestUser = (req as any).user;
+  if (requestUser.id !== assignedToId) {
+    const leadLabel = task.lead ? ` for lead "${task.lead.companyName}"` : '';
+    await notify(assignedToId, `New task assigned to you: "${title}"${leadLabel}`, 'info');
+  }
+
   return res.status(201).json(formatTask(task));
 });
 
@@ -76,5 +86,12 @@ export const updateTask = asyncHandler(async (req: Request, res: Response) => {
     },
     include: { assignedTo: { include: { team: true } }, lead: { select: { id: true, companyName: true } } },
   });
+
+  // Notify on reassignment
+  if (assignedToId && assignedToId !== existing.assignedToId) {
+    const leadLabel = task.lead ? ` for lead "${task.lead.companyName}"` : '';
+    await notify(assignedToId, `Task "${task.title}"${leadLabel} has been reassigned to you`, 'info');
+  }
+
   return res.json(formatTask(task));
 });

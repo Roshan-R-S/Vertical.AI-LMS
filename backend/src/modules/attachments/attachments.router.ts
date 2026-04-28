@@ -42,9 +42,9 @@ router.get('/attachments', AttachmentsController.listAllAttachments);
  *       201:
  *         description: Uploaded
  */
-router.post('/leads/:id/attachments', upload.single('file'), AttachmentsController.uploadAttachment);
-router.post('/clients/:id/attachments', upload.single('file'), AttachmentsController.uploadClientAttachment);
-router.post('/invoices/:id/attachments', upload.single('file'), AttachmentsController.uploadInvoiceAttachment);
+router.post('/leads/:id/attachments', authMiddleware, upload.single('file'), AttachmentsController.uploadAttachment);
+router.post('/clients/:id/attachments', authMiddleware, upload.single('file'), AttachmentsController.uploadClientAttachment);
+router.post('/invoices/:id/attachments', authMiddleware, upload.single('file'), AttachmentsController.uploadInvoiceAttachment);
 
 /**
  * @openapi

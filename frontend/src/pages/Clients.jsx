@@ -3,11 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import {
   Search, Eye, Edit2, FileText, Upload, Download,
   X, CheckCircle, Building2, AlertCircle,
-  Trash2, Phone, Mail, Rocket, Lightbulb, AlertTriangle
+  Trash2, Phone, Mail, Rocket, Lightbulb, AlertTriangle, Plus
 } from 'lucide-react';
 import { useApp } from '../context/AppContextCore';
 import Pagination from '../components/Pagination';
 import { useRef } from 'react';
+import { formatCurrency } from '../utils/formatCurrency';
+import { PageLoader, EmptyState } from '../components/LoadingSpinner';
 
 
 const STATUS_COLORS = {
@@ -142,7 +144,7 @@ function ClientDetailModal({ client, onClose }) {
             <div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 20 }}>
                 {[
-                  { label: 'Order Value', value: `₹${((client.orderValue || 0) / 1000).toFixed(0)}K`, color: '#6366f1' },
+                  { label: 'Order Value', value: formatCurrency(client.orderValue || 0), color: '#6366f1' },
                   { label: 'Contract', value: client.contractDuration || 'N/A', color: '#06b6d4' },
                   { label: 'Renewal', value: client.renewalDate || 'TBD', color: client.status === 'renewal_due' ? '#f59e0b' : '#10b981' },
                 ].map((s, i) => (
@@ -298,13 +300,41 @@ function ClientDetailModal({ client, onClose }) {
 }
 
 export default function Clients() {
-  const { clients, updateClient, currentUser } = useApp();
+  const { clients, updateClient, currentUser, loading } = useApp();
   const [search, setSearch] = useState('');
   const [editClient, setEditClient] = useState(null);
   const [viewClient, setViewClient] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(5);
   const [showRenewalsOnly, setShowRenewalsOnly] = useState(false);
+
+  // Show loading state
+  if (loading) {
+    return <PageLoader text="Loading clients..." />;
+  }
+
+  // Show empty state if no clients
+  if (!clients || clients.length === 0) {
+    return (
+      <div className="animate-fadeIn">
+        <div className="page-header">
+          <div>
+            <h1 className="page-title">Clients</h1>
+            <p className="page-subtitle">No clients found</p>
+          </div>
+        </div>
+        <EmptyState 
+          title="No clients yet"
+          description="Clients will appear here when leads are converted to paying customers."
+          action={
+            <button className="btn btn-primary" onClick={() => window.location.href = '/leads'}>
+              <Plus size={15} /> View Leads
+            </button>
+          }
+        />
+      </div>
+    );
+  }
 
 
   const filtered = clients.filter(c => {
@@ -322,7 +352,7 @@ export default function Clients() {
       <div className="page-header">
         <div>
           <h1 className="page-title">Clients</h1>
-          <p className="page-subtitle">{filtered.length} active clients • ₹{(totalARR / 100000).toFixed(1)}L ARR</p>
+          <p className="page-subtitle">{filtered.length} active clients • {formatCurrency(totalARR)} ARR</p>
         </div>
       </div>
 
@@ -349,9 +379,9 @@ export default function Clients() {
       <div className="form-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', marginBottom: 24 }}>
         {[
           { label: 'Total Clients', value: filtered.length, color: '#6366f1' },
-          { label: 'Total ARR', value: `₹${(totalARR / 100000).toFixed(1)}L`, color: '#10b981' },
+          { label: 'Total ARR', value: formatCurrency(totalARR), color: '#10b981' },
           { label: 'Renewal Due', value: renewalDue, color: '#f59e0b' },
-          { label: 'Avg Deal Size', value: `₹${(totalARR / (filtered.length || 1) / 1000).toFixed(0)}K`, color: '#06b6d4' },
+          { label: 'Avg Deal Size', value: formatCurrency(totalARR / (filtered.length || 1)), color: '#06b6d4' },
         ].map((s, i) => (
           <div key={i} className="studio-card" style={{ padding: 20 }}>
             <div style={{ fontSize: 24, fontWeight: 300, color: s.color, marginBottom: 8 }}>{s.value}</div>
@@ -405,7 +435,7 @@ export default function Clients() {
                       {(client.products || []).map((p, i) => <span key={i} className="badge badge-primary" style={{ fontSize: 10 }}>{p}</span>)}
                     </div>
                   </td>
-                  <td style={{ fontWeight: 700, fontSize: 14 }}>₹{(client.orderValue / 1000).toFixed(0)}K</td>
+                  <td style={{ fontWeight: 700, fontSize: 14 }}>{formatCurrency(client.orderValue)}</td>
                   <td style={{ fontSize: 12 }}>{client.contractDuration}</td>
                   <td>
                     <div style={{ fontSize: 12, color: client.status === 'renewal_due' ? '#f59e0b' : 'var(--text-secondary)' }}>

@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../context/AppContextCore';
 import Pagination from '../components/Pagination';
+import { formatCurrency } from '../utils/formatCurrency';
 
 
 const STATUS_CONFIG = {
@@ -328,9 +329,9 @@ export default function Billing() {
       {/* KPIs */}
       <div className="form-grid" style={{ gridTemplateColumns: 'repeat(4,1fr)', marginBottom: 24 }}>
         {[
-          { label: 'Revenue Collected', value: `₹${(totalRevenue/100000).toFixed(1)}L`, icon: CheckCircle, color: '#10b981', bg: 'rgba(16,185,129,0.15)', sub: 'This month' },
-          { label: 'Pending Dues', value: `₹${(totalPending/100000).toFixed(2)}L`, icon: Clock, color: '#f59e0b', bg: 'rgba(245,158,11,0.15)', sub: `${overdue} invoices overdue` },
-          { label: 'Total Invoiced', value: `₹${(invoices.reduce((s,i)=>s+i.total,0)/100000).toFixed(1)}L`, icon: FileText, color: '#6366f1', bg: 'rgba(99,102,241,0.15)', sub: `${invoices.length} invoices` },
+          { label: 'Revenue Collected', value: formatCurrency(totalRevenue), icon: CheckCircle, color: '#10b981', bg: 'rgba(16,185,129,0.15)', sub: 'This month' },
+          { label: 'Pending Dues', value: formatCurrency(totalPending), icon: Clock, color: '#f59e0b', bg: 'rgba(245,158,11,0.15)', sub: `${overdue} invoices overdue` },
+          { label: 'Total Invoiced', value: formatCurrency(invoices.reduce((s,i)=>s+i.total,0)), icon: FileText, color: '#6366f1', bg: 'rgba(99,102,241,0.15)', sub: `${invoices.length} invoices` },
           { label: 'Collection Rate', value: `${Math.round((totalRevenue/(totalRevenue+totalPending))*100)}%`, icon: TrendingUp, color: '#06b6d4', bg: 'rgba(6,182,212,0.15)', sub: 'This quarter' },
         ].map((kpi, i) => (
           <div key={i} className="studio-card">
@@ -469,7 +470,7 @@ export default function Billing() {
                   <td style={{ color: 'var(--text-secondary)' }}>{client.contractDuration}</td>
                   <td style={{ fontWeight: 500 }}>{client.renewalDate}</td>
                   <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--accent-blue)' }}>
-                    ₹{(client.orderValue/1000).toFixed(0)}K
+                    {formatCurrency(client.orderValue)}
                   </td>
                   <td>
                     <span className={`badge ${client.status === 'active' ? 'badge-success' : 'badge-warning'}`}>

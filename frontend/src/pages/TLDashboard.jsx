@@ -29,6 +29,7 @@ import {
     XAxis, YAxis
 } from 'recharts';
 import { useApp } from '../context/AppContextCore';
+import { formatCurrency } from '../utils/formatCurrency';
 
 const COLORS = ['#6366f1', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444'];
 
@@ -51,7 +52,7 @@ export default function TLDashboard() {
 
   // Build teamMap: count BDEs per team
   const teamMap = {};
-  users.filter(u => u.role === 'TL').forEach(tl => {
+  users.filter(u => u.role === 'Team Lead').forEach(tl => {
     teamMap[tl.team] = users.filter(u => u.teamId === tl.teamId && u.role === 'BDE').length;
   });
 
@@ -64,8 +65,9 @@ export default function TLDashboard() {
   const pendingToday = teamTasks.filter(t => t.dueDate === today && t.status !== 'completed').length;
 
   // Live pipeline health stats from leads context
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-  const oneWeekFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const now = new Date();
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const oneWeekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
   const teamLeads = leads.filter(l => teamBDEIds.includes(l.assignedToId) && l.status === 'active');
   const stuckDeals = teamLeads.filter(l => l.updatedAt && new Date(l.updatedAt).toISOString() < sevenDaysAgo).length;
   const closingThisWeek = teamLeads.filter(l => l.expectedClose && l.expectedClose <= oneWeekFromNow && l.expectedClose >= today);
@@ -191,7 +193,7 @@ export default function TLDashboard() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>
                 <TrendingUp size={12} color="#10b981" /> CLOSED REVENUE ({dateRange.toUpperCase()})
               </div>
-              <div style={{ fontSize: 24, fontWeight: 600, color: '#10b981' }}>₹{kpis.closedRevenue.toLocaleString()}</div>
+              <div style={{ fontSize: 24, fontWeight: 600, color: '#10b981' }}>{formatCurrency(kpis.closedRevenue)}</div>
               <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>{kpis.wonDeals} Deals Closed</div>
             </div>
             <div style={{ padding: 16, background: 'var(--bg-surface)', borderRadius: 12 }}>
@@ -227,13 +229,13 @@ export default function TLDashboard() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>
                 <DollarSign size={12} color="#f59e0b" /> TOTAL PIPELINE
               </div>
-              <div style={{ fontSize: 24, fontWeight: 600, color: '#f59e0b' }}>₹{(kpis.totalPipelineValue / 100000).toFixed(1)} L</div>
+              <div style={{ fontSize: 24, fontWeight: 600, color: '#f59e0b' }}>{formatCurrency(kpis.totalPipelineValue)}</div>
             </div>
             <div style={{ padding: 16, background: 'var(--bg-surface)', borderRadius: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>
                 <Clock size={12} color="#06b6d4" /> WEIGHTED VALUE
               </div>
-              <div style={{ fontSize: 24, fontWeight: 600 }}>₹{(kpis.weightedExpected / 100000).toFixed(1)} L</div>
+              <div style={{ fontSize: 24, fontWeight: 600 }}>{formatCurrency(kpis.weightedExpected)}</div>
               <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>Probability Adjusted</div>
             </div>
           </div>
@@ -263,7 +265,7 @@ export default function TLDashboard() {
                 <AlertTriangle size={12} /> <b>{stuckDeals} Stuck Deal{stuckDeals !== 1 ? 's' : ''}</b> (No movement &gt; 7 days)
               </div>
               <div style={{ fontSize: 11, color: '#10b981', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Target size={12} /> <b>{closingThisWeek.length} Deal{closingThisWeek.length !== 1 ? 's' : ''} Closing This Week</b> {closingThisWeekValue > 0 ? `(Value: ₹${(closingThisWeekValue / 100000).toFixed(1)}L)` : ''}
+                <Target size={12} /> <b>{closingThisWeek.length} Deal{closingThisWeek.length !== 1 ? 's' : ''} Closing This Week</b> {closingThisWeekValue > 0 ? `(Value: ${formatCurrency(closingThisWeekValue)})` : ''}
               </div>
             </div>
           </div>

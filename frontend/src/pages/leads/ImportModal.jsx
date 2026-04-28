@@ -95,22 +95,32 @@ const ImportModal = ({ onClose, onImport }) => {
           </div>
 
           <div
-            className="border-2 border-dashed border-default rounded-2xl p-10 bg-surface cursor-pointer"
             onClick={() => document.getElementById("csvInput").click()}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '24px 20px',
+              minHeight: 130,
+              borderColor: 'var(--brand-primary)',
+              borderWidth: 2,
+              borderStyle: 'dashed',
+              borderRadius: 12,
+              background: 'rgba(99,102,241,0.03)',
+              cursor: 'pointer',
+              transition: 'background 0.2s',
+              marginTop: 20,
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = 'rgba(99,102,241,0.07)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'rgba(99,102,241,0.03)'}
           >
-            <Upload
-              size={32}
-              className="text-brand-primary mb-4 opacity-50 mx-auto"
-            />
-            <div className="font-semibold mb-1">Click to upload CSV</div>
-            <div className="text-xs text-muted">Max file size: 5MB</div>
-            <input
-              id="csvInput"
-              type="file"
-              accept=".csv"
-              hidden
-              onChange={handleFile}
-            />
+            <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(99,102,241,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
+              <Upload size={20} color="#6366f1" />
+            </div>
+            <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4, color: 'var(--text-primary)' }}>Click to upload CSV</div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Max file size: 5MB</div>
+            <input id="csvInput" type="file" accept=".csv" hidden onChange={handleFile} />
           </div>
         </div>
       ) : (

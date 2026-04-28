@@ -9,6 +9,7 @@ import { authMiddleware } from './middleware/auth.middleware';
 import authRouter       from './modules/auth/auth.router';
 import usersRouter      from './modules/users/users.router';
 import teamsRouter      from './modules/users/teams.router';
+import targetsRouter    from './modules/users/targets.router';
 import leadsRouter      from './modules/leads/leads.router';
 import tasksRouter      from './modules/tasks/tasks.router';
 import clientsRouter    from './modules/clients/clients.router';
@@ -21,6 +22,7 @@ import auditLogsRouter  from './modules/audit-logs/audit-logs.router';
 import notificationsRouter from './modules/notifications/notifications.router';
 import settingsRouter from './modules/settings/settings.router';
 import interactionsRouter from './modules/leads/interactions.router';
+import sourcesRouter from './modules/sources/sources.router';
 
 
 const app = express();
@@ -61,6 +63,7 @@ app.use(authMiddleware);
 
 app.use('/api/v1/users',         usersRouter);
 app.use('/api/v1/teams',         teamsRouter);
+app.use('/api/v1/targets',       targetsRouter);
 app.use('/api/v1/leads',         leadsRouter);
 app.use('/api/v1/interactions',  interactionsRouter);
 app.use('/api/v1/tasks',         tasksRouter);
@@ -73,6 +76,7 @@ app.use('/api/v1',               attachmentsRouter);
 app.use('/api/v1/audit-logs',    auditLogsRouter);
 app.use('/api/v1/notifications', notificationsRouter);
 app.use('/api/v1/settings',      settingsRouter);
+app.use('/api/v1/sources',       sourcesRouter);
 
 
 // 404 handler

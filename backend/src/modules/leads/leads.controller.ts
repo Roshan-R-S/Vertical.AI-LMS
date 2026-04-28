@@ -3,6 +3,7 @@ import { prisma } from '../../prisma';
 import { LeadStatus, LeadPriority } from '@prisma/client';
 import { getLeadScopeFilter } from '../../utils/scoping';
 import { asyncHandler } from '../../utils/async-handler';
+import { notify } from '../../utils/notify';
 
 // Shape a lead into the frontend contract
 function formatLead(lead: any) {
@@ -29,6 +30,7 @@ function formatLead(lead: any) {
     notes: lead.notes,
     assignedBDE: lead.assignedTo?.name ?? null,
     assignedBDEId: lead.assignedToId,
+    assignedToId: lead.assignedToId, // alias for frontend compat
     assignedBDEAvatar: lead.assignedTo?.avatar ?? null,
     assignedTL: lead.assignedTo?.team ? `${lead.assignedTo.team.name}` : null,
     teamName: lead.assignedTo?.team?.name ?? null,
@@ -46,6 +48,31 @@ const LEAD_INCLUDE = {
   assignedTo: { include: { team: true } },
   _count: { select: { interactions: true, tasks: true, attachments: true } },
 };
+
+// GET /api/v1/leads/check-duplicate?phone=xxx&email=xxx
+export const checkDuplicate = asyncHandler(async (req: Request, res: Response) => {
+  const phone = req.query.phone as string | undefined;
+  const email = req.query.email as string | undefined;
+  const excludeId = req.query.excludeId as string | undefined;
+
+  if (!phone && !email) return res.json({ duplicate: false });
+
+  const conditions: any[] = [];
+  if (phone) conditions.push({ phone: { equals: phone, mode: 'insensitive' } });
+  if (email) conditions.push({ email: { equals: email, mode: 'insensitive' } });
+
+  const existing = await prisma.lead.findFirst({
+    where: {
+      deletedAt: null,
+      OR: conditions,
+      ...(excludeId && { NOT: { id: excludeId } }),
+    },
+    include: LEAD_INCLUDE,
+  });
+
+  if (!existing) return res.json({ duplicate: false });
+  return res.json({ duplicate: true, lead: formatLead(existing) });
+});
 
 // GET /api/v1/leads
 export const getLeads = asyncHandler(async (req: Request, res: Response) => {
@@ -136,6 +163,23 @@ export const createLead = asyncHandler(async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'assignedToId is required' });
   }
 
+  // Duplicate check across all leads regardless of scope
+  const dupConditions: any[] = [];
+  if (phone) dupConditions.push({ phone: { equals: phone, mode: 'insensitive' } });
+  if (email) dupConditions.push({ email: { equals: email, mode: 'insensitive' } });
+  if (dupConditions.length > 0) {
+    const duplicate = await prisma.lead.findFirst({
+      where: { deletedAt: null, OR: dupConditions },
+      include: LEAD_INCLUDE,
+    });
+    if (duplicate) {
+      return res.status(409).json({
+        error: 'Duplicate lead detected',
+        lead: formatLead(duplicate),
+      });
+    }
+  }
+
   const lead = await prisma.lead.create({
     data: {
       companyName, contactName, email, phone, source, industry,
@@ -152,6 +196,12 @@ export const createLead = asyncHandler(async (req: Request, res: Response) => {
     },
     include: LEAD_INCLUDE,
   });
+
+  // Notify BDE/CP that a lead has been assigned to them (only if assigned by someone else)
+  if (user.role !== 'BDE' && user.role !== 'CHANNEL_PARTNER') {
+    await notify(finalAssignedToId, `New lead assigned to you: ${companyName}`, 'info');
+  }
+
   return res.status(201).json(formatLead(lead));
 });
 
@@ -252,6 +302,18 @@ export const updateLead = asyncHandler(async (req: Request, res: Response) => {
     },
     include: LEAD_INCLUDE,
   });
+
+  // Notify on milestone change
+  if (milestoneId && milestoneId !== oldMilestoneId) {
+    const newMilestone = await prisma.milestone.findUnique({ where: { id: milestoneId } });
+    await notify(lead.assignedToId, `Lead "${lead.companyName}" moved to stage: ${newMilestone?.name}`, 'info');
+  }
+
+  // Notify on reassignment
+  if (assignedToId && assignedToId !== existing.assignedToId) {
+    await notify(assignedToId, `Lead "${lead.companyName}" has been reassigned to you`, 'info');
+  }
+
   return res.json(formatLead(lead));
 });
 
@@ -428,7 +490,16 @@ export const convertLeadToClient = asyncHandler(async (req: Request, res: Respon
       return client;
     });
 
-    return res.json({ success: true, client: result });
+    // Fetch with accountManager included for correct frontend state
+    const clientWithManager = await prisma.client.findUnique({
+      where: { id: result.id },
+      include: { accountManager: true },
+    });
+
+    // Notify the assigned BDE/CP that their lead was converted
+    await notify(lead.assignedToId, `Lead "${lead.companyName}" has been converted to a client!`, 'success');
+
+    return res.json({ success: true, client: clientWithManager });
   } catch (err: any) {
     console.error('Conversion failed:', err);
     return res.status(500).json({ error: 'Failed to convert lead: ' + err.message });

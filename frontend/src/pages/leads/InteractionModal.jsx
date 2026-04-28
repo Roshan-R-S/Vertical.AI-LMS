@@ -5,6 +5,7 @@ import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import Select from '../../components/ui/Select';
 import Input from '../../components/ui/Input';
+import { formatCurrency } from '../../utils/formatCurrency';
 
 const MILESTONE_COLORS = {
   New: "#6366f1",
@@ -48,7 +49,7 @@ const InteractionModal = ({ lead, interactions, onClose, onAdd }) => {
     { l: "Stage", v: lead.milestone, c: MILESTONE_COLORS[lead.milestone], icon: <Star size={11} /> },
     { l: "Source", v: lead.source, c: "#06b6d4", icon: <TrendingUp size={11} /> },
     { l: "Score", v: lead.score, c: lead.score >= 80 ? "#10b981" : "#f59e0b", icon: <Brain size={11} /> },
-    { l: "Value", v: `₹${(lead.value / 1000).toFixed(0)}K`, c: "#6366f1", icon: <CheckCircle size={11} /> },
+    { l: "Value", v: formatCurrency(lead.value), c: "#6366f1", icon: <CheckCircle size={11} /> },
     { l: "Priority", v: lead.priority, c: lead.priority === "High" ? "#ef4444" : "#f59e0b", icon: <Phone size={11} /> },
     { l: "Result", v: lead.disposition || "None", c: "#10b981", icon: <MessageSquare size={11} /> },
   ];
@@ -125,7 +126,7 @@ const InteractionModal = ({ lead, interactions, onClose, onAdd }) => {
                       • {int.direction || ""}
                     </div>
                     <div className="timeline-meta">
-                      {new Date(int.createdAt).toLocaleDateString()} • {int.performedBy?.name || int.by}{" "}
+                      {int.createdAt ? new Date(int.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : int.date || '—'} • {int.performedBy?.name || int.by}{" "}
                       {int.duration && `• ${int.duration}`}
                     </div>
                     <div className="timeline-body">{int.summary}</div>

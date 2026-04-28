@@ -31,7 +31,14 @@ export function getClientScopeFilter(user: any) {
   const baseFilter = { deletedAt: null };
   if (user.role === Role.SUPER_ADMIN) return baseFilter;
   if (user.role === Role.TEAM_LEAD) {
-    return { ...baseFilter, accountManager: { teamId: user.teamId } };
+    // TL sees BDE clients in their team AND CP clients
+    return {
+      ...baseFilter,
+      OR: [
+        { accountManager: { teamId: user.teamId } },
+        { accountManager: { role: Role.CHANNEL_PARTNER } },
+      ],
+    };
   }
   return { ...baseFilter, accountManagerId: user.id };
 }

@@ -3,7 +3,7 @@ import {
   getLeads, getLeadById, createLead, updateLead, deleteLead,
   getLeadInteractions, createLeadInteraction,
   getLeadTasks, createLeadTask,
-  convertLeadToClient, bulkCreateLeads
+  convertLeadToClient, bulkCreateLeads, checkDuplicate
 } from './leads.controller';
 
 import { validate } from '../../middleware/validate.middleware';
@@ -12,6 +12,7 @@ import { LeadCreateSchema, LeadUpdateSchema } from './leads.schema';
 const router = Router();
 
 router.get('/', getLeads);
+router.get('/check-duplicate', checkDuplicate);
 router.post('/', validate(LeadCreateSchema), createLead);
 router.post('/bulk', bulkCreateLeads);
 router.get('/:id', getLeadById);

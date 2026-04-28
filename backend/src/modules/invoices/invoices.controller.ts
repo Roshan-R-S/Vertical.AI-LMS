@@ -3,6 +3,7 @@ import { prisma } from '../../prisma';
 import { InvoiceStatus } from '@prisma/client';
 import { getInvoiceScopeFilter } from '../../utils/scoping';
 import { asyncHandler } from '../../utils/async-handler';
+import { notify } from '../../utils/notify';
 
 // GET /api/v1/invoices
 export const getInvoices = asyncHandler(async (req: Request, res: Response) => {
@@ -40,7 +41,6 @@ export const getInvoices = asyncHandler(async (req: Request, res: Response) => {
     paidAmount: inv.paidAmount,
     items: inv.items.map(i => ({ desc: i.description, amount: i.amount })),
     pdfUrl: inv.attachments?.[0]?.id ? `/api/v1/attachments/${inv.attachments[0].id}/download` : inv.pdfUrl,
-    _id: inv.id,
   })));
 });
 
@@ -83,19 +83,30 @@ export const markInvoicePaid = asyncHandler(async (req: Request, res: Response) 
   const { paidAmount } = req.body;
 
   const invoice = await prisma.invoice.findFirst({ 
-    where: { id: id as string, ...getInvoiceScopeFilter(user) } 
+    where: { invoiceNumber: id as string, ...getInvoiceScopeFilter(user) } 
   });
   if (!invoice) return res.status(404).json({ error: 'Invoice not found or access denied' });
 
   const isPartial = paidAmount && paidAmount < invoice.total;
   const updated = await prisma.invoice.update({
-    where: { id: id as string },
+    where: { id: invoice.id },
     data: {
       status: isPartial ? 'partial' : 'paid',
       paidDate: new Date(),
       paidAmount: paidAmount ?? invoice.total,
     },
-    include: { client: true, items: true },
+    include: { client: { include: { accountManager: true } }, items: true },
   });
+
+  // Notify the account manager
+  if (updated.client.accountManagerId) {
+    const label = isPartial ? 'Partial payment received' : 'Invoice paid in full';
+    await notify(
+      updated.client.accountManagerId,
+      `${label} for "${updated.client.companyName}" — Invoice ${invoice.invoiceNumber}`,
+      isPartial ? 'warning' : 'success'
+    );
+  }
+
   return res.json(updated);
 });

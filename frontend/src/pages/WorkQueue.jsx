@@ -130,7 +130,7 @@ export default function WorkQueue() {
               }}
             >
               <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <Star size={12} /> {lead.contactName}
+                <Phone size={12} /> {lead.contactName}
               </span>
               <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
                 <Clock size={12} /> Last: {lead.createdAt}

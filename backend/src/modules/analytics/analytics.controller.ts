@@ -583,16 +583,23 @@ export const getLeaderboard = asyncHandler(async (req: Request, res: Response) =
     orderBy: { name: 'asc' },
   });
 
+  const bdeUserIds = bdeUsers.map(u => u.id);
+  const leaderboardMonth = dateFilter ? dateFilter.gte.getMonth() + 1 : new Date().getMonth() + 1;
+  const leaderboardYear  = dateFilter ? dateFilter.gte.getFullYear() : new Date().getFullYear();
+  const leaderboardTargets = await prisma.target.findMany({
+    where: { userId: { in: bdeUserIds }, month: leaderboardMonth, year: leaderboardYear },
+  });
+  const leaderboardTargetMap = new Map(leaderboardTargets.map(t => [t.userId, t.amount]));
+
   const ranked = bdeUsers.map(u => ({
     id: u.id,
     name: u.name,
     avatar: u.avatar,
-
     team: u.team?.name ?? null,
     revenue: u.assignedLeads.reduce((s, l) => s + l.value, 0),
     deals: u.assignedLeads.length,
     calls: u._count.interactions,
-    target: 500000,
+    target: leaderboardTargetMap.get(u.id) ?? 500000,
   })).sort((a, b) => b.revenue - a.revenue);
 
   const tlUsers = await prisma.user.findMany({
@@ -636,14 +643,89 @@ export const getLeaderboard = asyncHandler(async (req: Request, res: Response) =
   });
 });
 
-// GET /api/v1/analytics/team-performance
+// GET /api/v1/analytics/target-history?year=2025
+export const getTargetHistory = asyncHandler(async (req: Request, res: Response) => {
+  const year = parseInt((req.query.year as string) || String(new Date().getFullYear()));
+
+  const bdes = await prisma.user.findMany({
+    where: { role: { in: [Role.BDE, Role.CHANNEL_PARTNER] }, isActive: true },
+    include: { team: true },
+    orderBy: { name: 'asc' },
+  });
+
+  const bdeIds = bdes.map(b => b.id);
+
+  const [targets, wonLeads] = await Promise.all([
+    prisma.target.findMany({
+      where: { userId: { in: bdeIds }, year },
+    }),
+    prisma.lead.findMany({
+      where: {
+        assignedToId: { in: bdeIds },
+        status: 'won',
+        updatedAt: {
+          gte: new Date(year, 0, 1),
+          lte: new Date(year, 11, 31, 23, 59, 59),
+        },
+      },
+      select: { assignedToId: true, value: true, updatedAt: true },
+    }),
+  ]);
+
+  // Build target map: userId -> month -> amount
+  const targetMap = new Map<string, Map<number, number>>();
+  targets.forEach(t => {
+    if (!targetMap.has(t.userId)) targetMap.set(t.userId, new Map());
+    targetMap.get(t.userId)!.set(t.month, t.amount);
+  });
+
+  // Build revenue map: userId -> month -> revenue
+  const revenueMap = new Map<string, Map<number, number>>();
+  wonLeads.forEach(l => {
+    const m = new Date(l.updatedAt).getMonth() + 1;
+    if (!revenueMap.has(l.assignedToId)) revenueMap.set(l.assignedToId, new Map());
+    const prev = revenueMap.get(l.assignedToId)!.get(m) ?? 0;
+    revenueMap.get(l.assignedToId)!.set(m, prev + l.value);
+  });
+
+  const result = bdes.map(b => ({
+    id: b.id,
+    name: b.name,
+    avatar: b.avatar,
+    role: b.role,
+    team: b.team?.name ?? null,
+    months: Array.from({ length: 12 }, (_, i) => {
+      const month = i + 1;
+      const target = targetMap.get(b.id)?.get(month) ?? null;
+      const revenue = revenueMap.get(b.id)?.get(month) ?? 0;
+      return { month, target, revenue };
+    }),
+  }));
+
+  return res.json(result);
+});
+
 export const getTeamPerformance = asyncHandler(async (req: Request, res: Response) => {
   const user = (req as any).user;
+  const month = (req.query.month as string) || '';
+
+  // Parse month string like "April 2026" into a date range
+  let dateFilter: { gte: Date; lte: Date } | undefined;
+  if (month) {
+    const parsed = new Date(`${month} 1`);
+    if (!isNaN(parsed.getTime())) {
+      dateFilter = {
+        gte: new Date(parsed.getFullYear(), parsed.getMonth(), 1),
+        lte: new Date(parsed.getFullYear(), parsed.getMonth() + 1, 0, 23, 59, 59),
+      };
+    }
+  }
+
   const tls = await prisma.user.findMany({
     where: { 
       role: 'TEAM_LEAD', 
       isActive: true,
-      ...(user.role !== Role.SUPER_ADMIN && { id: user.id }), // TL only sees self, Super Admin sees all
+      ...(user.role !== Role.SUPER_ADMIN && { id: user.id }),
     },
     include: { team: true },
   });
@@ -652,47 +734,78 @@ export const getTeamPerformance = asyncHandler(async (req: Request, res: Respons
     const teamBDEs = await prisma.user.findMany({
       where: { teamId: tl.teamId ?? '', role: 'BDE' },
       include: {
-        assignedLeads: { where: { status: 'won' }, select: { value: true } },
-        _count: { select: { interactions: true, assignedLeads: true } },
+        assignedLeads: {
+          where: { status: 'won', ...(dateFilter ? { updatedAt: dateFilter } : {}) },
+          select: { value: true },
+        },
+        _count: {
+          select: {
+            interactions: { where: { deletedAt: null, ...(dateFilter ? { createdAt: dateFilter } : {}) } },
+            assignedLeads: { where: { status: 'won', ...(dateFilter ? { updatedAt: dateFilter } : {}) } },
+          },
+        },
       },
     });
 
-    const bdeStats = teamBDEs.map(b => ({
-      id: b.id,
-      name: b.name,
-      avatar: b.avatar,
+    // Build last 3 months of revenue per BDE for the chart
+    const now = new Date();
 
-      calls: b._count.interactions,
-      meetings: Math.round(b._count.interactions * 0.2),
-      deals: b.assignedLeads.length,
-      revenue: b.assignedLeads.reduce((s, l) => s + l.value, 0),
-      target: 500000,
-      executionScore: Math.min(100, Math.round((b._count.interactions / 40) * 100)), // 40 calls target
-      workQueue: {
-        done: b._count.interactions,
-        total: 50
-      },
-      alerts: {
-        staleLeads: 0, // Placeholder or compute
-        overdueTasks: 0 // Placeholder or compute
-      }
-    }));
+    // Fetch targets for all BDEs in this team for the selected month/year
+    const selectedMonth = dateFilter ? dateFilter.gte.getMonth() + 1 : now.getMonth() + 1;
+    const selectedYear  = dateFilter ? dateFilter.gte.getFullYear() : now.getFullYear();
+    const bdeIds = teamBDEs.map(b => b.id);
+    const targetRecords = await prisma.target.findMany({
+      where: { userId: { in: bdeIds }, month: selectedMonth, year: selectedYear },
+    });
+    const targetMap = new Map(targetRecords.map(t => [t.userId, t.amount]));
+
+    const last3Months = await Promise.all(
+      [2, 1, 0].map(async (offset) => {
+        const d = new Date(now.getFullYear(), now.getMonth() - offset, 1);
+        const range = {
+          gte: d,
+          lte: new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59),
+        };
+        const bdeIds = teamBDEs.map(b => b.id);
+        const agg = await prisma.lead.aggregate({
+          _sum: { value: true },
+          where: { assignedToId: { in: bdeIds }, status: 'won', updatedAt: range },
+        });
+        return {
+          name: MONTH_LABELS[d.getMonth()],
+          Actual: agg._sum.value ?? 0,
+          Target: teamBDEs.length * 500000,
+        };
+      })
+    );
+
+    const bdeStats = teamBDEs.map(b => {
+      const bdeTarget = targetMap.get(b.id) ?? 500000;
+      return {
+        id: b.id,
+        name: b.name,
+        avatar: b.avatar,
+        calls: b._count.interactions,
+        meetings: Math.round(b._count.interactions * 0.2),
+        deals: b._count.assignedLeads,
+        revenue: b.assignedLeads.reduce((s, l) => s + l.value, 0),
+        target: bdeTarget,
+        executionScore: Math.min(100, Math.round((b._count.interactions / 40) * 100)),
+        workQueue: { done: b._count.interactions, total: 50 },
+        alerts: { staleLeads: 0, overdueTasks: 0 },
+      };
+    });
 
     const teamRevenue = bdeStats.reduce((s, b) => s + b.revenue, 0);
     const teamTarget = bdeStats.reduce((s, b) => s + b.target, 0);
 
     return {
-      tl: {
-        id: tl.id,
-        name: tl.name,
-        avatar: tl.avatar,
-        team: tl.team?.name,
-
-      },
+      tl: { id: tl.id, name: tl.name, avatar: tl.avatar, team: tl.team?.name },
       teamRevenue,
       teamTarget,
       pct: teamTarget ? Math.round((teamRevenue / teamTarget) * 100) : 0,
       bdes: bdeStats,
+      last3Months,
     };
   }));
 

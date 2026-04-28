@@ -22,6 +22,7 @@ export default function AppProvider({ children }) {
   const [attachments, setAttachments] = useState([]);
   const [settings, setSettings] = useState({});
   const [teams, setTeams] = useState([]);
+  const [sources, setSources] = useState([]);
 
   const toggleTheme = () =>
     setTheme((prev) => (prev === "light" ? "dark" : "light"));
@@ -37,43 +38,62 @@ export default function AppProvider({ children }) {
         const res = await api.get(path);
         return res || fallback;
       } catch (err) {
-        console.error(`Fetch error for ${path}:`, err);
+        console.error(`Fetch error for ${path}:`, err.message);
+        
+        // If it's an auth error, don't continue
+        if (err.status === 401) {
+          sessionStorage.removeItem("lms_token");
+          setCurrentUser(null);
+          setLoading(false);
+          throw err;
+        }
+        
         return fallback;
       }
     };
 
-    const [l, c, u, m, d, t, i, n, s, a, int, tm] = await Promise.all([
-      fetchSafe("/leads"),
-      fetchSafe("/clients"),
-      fetchSafe("/users"),
-      fetchSafe("/milestones"),
-      fetchSafe("/dispositions"),
-      fetchSafe("/tasks"),
-      fetchSafe("/invoices"),
-      fetchSafe("/notifications"),
-      fetchSafe("/settings", {}),
-      fetchSafe("/attachments"),
-      fetchSafe("/interactions"),
-      fetchSafe("/teams"),
-    ]);
+    try {
+      const [l, c, u, m, d, t, i, n, s, a, int, tm, src] = await Promise.all([
+        fetchSafe("/leads"),
+        fetchSafe("/clients"),
+        fetchSafe("/users"),
+        fetchSafe("/milestones"),
+        fetchSafe("/dispositions"),
+        fetchSafe("/tasks"),
+        fetchSafe("/invoices"),
+        fetchSafe("/notifications"),
+        fetchSafe("/settings", {}),
+        fetchSafe("/attachments"),
+        fetchSafe("/interactions"),
+        fetchSafe("/teams"),
+        fetchSafe("/sources"),
+      ]);
 
-    setLeads(l);
-    setClients(c);
-    setUsers(u);
-    setMilestones(m);
-    setDispositions(d);
-    setTasks(t);
-    setInvoices(i);
-    setNotifications(n);
-    setSettings(s);
-    setAttachments(a);
-    setInteractions(int);
-    setTeams(tm);
-    setLoading(false);
+      setLeads(Array.isArray(l) ? l : []);
+      setClients(Array.isArray(c) ? c : []);
+      setUsers(Array.isArray(u) ? u : []);
+      setMilestones(Array.isArray(m) ? m : []);
+      setDispositions(Array.isArray(d) ? d : []);
+      setTasks(Array.isArray(t) ? t : []);
+      setInvoices(Array.isArray(i) ? i : []);
+      setNotifications(Array.isArray(n) ? n : []);
+      setSettings(s || {});
+      setAttachments(Array.isArray(a) ? a : []);
+      setInteractions(Array.isArray(int) ? int : []);
+      setTeams(Array.isArray(tm) ? tm : []);
+      setSources(Array.isArray(src) ? src : []);
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching initial data:', error.message);
+      if (error.status !== 401) {
+        setLoading(false);
+      }
+    }
   };
 
   useEffect(() => {
     const token = sessionStorage.getItem("lms_token");
+    
     if (token) {
       api
         .get("/auth/me")
@@ -81,10 +101,16 @@ export default function AppProvider({ children }) {
           setCurrentUser(res.user);
           fetchInitialData();
         })
-        .catch(() => {
-          sessionStorage.removeItem("lms_token");
+        .catch((err) => {
+          console.error('Authentication failed:', err.message);
+          if (err.status === 401) {
+            sessionStorage.removeItem("lms_token");
+            setCurrentUser(null);
+          }
           setLoading(false);
         });
+    } else {
+      setLoading(false);
     }
   }, []);
 
@@ -96,11 +122,22 @@ export default function AppProvider({ children }) {
   };
 
   const login = async (email, password) => {
-    const result = await api.post("/auth/login", { email, password });
-    // store token in sessionStorage to avoid persisting sensitive tokens in long-term storage
-    sessionStorage.setItem("lms_token", result.token);
-    setCurrentUser(result.user);
-    await fetchInitialData();
+    try {
+      const result = await api.post("/auth/login", { email, password });
+      
+      // Store token in sessionStorage
+      sessionStorage.setItem("lms_token", result.token);
+      setCurrentUser(result.user);
+      
+      // Fetch initial data
+      await fetchInitialData();
+    } catch (error) {
+      console.error('Login failed:', error.message);
+      // Clear any existing token on login failure
+      sessionStorage.removeItem("lms_token");
+      setCurrentUser(null);
+      throw error;
+    }
   };
 
   const loginWithToken = async (token, user) => {
@@ -114,11 +151,45 @@ export default function AppProvider({ children }) {
     setCurrentUser(null);
   };
 
+  const checkDuplicate = async (phone, email, excludeId) => {
+    try {
+      const params = new URLSearchParams();
+      if (phone) params.set('phone', phone);
+      if (email) params.set('email', email);
+      if (excludeId) params.set('excludeId', excludeId);
+      return await api.get(`/leads/check-duplicate?${params.toString()}`);
+    } catch {
+      return { duplicate: false };
+    }
+  };
+
+  const addSource = async (name) => {
+    try {
+      const res = await api.post('/sources', { name });
+      setSources(prev => [...prev, res]);
+      return res;
+    } catch (err) {
+      alert(formatError(err));
+      throw err;
+    }
+  };
+
+  const deleteSource = async (id) => {
+    try {
+      await api.delete(`/sources/${id}`);
+      setSources(prev => prev.filter(s => s.id !== id));
+    } catch (err) {
+      alert(formatError(err));
+    }
+  };
+
   // Lead actions
   const addLead = async (lead) => {
     try {
       const res = await api.post("/leads", {
         ...lead,
+        value: lead.value ? Number(lead.value) : 0,
+        probability: lead.probability ? Number(lead.probability) : 0,
         assignedToId: lead.assignedToId || currentUser.id,
         milestoneId: lead.milestoneId || milestones[0]?.id,
         dispositionId: lead.dispositionId || dispositions[0]?.id,
@@ -463,6 +534,34 @@ export default function AppProvider({ children }) {
     }
   };
 
+  // Target actions
+  const setTarget = async (userId, month, year, amount) => {
+    try {
+      const res = await api.post("/targets", { userId, month, year, amount });
+      return res;
+    } catch (err) {
+      alert(formatError(err));
+      throw err;
+    }
+  };
+
+  const deleteTarget = async (id) => {
+    try {
+      await api.delete(`/targets/${id}`);
+    } catch (err) {
+      alert(formatError(err));
+    }
+  };
+
+  const fetchTargets = async (month, year) => {
+    try {
+      return await api.get(`/targets?month=${month}&year=${year}`);
+    } catch (err) {
+      console.error('Fetch targets error:', err);
+      return [];
+    }
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -479,6 +578,10 @@ export default function AppProvider({ children }) {
         notifications,
         tasks,
         attachments,
+        checkDuplicate,
+        sources,
+        addSource,
+        deleteSource,
         addLead,
         bulkAddLeads,
         updateLead,
@@ -512,13 +615,30 @@ export default function AppProvider({ children }) {
         deleteAttachment,
         teams,
         addTeam,
+        setTarget,
+        deleteTarget,
+        fetchTargets,
         login,
         loginWithToken,
         logout,
         loading,
         processing,
         formatError,
-        downloadUrl: (id) => `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1'}/attachments/${id}/download`,
+        downloadUrl: (id) => {
+          // Validate and sanitize the attachment ID to prevent SSRF
+          if (!id || typeof id !== 'string' && typeof id !== 'number') {
+            throw new Error('Invalid attachment ID');
+          }
+          
+          // Sanitize ID - only allow alphanumeric characters, hyphens, and underscores
+          const sanitizedId = String(id).replace(/[^a-zA-Z0-9\-_]/g, '');
+          if (!sanitizedId || sanitizedId !== String(id)) {
+            throw new Error('Invalid characters in attachment ID');
+          }
+          
+          const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
+          return `${baseUrl}/attachments/${sanitizedId}/download`;
+        },
       }}
     >
       {children}

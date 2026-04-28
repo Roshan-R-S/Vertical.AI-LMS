@@ -228,6 +228,10 @@ export const sendApprovalEmail = async (
   }
 };
 
+const sanitizeForLog = (input: string): string => {
+  return input.replace(/[\r\n\t]/g, ' ').substring(0, 200);
+};
+
 export const sendNotificationEmail = async (email: string, subject: string, message: string) => {
   // Logic to send a final "You are approved" or "You are denied" email
   try {
@@ -239,7 +243,7 @@ export const sendNotificationEmail = async (email: string, subject: string, mess
         text: message,
       });
     } else {
-      console.log(`[DEV MAIL LOG] To: ${email}, Subject: ${subject}, Msg: ${message}`);
+      console.log(`[DEV MAIL LOG] To: ${sanitizeForLog(email)}, Subject: ${sanitizeForLog(subject)}, Msg: ${sanitizeForLog(message)}`);
     }
   } catch (error) {
     console.error('Error sending notification email:', error);

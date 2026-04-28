@@ -1,10 +1,10 @@
-import { Request, Response } from 'express';
-import { prisma } from '../../prisma';
-import { formatUser, displayToRole } from '../../utils/roleDisplay';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
-import { asyncHandler } from '../../utils/async-handler';
+import { Request, Response } from 'express';
+import { prisma } from '../../prisma';
 import { sendWelcomeEmail } from '../../services/mailer';
+import { asyncHandler } from '../../utils/async-handler';
+import { displayToRole, formatUser } from '../../utils/roleDisplay';
 
 // GET /api/v1/users
 export const getUsers = asyncHandler(async (req: Request, res: Response) => {
@@ -91,7 +91,7 @@ export const updateUser = asyncHandler(async (req: Request, res: Response) => {
 
 // DELETE /api/v1/users/:id
 export const deleteUser = asyncHandler(async (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = req.params.id as string;
   const currentUserId = (req as any).user.id;
 
   if (id === currentUserId) {

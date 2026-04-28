@@ -2,34 +2,36 @@ import { useState, useEffect } from 'react';
 import { api } from '../utils/api';
 import { ChevronDown, ChevronRight, Activity, Users, Target, Phone } from 'lucide-react';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-
-const THREE_MONTH_DATA = [
-  { name: 'Feb', Target: 500000, Actual: 420000 },
-  { name: 'Mar', Target: 550000, Actual: 580000 },
-  { name: 'Apr', Target: 600000, Actual: 450000 },
-];
+import { formatCurrency } from '../utils/formatCurrency';
 
 export default function TeamPerformance() {
   const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [expandedTLs, setExpandedTLs] = useState({});
   const [expandedBDEs, setExpandedBDEs] = useState({});
-  const [monthFilter, setMonthFilter] = useState('April 2026');
+  const [monthFilter, setMonthFilter] = useState(() => {
+    const now = new Date();
+    return now.toLocaleString('default', { month: 'long', year: 'numeric' });
+  });
+
+  const monthOptions = Array.from({ length: 3 }, (_, i) => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - i);
+    return d.toLocaleString('default', { month: 'long', year: 'numeric' });
+  });
 
   useEffect(() => {
-    api.get('/analytics/team-performance')
-      .then(res => setData(res))
-      .catch(err => console.error(err))
-      .finally(() => setLoading(false));
-  }, []);
+    let active = true;
+    api.get(`/analytics/team-performance?month=${encodeURIComponent(monthFilter)}`)
+      .then(res => { if (active) setData(res); })
+      .catch(err => console.error(err));
+    return () => { active = false; };
+  }, [monthFilter]);
 
-  if (loading) return (
+  if (!data) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
       <div className="animate-pulse" style={{ color: 'var(--text-muted)' }}>Assembling performance metrics...</div>
     </div>
   );
-
-  if (!data) return <div>Failed to load performance data.</div>;
 
   const performance = data;
 
@@ -51,7 +53,7 @@ export default function TeamPerformance() {
         </div>
         <div style={{ display: 'flex', gap: 12 }}>
           <select className="form-select" value={monthFilter} onChange={(e) => setMonthFilter(e.target.value)}>
-            {['February 2026', 'March 2026', 'April 2026'].map(m => <option key={m}>{m}</option>)}
+            {monthOptions.map(m => <option key={m}>{m}</option>)}
           </select>
         </div>
       </div>
@@ -65,7 +67,7 @@ export default function TeamPerformance() {
 
           
           return (
-            <div key={team.tlId} className="studio-card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div key={team.tl.id} className="studio-card" style={{ padding: 0, overflow: 'hidden' }}>
               {/* TL Header Row */}
               <div
                 style={{ padding: '20px 24px', display: 'flex', alignItems: 'center', cursor: 'pointer', background: isExpanded ? 'var(--bg-surface)' : 'transparent', borderBottom: isExpanded ? '1px solid var(--border-default)' : 'none' }}
@@ -75,7 +77,7 @@ export default function TeamPerformance() {
                 <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 16 }}>
                   {isExpanded ? <ChevronDown size={20} color="var(--text-muted)" /> : <ChevronRight size={20} color="var(--text-muted)" />}
                   <div style={{ width: 40, height: 40, borderRadius: 8, background: 'var(--bg-card)', border: '1px solid var(--border-default)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: 13 }}>
-                    {team.tlAvatar}
+                    {team.tl.avatar}
                   </div>
                   <div>
                     <div style={{ fontSize: 16, fontWeight: 600 }}>{team.tl.name}</div>
@@ -87,8 +89,8 @@ export default function TeamPerformance() {
                   <div>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>ACTUAL VS TARGET</div>
                     <div style={{ fontSize: 15, fontWeight: 600 }}>
-                      <span style={{ color: pct >= 100 ? 'var(--color-success)' : 'var(--text-primary)' }}>₹{(teamRevenue/1000).toFixed(0)}K</span>{' '}
-                      <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>/ ₹{(teamTarget/1000).toFixed(0)}K</span>
+                      <span style={{ color: pct >= 100 ? 'var(--color-success)' : 'var(--text-primary)' }}>{formatCurrency(teamRevenue)}</span>{' '}
+                      <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>/ {formatCurrency(teamTarget)}</span>
                     </div>
                   </div>
                   <div style={{ width: 120 }}>
@@ -112,9 +114,9 @@ export default function TeamPerformance() {
                     <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 16 }}>3-Month Performance Trend (Team)</div>
                     <div style={{ height: 160, width: '100%' }}>
                       <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={THREE_MONTH_DATA}>
+                        <BarChart data={team.last3Months || []}>
                           <XAxis dataKey="name" stroke="var(--text-muted)" fontSize={12} tickLine={false} axisLine={false} />
-                          <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)', borderRadius: 8 }} />
+                          <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)', borderRadius: 8 }} formatter={(v) => formatCurrency(v)} />
                           <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
                           <Bar dataKey="Target" fill="var(--border-default)" radius={[4, 4, 0, 0]} />
                           <Bar dataKey="Actual" fill="var(--accent-blue)" radius={[4, 4, 0, 0]} />
@@ -149,7 +151,7 @@ export default function TeamPerformance() {
                             </div>
                             <div style={{ display: 'flex', gap: 24, paddingRight: 16 }}>
                               <div style={{ textAlign: 'right' }}>
-                                <div style={{ fontSize: 14, fontWeight: 600 }}>₹{(bde.revenue/1000).toFixed(0)}K</div>
+                                <div style={{ fontSize: 14, fontWeight: 600 }}>{formatCurrency(bde.revenue)}</div>
                                 <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>REVENUE</div>
                               </div>
                               <div style={{ width: 80, textAlign: 'right' }}>
@@ -176,9 +178,9 @@ export default function TeamPerformance() {
                                   </div>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
                                     <div style={{ flex: 1, height: 8, background: 'var(--border-default)', borderRadius: 4, overflow: 'hidden' }}>
-                                      <div style={{ height: '100%', width: `${(bde.workQueue.done / bde.workQueue.total) * 100}%`, background: 'linear-gradient(90deg, #6366f1, #8b5cf6)', borderRadius: 4 }} />
+                                      <div style={{ height: '100%', width: `${((bde.workQueue?.done || 0) / (bde.workQueue?.total || 1)) * 100}%`, background: 'linear-gradient(90deg, #6366f1, #8b5cf6)', borderRadius: 4 }} />
                                     </div>
-                                    <span style={{ fontSize: 13, fontWeight: 700 }}>{bde.workQueue.done}/{bde.workQueue.total}</span>
+                                    <span style={{ fontSize: 13, fontWeight: 700 }}>{bde.workQueue?.done ?? 0}/{bde.workQueue?.total ?? 0}</span>
                                   </div>
                                   <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Follow-ups &amp; Callbacks completed today</div>
                                 </div>
@@ -188,11 +190,11 @@ export default function TeamPerformance() {
                                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
                                       <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#ef4444' }} />
-                                      <span style={{ color: 'var(--text-secondary)' }}><b>{bde.alerts.overdueTasks}</b> Missed Callbacks</span>
+                                      <span style={{ color: 'var(--text-secondary)' }}><b>{bde.alerts?.overdueTasks ?? 0}</b> Missed Callbacks</span>
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
                                       <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#f59e0b' }} />
-                                      <span style={{ color: 'var(--text-secondary)' }}><b>{bde.alerts.staleLeads}</b> Stale Leads</span>
+                                      <span style={{ color: 'var(--text-secondary)' }}><b>{bde.alerts?.staleLeads ?? 0}</b> Stale Leads</span>
                                     </div>
                                   </div>
                                 </div>
@@ -234,14 +236,13 @@ export default function TeamPerformance() {
                                 </div>
                               </div>
 
-                              {/* BDE 3-Month Chart */}
                               <div style={{ padding: 20, background: 'var(--bg-surface)', borderRadius: 12, border: '1px solid var(--border-default)' }}>
                                 <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 16 }}>3-Month Performance Trend (BDE)</div>
                                 <div style={{ height: 160, width: '100%' }}>
                                   <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={THREE_MONTH_DATA.map(d => ({ ...d, Actual: d.Actual * (bde.revenue / 1000000) }))}>
+                                    <BarChart data={(team.last3Months || []).map(d => ({ ...d, Actual: bde.revenue > 0 ? Math.round(d.Actual / (team.teamRevenue || 1) * bde.revenue) : 0 }))}>
                                       <XAxis dataKey="name" stroke="var(--text-muted)" fontSize={12} tickLine={false} axisLine={false} />
-                                      <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)', borderRadius: 8 }} />
+                                      <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)', borderRadius: 8 }} formatter={(v) => formatCurrency(v)} />
                                       <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
                                       <Bar dataKey="Target" fill="var(--border-subtle)" radius={[4, 4, 0, 0]} />
                                       <Bar dataKey="Actual" fill="var(--color-success)" radius={[4, 4, 0, 0]} />

@@ -16,6 +16,7 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
   }
 
   if (!token) {
+    console.log(`❌ Auth failed for ${req.method} ${req.path}: No token provided`);
     return res.status(401).json({ error: 'Access denied. No token provided.' });
   }
 
@@ -24,17 +25,25 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
     
     // Fetch full user for RBAC scoping
     const user = await prisma.user.findUnique({
-      where: { id: decoded.userId }
+      where: { id: decoded.userId },
+      include: { team: true }
     });
 
-    if (!user || (!user.isActive && user.role !== 'SUPER_ADMIN')) {
-      return res.status(401).json({ error: 'User not found or account deactivated.' });
+    if (!user) {
+      console.log(`❌ Auth failed for ${req.method} ${req.path}: User not found (${decoded.userId})`);
+      return res.status(401).json({ error: 'User not found.' });
     }
 
+    if (!user.isActive && user.role !== 'SUPER_ADMIN') {
+      console.log(`❌ Auth failed for ${req.method} ${req.path}: User inactive (${user.email})`);
+      return res.status(401).json({ error: 'Account deactivated.' });
+    }
+
+    console.log(`✅ Auth success for ${req.method} ${req.path}: ${user.email} (${user.role})`);
     (req as any).user = user;
     next();
   } catch (error: any) {
-    // Auth error logged elsewhere or handled by error middleware
+    console.log(`❌ Auth failed for ${req.method} ${req.path}: ${error.message}`);
     res.status(401).json({ error: 'Invalid or expired token.' });
   }
 };

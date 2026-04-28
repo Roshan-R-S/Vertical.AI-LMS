@@ -21,5 +21,6 @@ export const config = {
   app: {
     baseUrl: process.env.APP_BASE_URL || 'http://localhost:5000',
     systemAdminEmail: process.env.SYSTEM_ADMIN_EMAIL || 'admin@vertical.ai',
+    frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
   },
 };

@@ -64,7 +64,7 @@ export default function Notifications() {
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 14, color: 'var(--text-primary)', marginBottom: 4, lineHeight: 1.4 }}>{notif.text}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-muted)' }}>
-                    <Clock size={12} /> {notif.time}
+                    <Clock size={12} /> {notif.createdAt ? new Date(notif.createdAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—'}
                   </div>
                 </div>
               </div>

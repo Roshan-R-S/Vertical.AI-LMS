@@ -125,6 +125,7 @@ model User {
   attachments    Attachment[]
   auditLogs      AuditLog[]
   notifications  Notification[]
+  targets        Target[]
 
   @@map("users")
 }
@@ -403,4 +404,36 @@ model SystemSetting {
   updatedAt DateTime @updatedAt
 
   @@map("system_settings")
+}
+
+// ─────────────────────────────────────────
+// LEAD SOURCES
+// ─────────────────────────────────────────
+
+model LeadSource {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@map("lead_sources")
+}
+
+// ─────────────────────────────────────────
+// TARGETS
+// ─────────────────────────────────────────
+
+model Target {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  month     Int
+  year      Int
+  amount    Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, month, year])
+  @@index([userId])
+  @@map("targets")
 }

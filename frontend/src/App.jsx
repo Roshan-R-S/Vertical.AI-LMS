@@ -22,6 +22,7 @@ import ResetPassword from './pages/ResetPassword';
 import Signup from './pages/Signup';
 import PartnerSignup from './pages/PartnerSignup';
 import Tasks from './pages/Tasks';
+import Targets from './pages/Targets';
 import WorkQueue from './pages/WorkQueue';
 import Pipeline from './pages/Pipeline';
 import Notifications from './pages/Notifications';
@@ -54,8 +55,8 @@ function AppShell() {
   );
 
   const isBDE = currentUser.role === 'BDE';
-  const isTL = currentUser.role === 'Team Lead';
-  const isCP = currentUser.role === 'Channel Partner';
+  const isTL = currentUser.role === 'TEAM_LEAD';
+  const isCP = currentUser.role === 'CHANNEL_PARTNER';
 
   // Channel Partner gets their own isolated layout
   if (isCP) {
@@ -118,6 +119,7 @@ function AppShell() {
             <Route path="/leaderboard" element={<Leaderboard />} />
             <Route path="/billing" element={<Billing />} />
             <Route path="/tasks" element={<Tasks />} />
+            <Route path="/targets" element={<Targets />} />
             <Route path="/partners" element={<ChannelPartners />} />
             <Route path="/settings" element={<Settings />} />
           </Routes>

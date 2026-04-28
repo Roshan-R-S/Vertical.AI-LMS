@@ -4,13 +4,15 @@ import { Users, Handshake, ArrowRight, Building, MapPin } from 'lucide-react';
 import Pagination from '../components/Pagination';
 
 
+import { formatCurrency } from '../utils/formatCurrency';
+
 export default function ChannelPartners() {
   const { leads, users, updateLead } = useApp();
   
   // Filter for Channel Partner leads that aren't closed yet
   const partnerLeads = leads.filter(l => l.source === 'Partner' && l.status !== 'won' && l.status !== 'lost');
   
-  const tls = users.filter(u => u.role === 'Team Lead');
+  const tls = users.filter(u => u.role === 'TEAM_LEAD');
   
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(5);
@@ -71,7 +73,7 @@ export default function ChannelPartners() {
                       <Building size={14} color="var(--brand-primary)" /> {lead.companyName}
                     </div>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
-                      Value: ₹{(lead.value/1000).toFixed(0)}K
+                      Value: {formatCurrency(lead.value)}
                     </div>
                   </td>
                   <td>
@@ -81,7 +83,7 @@ export default function ChannelPartners() {
                   <td>
                     <span className="badge badge-warning">{lead.milestone}</span>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
-                      Assigned to: {lead.assignedTo?.name || lead.assignedBDE || 'Unassigned'}
+                      Assigned to: {lead.assignedBDE || 'Unassigned'}
                     </div>
                   </td>
                   <td>

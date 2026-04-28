@@ -61,6 +61,7 @@ export default function Sidebar() {
                   <NavLink to="/team" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} style={{ padding: '8px 12px', fontSize: 12 }}>Team Performance</NavLink>
                   <NavLink to="/leaderboard" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} style={{ padding: '8px 12px', fontSize: 12 }}>Leaderboards</NavLink>
                   {isAdmin && <NavLink to="/users" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} style={{ padding: '8px 12px', fontSize: 12 }}>User Creation</NavLink>}
+                  {isAdmin && <NavLink to="/targets" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} style={{ padding: '8px 12px', fontSize: 12 }}>Monthly Targets</NavLink>}
                   {isAdmin && <NavLink to="/billing" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} style={{ padding: '8px 12px', fontSize: 12 }}>Billing</NavLink>}
                 </div>
               )}

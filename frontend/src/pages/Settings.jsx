@@ -143,14 +143,18 @@ function MilestoneRow({ milestone, dispositions, onAddDis, onEditDis, onToggleDi
 
 export default function Settings() {
   const { 
-    milestones, dispositions, addDisposition, updateDisposition, toggleDisposition, deleteDisposition, addMilestone,
-    settings, updateSettings
+    milestones, dispositions, addDisposition, updateDisposition, toggleDisposition, deleteDisposition,
+    addMilestone, updateMilestone, deleteMilestone,
+    settings, updateSettings,
+    sources, addSource, deleteSource
   } = useApp();
   const [showAddDis, setShowAddDis] = useState(false);
   const [editDis, setEditDis] = useState(null);
   const [selectedMilestone, setSelectedMilestone] = useState(null);
   const [activeTab, setActiveTab] = useState('dispositions');
   const [newMilestoneName, setNewMilestoneName] = useState('');
+  const [editingMilestone, setEditingMilestone] = useState(null);
+  const [newSourceName, setNewSourceName] = useState('');
 
   return (
     <div className="animate-fadeIn">
@@ -165,7 +169,7 @@ export default function Settings() {
       </div>
 
       <div className="tabs mb-6">
-        {['dispositions', 'milestones', 'workflow', 'system'].map(t => (
+        {['dispositions', 'milestones', 'sources', 'workflow', 'system'].map(t => (
           <button key={t} className={`tab ${activeTab === t ? 'active' : ''}`} onClick={() => setActiveTab(t)} style={{ textTransform: 'capitalize' }}>{t}</button>
         ))}
       </div>
@@ -254,15 +258,61 @@ export default function Settings() {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
             {milestones.map((m, i) => (
-              <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px', background: 'var(--bg-card)', border: `1px solid ${m.color}25`, borderRadius: 12, borderLeft: `4px solid ${m.color}` }}>
-                <GripVertical size={16} color="var(--text-muted)" style={{ cursor: 'grab' }} />
-                <div style={{ width: 28, height: 28, borderRadius: 8, background: `${m.color}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12, color: m.color }}>{i + 1}</div>
-                <span style={{ flex: 1, fontWeight: 700, fontSize: 14 }}>{m.name}</span>
-                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                  {dispositions.filter(d => d.milestoneId === m.id).length} dispositions
-                </span>
-                <div style={{ width: 14, height: 14, borderRadius: '50%', background: m.color }} />
-              </div>
+              editingMilestone?.id === m.id ? (
+                // Inline edit form
+                <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 18px', background: 'var(--bg-card)', border: `1px solid ${m.color}50`, borderRadius: 12 }}>
+                  <input
+                    className="form-input"
+                    value={editingMilestone.name}
+                    onChange={e => setEditingMilestone(p => ({ ...p, name: e.target.value }))}
+                    style={{ flex: 1, height: 36 }}
+                    autoFocus
+                  />
+                  <input
+                    type="color"
+                    value={editingMilestone.color}
+                    onChange={e => setEditingMilestone(p => ({ ...p, color: e.target.value }))}
+                    style={{ width: 36, height: 36, padding: 2, borderRadius: 6, border: '1px solid var(--border-subtle)', cursor: 'pointer', background: 'var(--bg-surface)' }}
+                  />
+                  <button className="btn btn-primary btn-sm" onClick={() => {
+                    if (editingMilestone.name.trim()) {
+                      updateMilestone(editingMilestone.id, { name: editingMilestone.name.trim(), color: editingMilestone.color });
+                      setEditingMilestone(null);
+                    }
+                  }}>
+                    <CheckCircle size={13} /> Save
+                  </button>
+                  <button className="btn btn-secondary btn-sm" onClick={() => setEditingMilestone(null)}>
+                    <X size={13} />
+                  </button>
+                </div>
+              ) : (
+                // Normal row
+                <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px', background: 'var(--bg-card)', border: `1px solid ${m.color}25`, borderRadius: 12, borderLeft: `4px solid ${m.color}` }}>
+                  <GripVertical size={16} color="var(--text-muted)" style={{ cursor: 'grab' }} />
+                  <div style={{ width: 28, height: 28, borderRadius: 8, background: `${m.color}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12, color: m.color }}>{i + 1}</div>
+                  <span style={{ flex: 1, fontWeight: 700, fontSize: 14 }}>{m.name}</span>
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                    {dispositions.filter(d => d.milestoneId === m.id).length} dispositions
+                  </span>
+                  <div style={{ width: 14, height: 14, borderRadius: '50%', background: m.color }} />
+                  <button
+                    className="btn btn-ghost btn-sm btn-icon"
+                    onClick={() => setEditingMilestone({ id: m.id, name: m.name, color: m.color })}
+                    title="Edit milestone"
+                  >
+                    <Edit2 size={13} />
+                  </button>
+                  <button
+                    className="btn btn-ghost btn-sm btn-icon"
+                    style={{ color: 'var(--brand-danger)' }}
+                    onClick={() => window.confirm(`Delete milestone "${m.name}"? This will fail if any leads are assigned to it.`) && deleteMilestone(m.id)}
+                    title="Delete milestone"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              )
             ))}
           </div>
 
@@ -270,6 +320,54 @@ export default function Settings() {
             <input className="form-input" placeholder="New milestone name..." value={newMilestoneName} onChange={e => setNewMilestoneName(e.target.value)} style={{ flex: 1 }} />
             <button className="btn btn-primary" onClick={() => { if (newMilestoneName.trim()) { addMilestone({ name: newMilestoneName, color: '#6366f1' }); setNewMilestoneName(''); } }}>
               <Plus size={15} /> Add Milestone
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ===== SOURCES ===== */}
+      {activeTab === 'sources' && (
+        <div style={{ maxWidth: 600 }}>
+          <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 6 }}>Lead Sources</div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 20 }}>Default sources cannot be deleted. Add custom sources for your team.</div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
+            {sources.map(source => (
+              <div key={source.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 10 }}>
+                <span style={{ flex: 1, fontSize: 14, fontWeight: 500 }}>{source.name}</span>
+                {source.isDefault ? (
+                  <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 10px', borderRadius: 20, background: 'rgba(99,102,241,0.1)', color: '#6366f1', border: '1px solid rgba(99,102,241,0.2)' }}>Default</span>
+                ) : (
+                  <button
+                    className="btn btn-ghost btn-sm btn-icon"
+                    style={{ color: 'var(--brand-danger)' }}
+                    onClick={() => window.confirm(`Delete source "${source.name}"?`) && deleteSource(source.id)}
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div style={{ display: 'flex', gap: 10 }}>
+            <input
+              className="form-input"
+              placeholder="New source name..."
+              value={newSourceName}
+              onChange={e => setNewSourceName(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && newSourceName.trim() && addSource(newSourceName.trim()).then(() => setNewSourceName('')).catch(() => {})}
+              style={{ flex: 1 }}
+            />
+            <button
+              className="btn btn-primary"
+              onClick={() => {
+                if (newSourceName.trim()) {
+                  addSource(newSourceName.trim()).then(() => setNewSourceName('')).catch(() => {});
+                }
+              }}
+            >
+              <Plus size={15} /> Add Source
             </button>
           </div>
         </div>

@@ -81,8 +81,10 @@ const PERIOD_OPTIONS = [
   { label: 'Custom', value: 'custom' },
 ];
 
+import { formatCurrency } from '../utils/formatCurrency';
+
 function formatLakhs(value) {
-  return `₹${((value || 0) / 100000).toFixed(1)} L`;
+  return formatCurrency(value || 0);
 }
 
 function formatNumber(value) {
@@ -184,13 +186,13 @@ export default function Dashboard() {
           setDashboardData(res);
         } else {
           setDashboardData(EMPTY_DASHBOARD);
-          setDashboardError('Dashboard analytics could not be loaded.');
+          setDashboardError('No data available. Please ensure you have seeded the database with initial data.');
         }
       } catch (err) {
         console.error('Dashboard fetch error:', err);
         if (isActive) {
           setDashboardData(EMPTY_DASHBOARD);
-          setDashboardError('An error occurred while fetching dashboard data.');
+          setDashboardError('Dashboard analytics could not be loaded. Please check if the backend is running and the database is properly seeded.');
         }
       } finally {
         if (isActive) setDashboardLoading(false);

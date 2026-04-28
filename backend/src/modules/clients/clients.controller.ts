@@ -3,6 +3,7 @@ import { prisma } from '../../prisma';
 import { ClientStatus } from '@prisma/client';
 import { getClientScopeFilter } from '../../utils/scoping';
 import { asyncHandler } from '../../utils/async-handler';
+import { notify } from '../../utils/notify';
 
 function formatClient(c: any) {
   return {
@@ -126,6 +127,17 @@ export const updateClient = asyncHandler(async (req: Request, res: Response) => 
     },
     include: { accountManager: true },
   });
+
+  // Notify when renewal_due status is set
+  if (status === 'renewal_due' && existing.status !== 'renewal_due' && client.accountManagerId) {
+    await notify(client.accountManagerId, `Client "${client.companyName}" renewal is due — take action now`, 'warning');
+  }
+
+  // Notify on account manager reassignment
+  if (accountManagerId && accountManagerId !== existing.accountManagerId) {
+    await notify(accountManagerId, `Client "${client.companyName}" has been assigned to you`, 'info');
+  }
+
   return res.json(formatClient(client));
 });
 

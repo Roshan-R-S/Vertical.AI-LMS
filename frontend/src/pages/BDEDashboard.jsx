@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContextCore';
+import { api } from '../utils/api';
+import { formatCurrency } from '../utils/formatCurrency';
 import { 
   Clock, PhoneCall, CheckCircle, Target, 
-  TrendingUp, AlertTriangle, ArrowRight, Zap,
+  AlertTriangle, ArrowRight, Zap,
   BarChart2, Users, Calendar, Filter
 } from 'lucide-react';
 import { 
@@ -36,7 +38,18 @@ export default function BDEDashboard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [pipelineFilter, setPipelineFilter] = useState('All');
+  const [monthlyTarget, setMonthlyTarget] = useState(null);
   
+  useEffect(() => {
+    const now = new Date();
+    api.get(`/targets?month=${now.getMonth() + 1}&year=${now.getFullYear()}`)
+      .then(data => {
+        const mine = data.find(t => t.userId === currentUser?.id);
+        if (mine) setMonthlyTarget(mine.amount);
+      })
+      .catch(() => {});
+  }, [currentUser?.id]);
+
   useEffect(() => {
     let period = 'today';
     if (dateRange === 'Today') period = 'today';
@@ -75,10 +88,9 @@ export default function BDEDashboard() {
   ];
 
   // 4. Personal Tracker
-  const monthlyTarget = 500000;
   const achievedSoFar = kpis.closedRevenue;
-  const remaining = Math.max(0, monthlyTarget - achievedSoFar);
-  const progressPercent = Math.min(100, (achievedSoFar / monthlyTarget) * 100);
+  const remaining = monthlyTarget ? Math.max(0, monthlyTarget - achievedSoFar) : null;
+  const progressPercent = monthlyTarget ? Math.min(100, (achievedSoFar / monthlyTarget) * 100) : 0;
 
   return (
     <div className="animate-fadeIn">
@@ -149,15 +161,19 @@ export default function BDEDashboard() {
           <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 24, color: 'rgba(255,255,255,0.7)' }}>Personal Target Tracker</h3>
           
           <div style={{ textAlign: 'center', marginBottom: 32 }}>
-            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', marginBottom: 8 }}>Monthly Target: ₹{(monthlyTarget/100000).toFixed(1)}L</div>
-            <div style={{ fontSize: 48, fontWeight: 300 }}>₹{(achievedSoFar/100000).toFixed(2)}L</div>
-            <div style={{ fontSize: 14, color: '#10b981', fontWeight: 600, marginTop: 4 }}>{progressPercent.toFixed(1)}% Achieved</div>
+            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', marginBottom: 8 }}>
+              {monthlyTarget ? `Monthly Target: ${formatCurrency(monthlyTarget)}` : 'No target set for this month'}
+            </div>
+            <div style={{ fontSize: 48, fontWeight: 300 }}>{formatCurrency(achievedSoFar)}</div>
+            <div style={{ fontSize: 14, color: '#10b981', fontWeight: 600, marginTop: 4 }}>
+              {monthlyTarget ? `${progressPercent.toFixed(1)}% Achieved` : 'Revenue so far'}
+            </div>
           </div>
 
           <div style={{ marginBottom: 24 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 8, color: 'rgba(255,255,255,0.8)' }}>
               <span>Progress toward goal</span>
-              <span>₹{(remaining/100000).toFixed(2)}L Left</span>
+              <span>{remaining !== null ? `${formatCurrency(remaining)} Left` : '—'}</span>
             </div>
             <div style={{ height: 12, background: 'rgba(255,255,255,0.1)', borderRadius: 6, overflow: 'hidden' }}>
               <div style={{ height: '100%', width: `${progressPercent}%`, background: 'linear-gradient(90deg, #10b981, #34d399)', borderRadius: 6 }}></div>
@@ -190,18 +206,26 @@ export default function BDEDashboard() {
               ))}
             </div>
           </div>
-          <div style={{ height: 220, width: '100%' }}>
+          <div style={{ height: Math.max(260, (funnelData.length || 5) * 36), width: '100%' }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart layout="vertical"
                 data={pipelineFilter === 'All' ? funnelData : funnelData.map(s => ({
                   ...s,
                   value: bdeLeads.filter(l => l.status === pipelineFilter && l.milestoneId === s.id).length
                 }))}
-                margin={{ top: 0, right: 30, left: 60, bottom: 0 }}>
+                margin={{ top: 4, right: 40, left: 0, bottom: 4 }}>
                 <XAxis type="number" hide />
-                <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} fontSize={11} tick={{ fill: 'var(--text-secondary)' }} />
+                <YAxis
+                  dataKey="name"
+                  type="category"
+                  axisLine={false}
+                  tickLine={false}
+                  fontSize={11}
+                  tick={{ fill: 'var(--text-secondary)' }}
+                  width={130}
+                />
                 <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 8, fontSize: 12 }} />
-                <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={16}>
+                <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={14} label={{ position: 'right', fontSize: 11, fill: 'var(--text-secondary)' }}>
                   {funnelData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.fill || '#6366f1'} />
                   ))}
@@ -211,7 +235,7 @@ export default function BDEDashboard() {
           </div>
           <div style={{ marginTop: 16, padding: 16, borderTop: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Weighted Value:</span>
-            <span style={{ fontSize: 18, fontWeight: 700, color: '#10b981' }}>₹{(kpis.weightedExpected / 100000).toFixed(2)} L</span>
+            <span style={{ fontSize: 18, fontWeight: 700, color: '#10b981' }}>{formatCurrency(kpis.weightedExpected)}</span>
           </div>
         </div>
 
