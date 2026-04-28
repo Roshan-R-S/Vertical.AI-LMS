@@ -74,7 +74,7 @@ export const createUser = asyncHandler(async (req: Request, res: Response) => {
 // PATCH /api/v1/users/:id
 export const updateUser = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { name, email, phone, teamId, role } = req.body;
+  const { name, email, phone, teamId, role, monthlyTarget } = req.body;
   const user = await prisma.user.update({
     where: { id: id as string },
     data: {
@@ -83,6 +83,7 @@ export const updateUser = asyncHandler(async (req: Request, res: Response) => {
       ...(phone && { phone }),
       ...(teamId !== undefined && { teamId }),
       ...(role && { role: displayToRole(role) }),
+      ...(monthlyTarget !== undefined && { monthlyTarget: Number(monthlyTarget) }),
     },
     include: { team: true },
   });

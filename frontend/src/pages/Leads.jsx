@@ -57,6 +57,7 @@ export default function Leads() {
     updateLead,
     deleteLead,
     addInteraction,
+    convertLead,
     currentUser,
   } = useApp();
 
@@ -100,6 +101,20 @@ export default function Leads() {
     const milestone = milestones.find((m) => m.id === newMilestoneId);
 
     if (lead && lead.milestoneId !== newMilestoneId) {
+      const isDealClosed = milestone.name === "Deal Closed";
+      
+      if (isDealClosed) {
+        if (window.confirm(`Move "${lead.companyName}" to Deal Closed and convert to Client?`)) {
+          try {
+            await updateLead(leadId, { milestoneId: newMilestoneId });
+            await convertLead(leadId);
+          } catch {
+            // Error alert handled by context
+          }
+          return;
+        }
+      }
+
       if (
         window.confirm(
           `Move "${lead.companyName}" to stage: ${milestone.name}?`,
@@ -396,9 +411,9 @@ export default function Leads() {
           <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
             <div className="p-4">
               <div className="kanban-board thin-scrollbar">
-                {milestones
-                  .filter((m) => !["Deal Closed", "Not Interested"].includes(m.name))
-                  .map((m) => {
+                  {milestones
+                    .filter((m) => m.name !== "Not Interested")
+                    .map((m) => {
                     const stageLeads = filtered.filter((l) => l.milestoneId === m.id);
                     return (
                       <KanbanColumnWrapper

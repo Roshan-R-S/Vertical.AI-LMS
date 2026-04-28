@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContextCore';
 import { api } from '../../utils/api';
-import { Plus, Search, DollarSign, TrendingUp, Clock, AlertCircle, Target, Calendar } from 'lucide-react';
+import { Plus, Search, IndianRupee, TrendingUp, Clock, AlertCircle, Target, Calendar } from 'lucide-react';
 import LeadModal from '../leads/LeadModal';
 
 export default function CPPipeline() {
@@ -48,7 +48,7 @@ export default function CPPipeline() {
 
       <div className="form-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 32 }}>
         {[
-          { label: 'Total Pipeline', value: `₹${(totalValue / 100000).toFixed(2)}L`, sub: `${pipelineLeads.length} active deals`, icon: DollarSign, color: '#6366f1' },
+          { label: 'Total Pipeline', value: `₹${(totalValue / 100000).toFixed(2)}L`, sub: `${pipelineLeads.length} active deals`, icon: IndianRupee, color: '#6366f1' },
           { label: 'Weighted Value', value: `₹${(weightedValue / 100000).toFixed(2)}L`, sub: 'Probability adjusted', icon: TrendingUp, color: '#10b981' },
           { label: 'Avg. Cycle', value: `${analytics?.cycleData?.[0]?.days || '—'} Days`, sub: 'Live tracking', icon: Clock, color: '#06b6d4' },
           { label: 'At Risk', value: `${analytics?.kpis?.staleLeads || 0}`, sub: 'No activity', icon: AlertCircle, color: '#ef4444' },

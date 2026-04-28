@@ -25,7 +25,7 @@ const PERMISSIONS = {
 function UserModal({ user, onClose, onSave, allUsers }) {
   const { teams, addTeam } = useApp();
   const [form, setForm] = useState(user || {
-    name: '', email: '', phone: '', role: 'BDE', teamId: '', status: 'active'
+    name: '', email: '', phone: '', role: 'BDE', teamId: '', status: 'active', monthlyTarget: 500000
   });
   const [newTeamName, setNewTeamName] = useState('');
   const [showNewTeam, setShowNewTeam] = useState(false);
@@ -39,7 +39,10 @@ function UserModal({ user, onClose, onSave, allUsers }) {
       setForm(p => ({ ...p, teamId: team.id }));
       setNewTeamName('');
       setShowNewTeam(false);
-    } catch {}
+    } catch (err) {
+      // Error is handled by addTeam in AppContext (shows alert)
+      console.error('Failed to create team:', err);
+    }
     finally { setCreatingTeam(false); }
   };
 
@@ -126,6 +129,18 @@ function UserModal({ user, onClose, onSave, allUsers }) {
             </div>
           )}
 
+          {form.role === 'BDE' && (
+            <div className="form-group">
+              <label className="form-label">Monthly Target (₹)</label>
+              <input
+                className="form-input"
+                type="number"
+                value={form.monthlyTarget ?? 500000}
+                onChange={e => setForm(p => ({ ...p, monthlyTarget: Number(e.target.value) }))}
+              />
+            </div>
+          )}
+
           {!user && (
             <div style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 8, padding: '12px 14px', fontSize: 12, color: 'var(--text-secondary)' }}>
               A welcome email with a <strong>Set Password</strong> link will be sent to this user. The link expires in <strong>5 minutes</strong>.
@@ -142,7 +157,8 @@ function UserModal({ user, onClose, onSave, allUsers }) {
               phone: form.phone,
               role: form.role,
               teamId: form.teamId,
-              avatar: form.name.split(' ').map(n => n[0]).join('').toUpperCase()
+              avatar: form.name.split(' ').map(n => n[0]).join('').toUpperCase(),
+              ...(form.role === 'BDE' && { monthlyTarget: form.monthlyTarget ?? 500000 }),
             };
             onSave(payload);
             onClose();
@@ -218,7 +234,15 @@ export default function UserCreation() {
 
   const filtered = users.filter(u => {
     const matchSearch = !search || u.name.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase());
-    const matchRole = filterRole === 'All' || u.role === filterRole;
+    
+    // Robust role matching for both display strings and enum values
+    const matchRole = filterRole === 'All' || 
+      u.role === filterRole || 
+      (filterRole === 'Super Admin' && u.role === 'SUPER_ADMIN') ||
+      (filterRole === 'Team Lead' && u.role === 'TEAM_LEAD') ||
+      (filterRole === 'BDE' && u.role === 'BDE') ||
+      (filterRole === 'Channel Partner' && u.role === 'CHANNEL_PARTNER');
+      
     return matchSearch && matchRole;
   });
 
@@ -240,7 +264,13 @@ export default function UserCreation() {
       {/* Role stats */}
       <div className="form-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', marginBottom: 24 }}>
         {Object.entries(ROLE_CONFIG).map(([role, cfg]) => {
-          const count = users.filter(u => u.role === role).length;
+          const count = users.filter(u => 
+            u.role === role || 
+            (role === 'Super Admin' && u.role === 'SUPER_ADMIN') ||
+            (role === 'Team Lead' && u.role === 'TEAM_LEAD') ||
+            (role === 'BDE' && u.role === 'BDE') ||
+            (role === 'Channel Partner' && u.role === 'CHANNEL_PARTNER')
+          ).length;
           const Icon = cfg.icon;
           return (
             <div key={role} className="studio-card" onClick={() => setFilterRole(filterRole === role ? 'All' : role)} style={{ cursor: 'pointer', border: filterRole === role ? `1px solid ${cfg.color}` : undefined }}>

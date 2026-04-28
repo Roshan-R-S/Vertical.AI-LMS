@@ -22,6 +22,7 @@ export default function AppProvider({ children }) {
   const [attachments, setAttachments] = useState([]);
   const [settings, setSettings] = useState({});
   const [teams, setTeams] = useState([]);
+  const [targets, setTargets] = useState([]);
 
   const toggleTheme = () =>
     setTheme((prev) => (prev === "light" ? "dark" : "light"));
@@ -42,7 +43,7 @@ export default function AppProvider({ children }) {
       }
     };
 
-    const [l, c, u, m, d, t, i, n, s, a, int, tm] = await Promise.all([
+    const [l, c, u, m, d, t, i, n, s, a, int, tm, tg] = await Promise.all([
       fetchSafe("/leads"),
       fetchSafe("/clients"),
       fetchSafe("/users"),
@@ -55,6 +56,7 @@ export default function AppProvider({ children }) {
       fetchSafe("/attachments"),
       fetchSafe("/interactions"),
       fetchSafe("/teams"),
+      fetchSafe("/targets"),
     ]);
 
     setLeads(l);
@@ -69,6 +71,7 @@ export default function AppProvider({ children }) {
     setAttachments(a);
     setInteractions(int);
     setTeams(tm);
+    setTargets(tg);
     setLoading(false);
   };
 
@@ -119,6 +122,7 @@ export default function AppProvider({ children }) {
     try {
       const res = await api.post("/leads", {
         ...lead,
+        value: lead.value !== '' ? Number(lead.value) : 0,
         assignedToId: lead.assignedToId || currentUser.id,
         milestoneId: lead.milestoneId || milestones[0]?.id,
         dispositionId: lead.dispositionId || dispositions[0]?.id,
@@ -143,7 +147,10 @@ export default function AppProvider({ children }) {
 
   const updateLead = async (id, updates) => {
     try {
-      const res = await api.patch(`/leads/${id}`, updates);
+      const res = await api.patch(`/leads/${id}`, {
+        ...updates,
+        ...(updates.value !== undefined && { value: Number(updates.value) }),
+      });
       setLeads((prev) => prev.map((l) => (l.id === id ? res : l)));
     } catch (err) {
       alert(formatError(err));
@@ -463,6 +470,25 @@ export default function AppProvider({ children }) {
     }
   };
 
+  const setTarget = async (userId, month, year, amount) => {
+    try {
+      const res = await api.post("/targets", { userId, month, year, amount });
+      setTargets((prev) => {
+        const exists = prev.findIndex(t => t.userId === userId && t.month === month && t.year === year);
+        if (exists >= 0) {
+          const updated = [...prev];
+          updated[exists] = res;
+          return updated;
+        }
+        return [res, ...prev];
+      });
+      return res;
+    } catch (err) {
+      alert(formatError(err));
+      throw err;
+    }
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -512,6 +538,8 @@ export default function AppProvider({ children }) {
         deleteAttachment,
         teams,
         addTeam,
+        targets,
+        setTarget,
         login,
         loginWithToken,
         logout,

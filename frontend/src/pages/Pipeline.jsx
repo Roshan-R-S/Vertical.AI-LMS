@@ -3,7 +3,7 @@ import { useApp } from '../context/AppContextCore';
 import { api } from '../utils/api';
 import { 
   Filter, Plus, Search, MoreHorizontal, 
-  DollarSign, TrendingUp, Calendar, ArrowRight,
+  IndianRupee, TrendingUp, Calendar, ArrowRight,
   Target, Clock, AlertCircle
 } from 'lucide-react';
 import LeadModal from './leads/LeadModal';
@@ -111,7 +111,7 @@ export default function Pipeline() {
       <div className="form-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 32 }}>
         <div className="studio-card" style={{ padding: 20 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, color: 'var(--text-secondary)' }}>
-            <DollarSign size={16} /> <span style={{ fontSize: 12, fontWeight: 600 }}>Total Pipeline</span>
+            <IndianRupee size={16} /> <span style={{ fontSize: 12, fontWeight: 600 }}>Total Pipeline</span>
           </div>
           <div style={{ fontSize: 24, fontWeight: 700 }}>₹{(totalValue/100000).toFixed(2)}L</div>
           <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>{pipelineLeads.length} Active deals</div>

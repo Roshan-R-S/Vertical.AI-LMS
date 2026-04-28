@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   Plus, Search, Download, Eye, Filter, CheckCircle, X,
-  AlertCircle, Clock, TrendingUp, DollarSign, FileText,
+  AlertCircle, Clock, TrendingUp, IndianRupee, FileText,
   CreditCard, Zap
 } from 'lucide-react';
 import { useApp } from '../context/AppContextCore';

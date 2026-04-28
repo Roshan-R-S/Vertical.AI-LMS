@@ -1,5 +1,5 @@
 import { Bell, ChevronDown, ChevronRight, Clock, LayoutDashboard, LogOut, Moon, Rocket,
-        Settings, Sun, UserCheck, Users as UsersIcon } from 'lucide-react';
+        Settings, Sun, UserCheck, Users as UsersIcon, Target } from 'lucide-react';
 import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useApp } from '../../context/AppContextCore';
@@ -60,6 +60,7 @@ export default function Sidebar() {
                 <div style={{ marginLeft: 24, paddingLeft: 8, borderLeft: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: 2 }}>
                   <NavLink to="/team" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} style={{ padding: '8px 12px', fontSize: 12 }}>Team Performance</NavLink>
                   <NavLink to="/leaderboard" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} style={{ padding: '8px 12px', fontSize: 12 }}>Leaderboards</NavLink>
+                  {(isAdmin || isTL) && <NavLink to="/targets" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} style={{ padding: '8px 12px', fontSize: 12 }}>Targets</NavLink>}
                   {isAdmin && <NavLink to="/users" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} style={{ padding: '8px 12px', fontSize: 12 }}>User Creation</NavLink>}
                   {isAdmin && <NavLink to="/billing" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} style={{ padding: '8px 12px', fontSize: 12 }}>Billing</NavLink>}
                 </div>

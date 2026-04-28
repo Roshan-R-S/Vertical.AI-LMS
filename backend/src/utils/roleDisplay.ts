@@ -35,5 +35,6 @@ export function formatUser(u: any) {
     isPending:   u.isPending ?? false,
     lastLogin:   u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString('en-IN') : '—',
     createdAt:   u.createdAt?.toISOString().split('T')[0],
+    monthlyTarget: u.monthlyTarget ?? 500000,
   };
 }

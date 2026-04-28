@@ -26,6 +26,7 @@ import WorkQueue from './pages/WorkQueue';
 import Pipeline from './pages/Pipeline';
 import Notifications from './pages/Notifications';
 import ChannelPartners from './pages/ChannelPartners';
+import Targets from './pages/Targets';
 import GlobalSearch from './components/GlobalSearch';
 import CPDashboard from './pages/cp/CPDashboard';
 import CPLeads from './pages/cp/CPLeads';
@@ -119,6 +120,7 @@ function AppShell() {
             <Route path="/billing" element={<Billing />} />
             <Route path="/tasks" element={<Tasks />} />
             <Route path="/partners" element={<ChannelPartners />} />
+            <Route path="/targets" element={<Targets />} />
             <Route path="/settings" element={<Settings />} />
           </Routes>
         </main>

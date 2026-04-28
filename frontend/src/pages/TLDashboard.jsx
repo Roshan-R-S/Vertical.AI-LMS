@@ -6,7 +6,7 @@ import {
     Briefcase,
     Calendar, CheckCircle,
     Clock,
-    DollarSign,
+    IndianRupee,
     Filter,
     Phone,
     PhoneCall,
@@ -64,8 +64,10 @@ export default function TLDashboard() {
   const pendingToday = teamTasks.filter(t => t.dueDate === today && t.status !== 'completed').length;
 
   // Live pipeline health stats from leads context
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-  const oneWeekFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const [now] = useState(() => Date.now());
+  const sevenDaysAgo = new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const oneWeekFromNow = new Date(now + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  
   const teamLeads = leads.filter(l => teamBDEIds.includes(l.assignedToId) && l.status === 'active');
   const stuckDeals = teamLeads.filter(l => l.updatedAt && new Date(l.updatedAt).toISOString() < sevenDaysAgo).length;
   const closingThisWeek = teamLeads.filter(l => l.expectedClose && l.expectedClose <= oneWeekFromNow && l.expectedClose >= today);
@@ -225,7 +227,7 @@ export default function TLDashboard() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <div style={{ padding: 16, background: 'var(--bg-surface)', borderRadius: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>
-                <DollarSign size={12} color="#f59e0b" /> TOTAL PIPELINE
+                <IndianRupee size={12} color="#f59e0b" /> TOTAL PIPELINE
               </div>
               <div style={{ fontSize: 24, fontWeight: 600, color: '#f59e0b' }}>₹{(kpis.totalPipelineValue / 100000).toFixed(1)} L</div>
             </div>

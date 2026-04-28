@@ -1,7 +1,7 @@
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
 
 async function request(path, options = {}) {
-  const token = localStorage.getItem('lms_token');
+  const token = sessionStorage.getItem('lms_token');
   const headers = {
     'Content-Type': 'application/json',
     ...(token && { 'Authorization': `Bearer ${token}` }),
@@ -26,7 +26,7 @@ async function request(path, options = {}) {
 // Separate function for multipart/form-data uploads.
 // Does NOT set Content-Type — browser sets it automatically with the correct boundary.
 async function upload(path, formData) {
-  const token = localStorage.getItem('lms_token');
+  const token = sessionStorage.getItem('lms_token');
   const headers = {
     ...(token && { 'Authorization': `Bearer ${token}` }),
   };

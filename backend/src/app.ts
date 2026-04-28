@@ -21,6 +21,7 @@ import auditLogsRouter  from './modules/audit-logs/audit-logs.router';
 import notificationsRouter from './modules/notifications/notifications.router';
 import settingsRouter from './modules/settings/settings.router';
 import interactionsRouter from './modules/leads/interactions.router';
+import targetsRouter from './modules/targets/targets.router';
 
 
 const app = express();
@@ -28,6 +29,7 @@ const app = express();
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:5174',
+  'http://localhost:5175',
   process.env.FRONTEND_URL,
 ].filter(Boolean) as string[];
 
@@ -73,6 +75,7 @@ app.use('/api/v1',               attachmentsRouter);
 app.use('/api/v1/audit-logs',    auditLogsRouter);
 app.use('/api/v1/notifications', notificationsRouter);
 app.use('/api/v1/settings',      settingsRouter);
+app.use('/api/v1/targets',       targetsRouter);
 
 
 // 404 handler

@@ -116,6 +116,8 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
+  monthlyTarget             Float     @default(500000)
+
   assignedLeads  Lead[]        @relation("AssignedLeads")
   createdLeads   Lead[]        @relation("CreatedLeads")
   managedClients Client[]      @relation("AccountManager")
@@ -125,6 +127,8 @@ model User {
   attachments    Attachment[]
   auditLogs      AuditLog[]
   notifications  Notification[]
+  targets        Target[]
+  targetsSet     Target[]      @relation("TargetSetBy")
 
   @@map("users")
 }
@@ -390,6 +394,27 @@ model Notification {
 
   @@index([userId])
   @@map("notifications")
+}
+
+// ─────────────────────────────────────────
+// TARGETS
+// ─────────────────────────────────────────
+
+model Target {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  month     Int
+  year      Int
+  amount    Float
+  setById   String?
+  setBy     User?    @relation("TargetSetBy", fields: [setById], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, month, year])
+  @@index([userId])
+  @@map("targets")
 }
 
 // ─────────────────────────────────────────

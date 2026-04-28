@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../context/AppContextCore';
 import {
   TrendingUp, Activity, Users, Target, Clock, AlertTriangle,
-  Zap, PieChart as PieChartIcon, DollarSign, BarChart2,
+  Zap, PieChart as PieChartIcon, IndianRupee, BarChart2,
   PhoneCall, Filter, Calendar, ArrowUp, ArrowDown
 } from 'lucide-react';
 import {
@@ -118,6 +118,9 @@ function MetricCard({ title, value, sub, icon: Icon, color, trend, loading }) {
 
 export default function Dashboard() {
   const { leads, users, currentUser, fetchDashboard } = useApp();
+  const isAdmin = currentUser?.role === 'Super Admin';
+  const isTL = currentUser?.role === 'Team Lead';
+  const isBDE = currentUser?.role === 'BDE';
   const [dateRange, setDateRange] = useState('this-month');
   const [customDates, setCustomDates] = useState({ start: '', end: '' });
   const [filterTeam, setFilterTeam] = useState('All');
@@ -134,10 +137,6 @@ export default function Dashboard() {
     conversionActivity = EMPTY_DASHBOARD.conversionActivity, 
     teamExecution = EMPTY_DASHBOARD.teamExecution 
   } = data;
-
-  const isAdmin = currentUser?.role === 'Super Admin' || currentUser?.role === 'SUPER_ADMIN';
-  const isTL = currentUser?.role === 'Team Lead' || currentUser?.role === 'TEAM_LEAD';
-  const isBDE = currentUser?.role === 'BDE';
 
   const teamOptions = useMemo(() => {
     const teams = new Map();
@@ -314,10 +313,10 @@ export default function Dashboard() {
         </div>
       )}
 
-      <div style={{ marginBottom: 24 }}>
+<div style={{ marginBottom: 24 }}>
         <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 16, borderLeft: '3px solid #6366f1', paddingLeft: 12 }}>Revenue & Pipeline</h3>
         <div className="form-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
-          <MetricCard title="Total Revenue" value={formatLakhs(kpis.totalRevenue)} sub="Won deals value" icon={DollarSign} color="#10b981" trend={trends.totalRevenuePct} loading={dashboardLoading} />
+          <MetricCard title="Total Revenue" value={formatLakhs(kpis.totalRevenue)} sub="Won deals value" icon={IndianRupee} color="#10b981" trend={trends.totalRevenuePct} loading={dashboardLoading} />
           <MetricCard title="Closed Revenue" value={formatLakhs(kpis.closedRevenue)} sub={`${kpis.wonDeals} deals won`} icon={Target} color="#10b981" trend={trends.closedRevenuePct} loading={dashboardLoading} />
           <MetricCard title="Total Pipeline" value={formatLakhs(kpis.totalPipelineValue)} sub="Active deals" icon={BarChart2} color="#6366f1" trend={trends.pipelinePct} loading={dashboardLoading} />
           <MetricCard title="Weighted Expected" value={formatLakhs(kpis.weightedExpected)} sub="Probability adjusted" icon={Activity} color="#8b5cf6" trend={trends.weightedExpectedPct} loading={dashboardLoading} />

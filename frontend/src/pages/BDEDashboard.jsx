@@ -75,7 +75,7 @@ export default function BDEDashboard() {
   ];
 
   // 4. Personal Tracker
-  const monthlyTarget = 500000;
+  const monthlyTarget = currentUser.monthlyTarget || 500000;
   const achievedSoFar = kpis.closedRevenue;
   const remaining = Math.max(0, monthlyTarget - achievedSoFar);
   const progressPercent = Math.min(100, (achievedSoFar / monthlyTarget) * 100);
