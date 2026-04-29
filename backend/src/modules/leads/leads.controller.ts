@@ -36,6 +36,8 @@ function formatLead(lead: any) {
     notes: lead.notes,
     assignedBDE: lead.assignedTo?.name ?? null,
     assignedBDEId: lead.assignedToId,
+    assignedToId: lead.assignedToId,
+    createdById: lead.createdById,
     assignedBDEAvatar: lead.assignedTo?.avatar ?? null,
     assignedTL: lead.assignedTo?.team ? `${lead.assignedTo.team.name}` : null,
     teamName: lead.assignedTo?.team?.name ?? null,
