@@ -17,6 +17,7 @@ export const getNotifications = asyncHandler(async (req: Request, res: Response)
     text: n.text,
     type: n.type,
     isRead: n.isRead,
+    link: n.link ?? null,
     time: formatTimeAgo(n.createdAt)
   })));
 });

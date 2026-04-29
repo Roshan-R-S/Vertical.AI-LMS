@@ -1,7 +1,6 @@
 import {
   CheckCircle,
   Clock,
-  Filter,
   Mail,
   MessageSquare,
   MoreHorizontal,
@@ -46,13 +45,13 @@ export default function WorkQueue() {
   };
 
   const todayFollowUps = bdeTasks.filter(
-    (t) => t.dueDate?.startsWith(today) && t.status !== "completed" && matchesSearch(t)
+    (t) => t.dueDate?.startsWith(today) && t.status === 'pending' && matchesSearch(t)
   );
   const overdueFollowUps = bdeTasks.filter(
-    (t) => t.dueDate && t.dueDate.slice(0, 10) < today && t.status !== "completed" && matchesSearch(t)
+    (t) => t.status === 'overdue' && matchesSearch(t)
   );
   const upcomingFollowUps = bdeTasks.filter(
-    (t) => t.dueDate && t.dueDate.slice(0, 10) > today && t.status !== "completed" && matchesSearch(t)
+    (t) => t.dueDate && t.dueDate.slice(0, 10) > today && t.status === 'pending' && matchesSearch(t)
   );
   const callbackQueue = bdeLeads.filter(
     (l) => l.disposition === "Callback Requested" && matchesSearch(l)
@@ -247,9 +246,6 @@ export default function WorkQueue() {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <button className="btn btn-secondary">
-            <Filter size={16} /> Filter
-          </button>
         </div>
       </div>
 

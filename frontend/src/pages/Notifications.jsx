@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContextCore';
-import { Bell, Info, AlertTriangle, CheckCircle, Clock, ArrowLeft } from 'lucide-react';
+import { Bell, Info, AlertTriangle, CheckCircle, Clock, ArrowLeft, ArrowRight } from 'lucide-react';
 
 export default function Notifications() {
   const { notifications, markNotificationRead, markAllNotificationsRead } = useApp();
@@ -42,7 +42,10 @@ export default function Notifications() {
             notifications.map(notif => (
               <div 
                 key={notif.id} 
-                onClick={() => !notif.isRead && markNotificationRead(notif.id)}
+                onClick={() => {
+                  if (!notif.isRead) markNotificationRead(notif.id);
+                  if (notif.link) navigate(notif.link);
+                }}
                 style={{ 
                   padding: '20px 24px', 
                   borderBottom: '1px solid var(--border-subtle)', 
@@ -50,7 +53,7 @@ export default function Notifications() {
                   gap: 16, 
                   alignItems: 'flex-start', 
                   transition: 'background 0.2s', 
-                  cursor: notif.isRead ? 'default' : 'pointer',
+                  cursor: notif.link ? 'pointer' : (notif.isRead ? 'default' : 'pointer'),
                   background: notif.isRead ? 'transparent' : 'rgba(99, 102, 241, 0.03)' 
                 }} 
                 className="hover-bg"
@@ -65,6 +68,7 @@ export default function Notifications() {
                   <div style={{ fontSize: 14, color: 'var(--text-primary)', marginBottom: 4, lineHeight: 1.4 }}>{notif.text}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-muted)' }}>
                     <Clock size={12} /> {notif.time}
+                    {notif.link && <span style={{ color: 'var(--brand-primary-light)', display: 'flex', alignItems: 'center', gap: 4 }}>· Tap to view <ArrowRight size={11} /></span>}
                   </div>
                 </div>
               </div>

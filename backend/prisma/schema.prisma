@@ -394,6 +394,7 @@ model Notification {
   text      String
   type      NotificationType @default(info)
   isRead    Boolean          @default(false)
+  link      String?
   createdAt DateTime         @default(now())
 
   @@index([userId])

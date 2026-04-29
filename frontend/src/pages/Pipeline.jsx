@@ -10,7 +10,7 @@ import LeadModal from './leads/LeadModal';
 
 export default function Pipeline() {
   const { currentUser, leads, milestones, dispositions, users, addLead } = useApp();
-  const [filterBDE, setFilterBDE] = useState(currentUser?.role === 'BDE' ? currentUser.name : 'All');
+  const [filterBDE, setFilterBDE] = useState('All');
   const [search, setSearch] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
 
@@ -30,7 +30,7 @@ export default function Pipeline() {
   if (currentUser?.role === 'BDE') {
     pipelineLeads = pipelineLeads.filter(l => l.assignedBDEId === currentUser.id || l.assignedToId === currentUser.id);
   } else if (filterBDE !== 'All') {
-    pipelineLeads = pipelineLeads.filter(l => l.assignedBDE === filterBDE);
+    pipelineLeads = pipelineLeads.filter(l => l.assignedBDEId === filterBDE || l.assignedToId === filterBDE);
   }
 
   const totalValue = pipelineLeads.reduce((sum, l) => sum + (l.value || 0), 0);
@@ -98,7 +98,7 @@ export default function Pipeline() {
             <select className="form-select" style={{ width: 150 }} value={filterBDE} onChange={e => setFilterBDE(e.target.value)}>
               <option value="All">All BDEs</option>
               {users.filter(u => u.role === 'BDE').map(u => (
-                <option key={u.id} value={u.name}>{u.name}</option>
+                <option key={u.id} value={u.id}>{u.name}</option>
               ))}
             </select>
           )}
@@ -149,7 +149,7 @@ export default function Pipeline() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, padding: '0 4px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <div style={{ width: 10, height: 10, borderRadius: '50%', background: getStageColor(stage) }}></div>
-                  <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>{stage.split(' ')[0]}</h3>
+                  <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>{stage}</h3>
                   <span style={{ fontSize: 11, background: 'var(--bg-card)', padding: '2px 8px', borderRadius: 10, border: '1px solid var(--border-subtle)' }}>{stageLeads.length}</span>
                 </div>
                 <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>{formatCurrency(stageVal)}</div>

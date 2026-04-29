@@ -159,9 +159,9 @@ export default function Leaderboard() {
                 <td>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <div style={{ flex: 1, height: 6, background: 'var(--border-default)', borderRadius: 3, overflow: 'hidden' }}>
-                       <div style={{ height: '100%', width: `${Math.min(100, (bde.revenue / 500000) * 100)}%`, background: i === 0 ? '#fdd663' : 'var(--accent-blue)' }}></div>
+                       <div style={{ height: '100%', width: `${Math.min(100, (bde.revenue / (bde.target || 500000)) * 100)}%`, background: i === 0 ? '#fdd663' : 'var(--accent-blue)' }}></div>
                     </div>
-                    <span style={{ fontSize: 11 }}>{Math.round((bde.revenue / 500000) * 100)}%</span>
+                    <span style={{ fontSize: 11 }}>{Math.round((bde.revenue / (bde.target || 500000)) * 100)}%</span>
                   </div>
                 </td>
                 <td>{bde.deals}</td>

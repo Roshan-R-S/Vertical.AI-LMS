@@ -344,6 +344,7 @@ export const updateLead = asyncHandler(async (req: Request, res: Response) => {
           userId,
           text: notifText,
           type: notifType as any,
+          link: '/leads',
         })),
       });
     }
@@ -368,6 +369,7 @@ export const updateLead = asyncHandler(async (req: Request, res: Response) => {
           userId: lead.assignedToId,
           text: `📋 Follow-up task created for "${lead.companyName}" — reschedule demo by ${followUpDateFrom.toDateString()}`,
           type: 'warning',
+          link: '/work-queue',
         },
       });
     }

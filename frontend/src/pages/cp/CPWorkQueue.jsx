@@ -14,9 +14,9 @@ export default function CPWorkQueue() {
   const myLeads = leads.filter(l => l.assignedBDEId === currentUser.id || l.assignedToId === currentUser.id);
   const today = new Date().toISOString().split('T')[0];
 
-  const todayFollowUps = myTasks.filter(t => t.dueDate?.startsWith(today) && t.status !== 'completed');
-  const overdueFollowUps = myTasks.filter(t => t.dueDate && t.dueDate.slice(0, 10) < today && t.status !== 'completed');
-  const upcomingFollowUps = myTasks.filter(t => t.dueDate && t.dueDate.slice(0, 10) > today && t.status !== 'completed');
+  const todayFollowUps = myTasks.filter(t => t.dueDate?.startsWith(today) && t.status === 'pending');
+  const overdueFollowUps = myTasks.filter(t => t.status === 'overdue');
+  const upcomingFollowUps = myTasks.filter(t => t.dueDate && t.dueDate.slice(0, 10) > today && t.status === 'pending');
   const callbackQueue = myLeads.filter(l => l.disposition === 'Callback Requested');
   const priorityLeads = myLeads.filter(l => l.priority === 'High' && l.status === 'active');
 
