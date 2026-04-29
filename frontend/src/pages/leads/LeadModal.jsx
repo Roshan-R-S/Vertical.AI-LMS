@@ -1,18 +1,16 @@
-import { CheckCircle, Search } from 'lucide-react';
+import { CheckCircle } from 'lucide-react';
 import { useState } from 'react';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Modal from '../../components/ui/Modal';
 import Select from '../../components/ui/Select';
 import { useApp } from '../../context/AppContextCore';
-import { api } from '../../utils/api';
 
 const LeadModal = ({ lead, onClose, onSave, milestones, dispositions, forcedAssignedToId }) => {
   const { currentUser, users, convertLead } = useApp();
   const [isCustomSource, setIsCustomSource] = useState(false);
   const [showConvertConfirm, setShowConvertConfirm] = useState(false);
   const [convertText, setConvertText] = useState("");
-  const [duplicateCheck, setDuplicateCheck] = useState({ status: 'idle', message: '' });
 
   const bdeUsers = users.filter((u) => u.role === "BDE");
 
@@ -35,57 +33,17 @@ const LeadModal = ({ lead, onClose, onSave, milestones, dispositions, forcedAssi
         }
   );
 
-        const canCheckLead = Boolean(form.phone.trim() || form.email.trim());
-
   const milestoneDis = dispositions.filter((d) => {
     const m = milestones.find((m) => m.name === form.milestone);
     return d.milestoneId === m?.id && d.isActive;
   });
-
-  const handleCheckDuplicate = async () => {
-    if (!canCheckLead) {
-      setDuplicateCheck({ status: 'error', message: 'Enter a phone number or email address first.' });
-      return;
-    }
-
-    setDuplicateCheck({ status: 'checking', message: 'Checking for an existing lead...' });
-
-    try {
-      const result = await api.post('/leads/check-duplicate', {
-        phone: form.phone,
-        email: form.email,
-      });
-
-      setDuplicateCheck(
-        result.exists
-          ? { status: 'exists', message: 'Lead already exists. It cannot be created again.' }
-          : { status: 'available', message: 'No matching lead found. You can create this lead.' },
-      );
-    } catch (error) {
-      setDuplicateCheck({
-        status: 'error',
-        message: error.message || 'Unable to check lead right now.',
-      });
-    }
-  };
 
   const footer = (
     <div className="flex gap-3">
       <Button variant="secondary" onClick={onClose}>
         Cancel
       </Button>
-      {!lead && (
-        <Button
-          variant="secondary"
-          onClick={handleCheckDuplicate}
-          disabled={!canCheckLead || duplicateCheck.status === 'checking'}
-          icon={<Search size={15} />}
-        >
-          {duplicateCheck.status === 'checking' ? 'Checking...' : 'Check Lead Exists'}
-        </Button>
-      )}
       <Button 
-        disabled={!lead && duplicateCheck.status !== 'available'}
         onClick={() => {
           if (!forcedAssignedToId && !form.assignedToId) return alert("Please assign a BDE");
           onSave(form);
@@ -157,48 +115,16 @@ const LeadModal = ({ lead, onClose, onSave, milestones, dispositions, forcedAssi
           label="Email"
           type="email"
           value={form.email}
-          onChange={(e) => {
-            setForm((p) => ({ ...p, email: e.target.value }));
-            if (!lead) setDuplicateCheck({ status: 'idle', message: '' });
-          }}
+          onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
           placeholder="contact@company.com"
         />
         <Input 
           label="Phone"
           value={form.phone}
-          onChange={(e) => {
-            setForm((p) => ({ ...p, phone: e.target.value }));
-            if (!lead) setDuplicateCheck({ status: 'idle', message: '' });
-          }}
+          onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
           placeholder="+91 99001 12345"
         />
       </div>
-
-      {!lead && duplicateCheck.status !== 'idle' && (
-        <div
-          className="mb-4 rounded-xl px-4 py-3 text-sm"
-          style={{
-            background:
-              duplicateCheck.status === 'exists'
-                ? 'rgba(239,68,68,0.08)'
-                : duplicateCheck.status === 'available'
-                  ? 'rgba(16,185,129,0.08)'
-                  : duplicateCheck.status === 'error'
-                    ? 'rgba(245,158,11,0.08)'
-                    : 'rgba(59,130,246,0.08)',
-            color:
-              duplicateCheck.status === 'exists'
-                ? '#dc2626'
-                : duplicateCheck.status === 'available'
-                  ? '#059669'
-                  : duplicateCheck.status === 'error'
-                    ? '#d97706'
-                    : '#2563eb',
-          }}
-        >
-          {duplicateCheck.message}
-        </div>
-      )}
 
       <div className="form-grid-3">
         <Select 

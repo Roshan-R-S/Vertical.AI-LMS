@@ -1,4 +1,4 @@
-import { Globe, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Globe, RefreshCw } from 'lucide-react';
 import { useApp } from '../../context/AppContextCore';
 
 const PAGE_META = {
