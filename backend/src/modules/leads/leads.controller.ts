@@ -1,4 +1,4 @@
-import { LeadPriority, LeadStatus } from '@prisma/client';
+import { LeadPriority, LeadStatus, Prisma } from '@prisma/client';
 import { Request, Response } from 'express';
 import { prisma } from '../../prisma';
 import { asyncHandler } from '../../utils/async-handler';
@@ -582,24 +582,116 @@ export const bulkCreateLeads = asyncHandler(async (req: Request, res: Response) 
     // Get default milestone if none provided
     const firstMilestone = await prisma.milestone.findFirst({ orderBy: { order: 'asc' } });
 
-    const result = await prisma.$transaction(
-      leads.map(lead => prisma.lead.create({
-        data: {
-          companyName: lead.companyName,
-          contactName: lead.contactName,
-          email: lead.email,
-          phone: lead.phone,
-          source: lead.source,
-          value: Number(lead.value) || 0,
-          priority: (lead.priority || 'Medium') as any,
-          notes: lead.notes,
-          milestoneId: lead.milestoneId || firstMilestone?.id,
-          assignedToId: lead.assignedToId || user.id,
-          createdById: user.id,
-        }
-      }))
+    const candidatePhones = Array.from(
+      new Set(
+        leads
+          .map((lead) => normalizePhone(lead.phone))
+          .filter((phone) => Boolean(phone)),
+      ),
     );
-    return res.status(201).json({ success: true, count: result.length });
+    const candidateEmails = Array.from(
+      new Set(
+        leads
+          .map((lead) => normalizeEmail(lead.email))
+          .filter((email) => Boolean(email)),
+      ),
+    );
+
+    const existingMatches =
+      candidatePhones.length || candidateEmails.length
+        ? await prisma.$queryRaw<{ phone: string | null; email: string | null }[]>(Prisma.sql`
+            SELECT "phone", "email"
+            FROM "leads"
+            WHERE "deletedAt" IS NULL
+              AND (
+                ${candidatePhones.length
+                  ? Prisma.sql`regexp_replace(COALESCE("phone", ''), '[^0-9]', '', 'g') IN (${Prisma.join(candidatePhones)})`
+                  : Prisma.sql`FALSE`}
+                OR ${candidateEmails.length
+                  ? Prisma.sql`lower(trim(COALESCE("email", ''))) IN (${Prisma.join(candidateEmails)})`
+                  : Prisma.sql`FALSE`}
+              )
+          `)
+        : [];
+
+    const existingPhoneSet = new Set(
+      existingMatches
+        .map((row) => normalizePhone(row.phone))
+        .filter((phone) => Boolean(phone)),
+    );
+    const existingEmailSet = new Set(
+      existingMatches
+        .map((row) => normalizeEmail(row.email))
+        .filter((email) => Boolean(email)),
+    );
+
+    const seenPhoneSet = new Set<string>();
+    const seenEmailSet = new Set<string>();
+    const toCreate: any[] = [];
+    const skippedRows: Array<{ rowNumber: number; reason: string }> = [];
+
+    leads.forEach((lead, index) => {
+      const rowNumber = index + 2; // +1 for header row, +1 for 1-based index
+      const companyName = (lead.companyName ?? '').trim();
+      const contactName = (lead.contactName ?? '').trim();
+      const phone = (lead.phone ?? '').trim();
+      const email = (lead.email ?? '').trim();
+      const normalizedPhone = normalizePhone(phone);
+      const normalizedEmail = normalizeEmail(email);
+
+      if (!companyName || !contactName || !normalizedPhone) {
+        skippedRows.push({ rowNumber, reason: 'invalid_row_missing_required_fields' });
+        return;
+      }
+
+      const phoneExists = existingPhoneSet.has(normalizedPhone) || seenPhoneSet.has(normalizedPhone);
+      const emailExists = normalizedEmail
+        ? existingEmailSet.has(normalizedEmail) || seenEmailSet.has(normalizedEmail)
+        : false;
+
+      if (phoneExists || emailExists) {
+        skippedRows.push({
+          rowNumber,
+          reason: phoneExists && emailExists
+            ? 'duplicate_phone_and_email'
+            : phoneExists
+              ? 'duplicate_phone'
+              : 'duplicate_email',
+        });
+        return;
+      }
+
+      seenPhoneSet.add(normalizedPhone);
+      if (normalizedEmail) seenEmailSet.add(normalizedEmail);
+
+      toCreate.push({
+        companyName,
+        contactName,
+        email: email || null,
+        phone,
+        source: lead.source,
+        value: Number(lead.value) || 0,
+        priority: (lead.priority || 'Medium') as any,
+        notes: lead.notes,
+        milestoneId: lead.milestoneId || firstMilestone?.id,
+        assignedToId: lead.assignedToId || user.id,
+        createdById: user.id,
+      });
+    });
+
+    const result = toCreate.length
+      ? await prisma.$transaction(
+          toCreate.map((lead) => prisma.lead.create({ data: lead })),
+        )
+      : [];
+
+    return res.status(201).json({
+      success: true,
+      count: result.length,
+      createdCount: result.length,
+      skippedCount: skippedRows.length,
+      skippedRows,
+    });
   } catch (err: any) {
     console.error('Bulk import failed:', err);
     return res.status(500).json({ error: 'Bulk import failed: ' + err.message });

@@ -508,7 +508,12 @@ export default function Leads() {
         <ImportModal
           onClose={() => setShowImportModal(false)}
           onImport={async (data) => {
-            await bulkAddLeads(data);
+            const result = await bulkAddLeads(data);
+            if (result) {
+              alert(
+                `Import complete. Created: ${result.createdCount ?? result.count ?? 0}, Skipped duplicates/invalid: ${result.skippedCount ?? 0}`,
+              );
+            }
             setShowImportModal(false);
           }}
         />

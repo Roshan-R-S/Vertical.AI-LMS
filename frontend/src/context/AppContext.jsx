@@ -136,10 +136,12 @@ export default function AppProvider({ children }) {
   const bulkAddLeads = async (leads) => {
     setProcessing(true);
     try {
-      await api.post("/leads/bulk", leads);
+      const result = await api.post("/leads/bulk", leads);
       await fetchInitialData();
+      return result;
     } catch (err) {
       alert("Bulk import failed: " + formatError(err));
+      return null;
     } finally {
       setProcessing(false);
     }
