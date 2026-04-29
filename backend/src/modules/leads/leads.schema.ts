@@ -17,3 +17,10 @@ export const LeadCreateSchema = z.object({
 });
 
 export const LeadUpdateSchema = LeadCreateSchema.partial();
+
+export const LeadDuplicateCheckSchema = z.object({
+  phone: z.string().optional().or(z.literal('')).nullable(),
+  email: z.string().email('Invalid email address').optional().or(z.literal('')).nullable(),
+}).refine((data) => Boolean((data.phone ?? '').trim()) || Boolean((data.email ?? '').trim()), {
+  message: 'phone or email is required',
+});

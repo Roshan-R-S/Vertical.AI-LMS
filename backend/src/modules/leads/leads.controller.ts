@@ -56,6 +56,62 @@ const LEAD_INCLUDE = {
   _count: { select: { interactions: true, tasks: true, attachments: true } },
 };
 
+function normalizePhone(value?: string | null) {
+  return (value ?? '').replace(/\D/g, '');
+}
+
+function normalizeEmail(value?: string | null) {
+  return (value ?? '').trim().toLowerCase();
+}
+
+async function hasDuplicateLead(phone?: string | null, email?: string | null) {
+  const normalizedPhone = normalizePhone(phone);
+  const normalizedEmail = normalizeEmail(email);
+
+  if (!normalizedPhone && !normalizedEmail) return false;
+
+  if (normalizedPhone && normalizedEmail) {
+    const matches = await prisma.$queryRaw<{ id: string }[]>`
+      SELECT "id"
+      FROM "leads"
+      WHERE "deletedAt" IS NULL
+        AND (
+          regexp_replace(COALESCE("phone", ''), '[^0-9]', '', 'g') = ${normalizedPhone}
+          OR lower(trim(COALESCE("email", ''))) = ${normalizedEmail}
+        )
+      LIMIT 1
+    `;
+    return matches.length > 0;
+  }
+
+  if (normalizedPhone) {
+    const matches = await prisma.$queryRaw<{ id: string }[]>`
+      SELECT "id"
+      FROM "leads"
+      WHERE "deletedAt" IS NULL
+        AND regexp_replace(COALESCE("phone", ''), '[^0-9]', '', 'g') = ${normalizedPhone}
+      LIMIT 1
+    `;
+    return matches.length > 0;
+  }
+
+  const matches = await prisma.$queryRaw<{ id: string }[]>`
+    SELECT "id"
+    FROM "leads"
+    WHERE "deletedAt" IS NULL
+      AND lower(trim(COALESCE("email", ''))) = ${normalizedEmail}
+    LIMIT 1
+  `;
+  return matches.length > 0;
+}
+
+// POST /api/v1/leads/check-duplicate
+export const checkLeadDuplicate = asyncHandler(async (req: Request, res: Response) => {
+  const body = req.body as Record<string, any>;
+  const exists = await hasDuplicateLead(body.phone, body.email);
+  return res.json({ exists });
+});
+
 // GET /api/v1/leads
 export const getLeads = asyncHandler(async (req: Request, res: Response) => {
   const status = req.query.status as string | undefined;
@@ -136,6 +192,10 @@ export const createLead = asyncHandler(async (req: Request, res: Response) => {
 
   if (!companyName || !contactName || !phone) {
     return res.status(400).json({ error: 'companyName, contactName, phone are required' });
+  }
+
+  if (await hasDuplicateLead(phone, email)) {
+    return res.status(409).json({ error: 'Lead already exists with this phone or email.' });
   }
 
   const user = (req as any).user;
