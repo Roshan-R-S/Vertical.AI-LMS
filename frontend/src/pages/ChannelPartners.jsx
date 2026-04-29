@@ -2,6 +2,7 @@ import { Building, Handshake, Users } from 'lucide-react';
 import { useState } from 'react';
 import Pagination from '../components/Pagination';
 import { useApp } from '../context/AppContextCore';
+import { formatCurrency } from '../utils/api';
 
 
 export default function ChannelPartners() {
@@ -95,7 +96,7 @@ export default function ChannelPartners() {
                     </td>
                     <td>
                       <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
-                        ₹{(lead.value / 100000).toFixed(1)}L
+                        {formatCurrency(lead.value)}
                       </div>
                       <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
                         {lead.probability}% probability

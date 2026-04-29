@@ -204,7 +204,12 @@ const LeadModal = ({ lead, onClose, onSave, milestones, dispositions, forcedAssi
         <Select 
           label="Milestone"
           value={form.milestone}
-          onChange={(e) => setForm((p) => ({ ...p, milestone: e.target.value }))}
+          onChange={(e) => {
+            const newMilestone = e.target.value;
+            const m = milestones.find(m => m.name === newMilestone);
+            const firstDis = dispositions.find(d => d.milestoneId === m?.id && d.isActive);
+            setForm((p) => ({ ...p, milestone: newMilestone, disposition: firstDis?.name || '' }));
+          }}
           options={milestones.map(m => ({ label: m.name, value: m.name }))}
         />
         <Select 

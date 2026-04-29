@@ -1,107 +1,70 @@
-import { AlertCircle, Calendar } from 'lucide-react';
 import { useState } from 'react';
-import Button from '../../components/ui/Button';
-import Modal from '../../components/ui/Modal';
+import { Calendar, CheckCircle, X } from 'lucide-react';
 
-const FollowUpModal = ({ lead, onConfirm, onCancel }) => {
-  const [followUpDateFrom, setFollowUpDateFrom] = useState(
-    new Date().toISOString().split('T')[0]
-  );
+export default function FollowUpModal({ lead, onConfirm, onCancel }) {
+  const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const [followUpDateFrom, setFollowUpDateFrom] = useState(tomorrow);
   const [followUpDateTo, setFollowUpDateTo] = useState('');
 
   const handleConfirm = () => {
-    if (!followUpDateFrom) {
-      alert('Please select a follow-up date');
-      return;
-    }
-
-    onConfirm({
-      followUpDateFrom,
-      followUpDateTo: followUpDateTo || null,
-    });
+    if (!followUpDateFrom) return alert('Please select a follow-up date.');
+    onConfirm({ followUpDateFrom, followUpDateTo });
   };
 
-  const footer = (
-    <div className="flex gap-3">
-      <Button variant="secondary" onClick={onCancel}>
-        Cancel
-      </Button>
-      <Button onClick={handleConfirm}>
-        Schedule Follow-up
-      </Button>
-    </div>
-  );
-
   return (
-    <Modal
-      isOpen={true}
-      onClose={onCancel}
-      title="Schedule Demo Follow-up"
-      size="md"
-      footer={footer}
-    >
-      <div className="space-y-6">
-        <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg flex gap-3">
-          <AlertCircle size={20} className="text-amber-600 flex-shrink-0 mt-0.5" />
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onCancel()}>
+      <div className="modal modal-sm animate-slideUp">
+        <div className="modal-header">
           <div>
-            <p className="text-sm font-medium text-amber-900">Demo Postponed</p>
-            <p className="text-xs text-amber-700 mt-1">
-              Set a follow-up date to reschedule the demo with <strong>{lead?.companyName}</strong>. 
-              A task will be automatically created for you.
+            <h2 className="modal-title">Schedule Follow-up</h2>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '4px 0 0' }}>
+              Demo postponed for <b>{lead?.companyName}</b>. Set a follow-up date to reschedule.
             </p>
+          </div>
+          <button className="modal-close" onClick={onCancel}><X size={16} /></button>
+        </div>
+        <div className="modal-body">
+          <div className="form-grid">
+            <div className="form-group">
+              <label className="form-label">Follow-up From *</label>
+              <div style={{ position: 'relative' }}>
+                <Calendar size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <input
+                  type="date"
+                  className="form-input"
+                  style={{ paddingLeft: 32 }}
+                  value={followUpDateFrom}
+                  min={tomorrow}
+                  onChange={e => setFollowUpDateFrom(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Follow-up To (optional)</label>
+              <div style={{ position: 'relative' }}>
+                <Calendar size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <input
+                  type="date"
+                  className="form-input"
+                  style={{ paddingLeft: 32 }}
+                  value={followUpDateTo}
+                  min={followUpDateFrom || tomorrow}
+                  onChange={e => setFollowUpDateTo(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+          <div style={{ padding: '12px 14px', background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 8, fontSize: 12, color: 'var(--text-secondary)' }}>
+            A follow-up task will be automatically created and assigned to the lead owner.
           </div>
         </div>
-
-        <div className="space-y-4">
-          <div>
-            <label className="form-label">
-              Follow-up From Date *
-            </label>
-            <div className="flex items-center gap-2">
-              <Calendar size={16} className="text-muted" />
-              <input
-                type="date"
-                className="form-input"
-                value={followUpDateFrom}
-                onChange={(e) => setFollowUpDateFrom(e.target.value)}
-                min={new Date().toISOString().split('T')[0]}
-              />
-            </div>
-            <p className="text-xs text-muted mt-1">
-              Date when you plan to follow up
-            </p>
-          </div>
-
-          <div>
-            <label className="form-label">
-              Follow-up To Date (Optional)
-            </label>
-            <div className="flex items-center gap-2">
-              <Calendar size={16} className="text-muted" />
-              <input
-                type="date"
-                className="form-input"
-                value={followUpDateTo}
-                onChange={(e) => setFollowUpDateTo(e.target.value)}
-                min={followUpDateFrom}
-              />
-            </div>
-            <p className="text-xs text-muted mt-1">
-              End date for follow-up window (creates a date range)
-            </p>
-          </div>
-        </div>
-
-        <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
-          <p className="text-xs text-blue-800">
-            <strong>What happens next:</strong> A task will be created and assigned to you 
-            with this follow-up date. Once the demo is completed, you can move the lead to 
-            <strong> Demo Completed</strong> or reschedule another follow-up.
-          </p>
+        <div className="modal-footer">
+          <button className="btn btn-secondary" onClick={onCancel}>Cancel</button>
+          <button className="btn btn-primary" onClick={handleConfirm}>
+            <CheckCircle size={14} /> Confirm & Move
+          </button>
         </div>
       </div>
-    </Modal>
+    </div>
   );
-};
-
-export default FollowUpModal;
+}

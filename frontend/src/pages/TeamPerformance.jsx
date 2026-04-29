@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { api } from '../utils/api';
+import { api, formatCurrency } from '../utils/api';
 import { ChevronDown, ChevronRight, Activity, Users, Target, Phone } from 'lucide-react';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
@@ -81,8 +81,8 @@ export default function TeamPerformance() {
                   <div>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>ACTUAL VS TARGET</div>
                     <div style={{ fontSize: 15, fontWeight: 600 }}>
-                      <span style={{ color: pct >= 100 ? 'var(--color-success)' : 'var(--text-primary)' }}>₹{(teamRevenue/1000).toFixed(0)}K</span>{' '}
-                      <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>/ ₹{(teamTarget/1000).toFixed(0)}K</span>
+                      <span style={{ color: pct >= 100 ? 'var(--color-success)' : 'var(--text-primary)' }}>{formatCurrency(teamRevenue)}</span>{' '}
+                      <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>/ {formatCurrency(teamTarget)}</span>
                     </div>
                   </div>
                   <div style={{ width: 120 }}>
@@ -108,7 +108,7 @@ export default function TeamPerformance() {
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={team.trend}>
                           <XAxis dataKey="name" stroke="var(--text-muted)" fontSize={12} tickLine={false} axisLine={false} />
-                          <Tooltip formatter={(v) => `₹${(v/1000).toFixed(0)}K`} contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)', borderRadius: 8 }} />
+                          <Tooltip formatter={(v) => formatCurrency(v)} contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)', borderRadius: 8 }} />
                           <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
                           <Bar dataKey="Target" fill="var(--border-default)" radius={[4, 4, 0, 0]} />
                           <Bar dataKey="Actual" fill="var(--accent-blue)" radius={[4, 4, 0, 0]} />
@@ -143,7 +143,7 @@ export default function TeamPerformance() {
                             </div>
                             <div style={{ display: 'flex', gap: 24, paddingRight: 16 }}>
                               <div style={{ textAlign: 'right' }}>
-                                <div style={{ fontSize: 14, fontWeight: 600 }}>₹{(bde.revenue/1000).toFixed(0)}K</div>
+                                <div style={{ fontSize: 14, fontWeight: 600 }}>{formatCurrency(bde.revenue)}</div>
                                 <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>REVENUE</div>
                               </div>
                               <div style={{ width: 80, textAlign: 'right' }}>
@@ -235,7 +235,7 @@ export default function TeamPerformance() {
                                   <ResponsiveContainer width="100%" height="100%">
                                     <BarChart data={bde.trend}>
                                       <XAxis dataKey="name" stroke="var(--text-muted)" fontSize={12} tickLine={false} axisLine={false} />
-                                      <Tooltip formatter={(v) => `₹${(v/1000).toFixed(0)}K`} contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)', borderRadius: 8 }} />
+                                      <Tooltip formatter={(v) => formatCurrency(v)} contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)', borderRadius: 8 }} />
                                       <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
                                       <Bar dataKey="Target" fill="var(--border-subtle)" radius={[4, 4, 0, 0]} />
                                       <Bar dataKey="Actual" fill="var(--color-success)" radius={[4, 4, 0, 0]} />

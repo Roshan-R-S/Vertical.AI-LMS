@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
+import { formatCurrency } from '../../utils/api';
 import { Phone, Mail, MessageSquare, Calendar, Mic, Brain, CheckCircle, TrendingUp, Star, ClipboardList } from 'lucide-react';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import Select from '../../components/ui/Select';
-import Input from '../../components/ui/Input';
 
 const MILESTONE_COLORS = {
   New: "#6366f1",
@@ -23,7 +23,6 @@ const InteractionModal = ({ lead, interactions, onClose, onAdd }) => {
     type: "call",
     direction: "outbound",
     summary: "",
-    by: "",
   });
   
   const leadInteractions = interactions.filter((i) => i.leadId === lead.id);
@@ -48,7 +47,7 @@ const InteractionModal = ({ lead, interactions, onClose, onAdd }) => {
     { l: "Stage", v: lead.milestone, c: MILESTONE_COLORS[lead.milestone], icon: <Star size={11} /> },
     { l: "Source", v: lead.source, c: "#06b6d4", icon: <TrendingUp size={11} /> },
     { l: "Score", v: lead.score, c: lead.score >= 80 ? "#10b981" : "#f59e0b", icon: <Brain size={11} /> },
-    { l: "Value", v: `₹${(lead.value / 1000).toFixed(0)}K`, c: "#6366f1", icon: <CheckCircle size={11} /> },
+    { l: "Value", v: formatCurrency(lead.value), c: "#6366f1", icon: <CheckCircle size={11} /> },
     { l: "Priority", v: lead.priority, c: lead.priority === "High" ? "#ef4444" : "#f59e0b", icon: <Phone size={11} /> },
     { l: "Result", v: lead.disposition || "None", c: "#10b981", icon: <MessageSquare size={11} /> },
   ];
@@ -162,12 +161,6 @@ const InteractionModal = ({ lead, interactions, onClose, onAdd }) => {
               options={["outbound", "inbound"]}
             />
           </div>
-          <Input 
-            label="By"
-            value={form.by}
-            onChange={(e) => setForm((p) => ({ ...p, by: e.target.value }))}
-            placeholder="Your name"
-          />
           <div className="form-group">
             <label className="form-label">Summary / Notes</label>
             <textarea

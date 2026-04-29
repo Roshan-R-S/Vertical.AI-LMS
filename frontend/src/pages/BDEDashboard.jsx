@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContextCore';
+import { formatCurrency } from '../utils/api';
 import { 
   Clock, PhoneCall, CheckCircle, Target, 
   TrendingUp, AlertTriangle, ArrowRight, Zap,
@@ -149,15 +150,15 @@ export default function BDEDashboard() {
           <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 24, color: 'rgba(255,255,255,0.7)' }}>Personal Target Tracker</h3>
           
           <div style={{ textAlign: 'center', marginBottom: 32 }}>
-            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', marginBottom: 8 }}>Monthly Target: ₹{(monthlyTarget/100000).toFixed(1)}L</div>
-            <div style={{ fontSize: 48, fontWeight: 300 }}>₹{(achievedSoFar/100000).toFixed(2)}L</div>
+            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', marginBottom: 8 }}>Monthly Target: {formatCurrency(monthlyTarget)}</div>
+            <div style={{ fontSize: 48, fontWeight: 300 }}>{formatCurrency(achievedSoFar)}</div>
             <div style={{ fontSize: 14, color: '#10b981', fontWeight: 600, marginTop: 4 }}>{progressPercent.toFixed(1)}% Achieved</div>
           </div>
 
           <div style={{ marginBottom: 24 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 8, color: 'rgba(255,255,255,0.8)' }}>
               <span>Progress toward goal</span>
-              <span>₹{(remaining/100000).toFixed(2)}L Left</span>
+              <span>?{formatCurrency(remaining)} Left</span>
             </div>
             <div style={{ height: 12, background: 'rgba(255,255,255,0.1)', borderRadius: 6, overflow: 'hidden' }}>
               <div style={{ height: '100%', width: `${progressPercent}%`, background: 'linear-gradient(90deg, #10b981, #34d399)', borderRadius: 6 }}></div>
@@ -211,7 +212,7 @@ export default function BDEDashboard() {
           </div>
           <div style={{ marginTop: 16, padding: 16, borderTop: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Weighted Value:</span>
-            <span style={{ fontSize: 18, fontWeight: 700, color: '#10b981' }}>₹{(kpis.weightedExpected / 100000).toFixed(2)} L</span>
+            <span style={{ fontSize: 18, fontWeight: 700, color: '#10b981' }}>{formatCurrency(kpis.weightedExpected)}</span>
           </div>
         </div>
 

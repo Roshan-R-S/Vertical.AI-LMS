@@ -29,6 +29,7 @@ import {
     XAxis, YAxis
 } from 'recharts';
 import { useApp } from '../context/AppContextCore';
+import { formatCurrency } from '../utils/api';
 
 const COLORS = ['#6366f1', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444'];
 
@@ -193,7 +194,7 @@ export default function TLDashboard() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>
                 <TrendingUp size={12} color="#10b981" /> CLOSED REVENUE ({dateRange.toUpperCase()})
               </div>
-              <div style={{ fontSize: 24, fontWeight: 600, color: '#10b981' }}>₹{kpis.closedRevenue.toLocaleString()}</div>
+              <div style={{ fontSize: 24, fontWeight: 600, color: '#10b981' }}>{formatCurrency(kpis.closedRevenue)}</div>
               <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>{kpis.wonDeals} Deals Closed</div>
             </div>
             <div style={{ padding: 16, background: 'var(--bg-surface)', borderRadius: 12 }}>
@@ -229,13 +230,13 @@ export default function TLDashboard() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>
                 <IndianRupee size={12} color="#f59e0b" /> TOTAL PIPELINE
               </div>
-              <div style={{ fontSize: 24, fontWeight: 600, color: '#f59e0b' }}>₹{(kpis.totalPipelineValue / 100000).toFixed(1)} L</div>
+              <div style={{ fontSize: 24, fontWeight: 600, color: '#f59e0b' }}>{formatCurrency(kpis.totalPipelineValue)}</div>
             </div>
             <div style={{ padding: 16, background: 'var(--bg-surface)', borderRadius: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>
                 <Clock size={12} color="#06b6d4" /> WEIGHTED VALUE
               </div>
-              <div style={{ fontSize: 24, fontWeight: 600 }}>₹{(kpis.weightedExpected / 100000).toFixed(1)} L</div>
+              <div style={{ fontSize: 24, fontWeight: 600 }}>{formatCurrency(kpis.weightedExpected)}</div>
               <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>Probability Adjusted</div>
             </div>
           </div>
@@ -265,7 +266,7 @@ export default function TLDashboard() {
                 <AlertTriangle size={12} /> <b>{stuckDeals} Stuck Deal{stuckDeals !== 1 ? 's' : ''}</b> (No movement &gt; 7 days)
               </div>
               <div style={{ fontSize: 11, color: '#10b981', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Target size={12} /> <b>{closingThisWeek.length} Deal{closingThisWeek.length !== 1 ? 's' : ''} Closing This Week</b> {closingThisWeekValue > 0 ? `(Value: ₹${(closingThisWeekValue / 100000).toFixed(1)}L)` : ''}
+                <Target size={12} /> <b>{closingThisWeek.length} Deal{closingThisWeek.length !== 1 ? 's' : ''} Closing This Week</b> {closingThisWeekValue > 0 ? `(Value: ${formatCurrency(closingThisWeekValue)})` : ''}
               </div>
             </div>
           </div>

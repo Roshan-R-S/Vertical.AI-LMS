@@ -1,5 +1,13 @@
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
 
+// Indian currency formatter
+export function formatCurrency(value) {
+  const num = Number(value) || 0;
+  if (num >= 10000000) return `₹${(num / 10000000).toFixed(2)} Cr`;
+  if (num >= 100000)   return `₹${(num / 100000).toFixed(2)} L`;
+  return `₹${num.toLocaleString('en-IN')}`;
+}
+
 async function request(path, options = {}) {
   const token = sessionStorage.getItem('lms_token');
   const headers = {

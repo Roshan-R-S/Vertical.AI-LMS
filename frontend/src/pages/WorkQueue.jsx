@@ -2,10 +2,13 @@ import {
   CheckCircle,
   Clock,
   Filter,
+  Mail,
   MessageSquare,
   MoreHorizontal,
   Phone,
   Search,
+  Star,
+  X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useApp } from "../context/AppContextCore";
@@ -18,6 +21,8 @@ export default function WorkQueue() {
   // Filter tasks and leads for the BDE
   const bdeTasks = tasks.filter((t) => t.assignedToId === currentUser.id);
   const bdeLeads = leads.filter((l) => l.assignedToId === currentUser.id);
+
+  const [openContactId, setOpenContactId] = useState(null);
 
   const [loading, setLoading] = useState(true);
   const { fetchDashboard } = useApp();
@@ -41,13 +46,13 @@ export default function WorkQueue() {
   };
 
   const todayFollowUps = bdeTasks.filter(
-    (t) => t.dueDate === today && t.status !== "completed" && matchesSearch(t)
+    (t) => t.dueDate?.startsWith(today) && t.status !== "completed" && matchesSearch(t)
   );
   const overdueFollowUps = bdeTasks.filter(
-    (t) => t.dueDate < today && t.status !== "completed" && matchesSearch(t)
+    (t) => t.dueDate && t.dueDate.slice(0, 10) < today && t.status !== "completed" && matchesSearch(t)
   );
   const upcomingFollowUps = bdeTasks.filter(
-    (t) => t.dueDate > today && t.status !== "completed" && matchesSearch(t)
+    (t) => t.dueDate && t.dueDate.slice(0, 10) > today && t.status !== "completed" && matchesSearch(t)
   );
   const callbackQueue = bdeLeads.filter(
     (l) => l.disposition === "Callback Requested" && matchesSearch(l)
@@ -140,7 +145,7 @@ export default function WorkQueue() {
               </span>
             </div>
           </div>
-          <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ display: "flex", gap: 8, position: "relative" }}>
             <button
               className="btn btn-ghost btn-sm"
               style={{ padding: "6px", color: "#10b981" }}
@@ -150,14 +155,43 @@ export default function WorkQueue() {
               <CheckCircle size={18} />
             </button>
             <button
-              className="btn btn-primary btn-sm"
-              style={{ background: "#10b981", borderColor: "#10b981" }}
+              className="btn btn-ghost btn-sm"
+              style={{ padding: "6px" }}
+              title="Contact Info"
+              onClick={() => setOpenContactId(openContactId === item.id ? null : item.id)}
             >
-              <Phone size={14} /> Call Now
-            </button>
-            <button className="btn btn-ghost btn-sm" style={{ padding: "6px" }}>
               <MoreHorizontal size={18} />
             </button>
+            {openContactId === item.id && (
+              <div style={{
+                position: "absolute", top: "100%", right: 0, zIndex: 100,
+                background: "var(--bg-card)", border: "1px solid var(--border-subtle)",
+                borderRadius: 12, padding: "14px 16px", minWidth: 220,
+                boxShadow: "0 8px 24px rgba(0,0,0,0.15)", marginTop: 4,
+              }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-secondary)" }}>Contact Info</span>
+                  <button onClick={() => setOpenContactId(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: 0 }}>
+                    <X size={14} />
+                  </button>
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>
+                  {lead.contactName || "—"}
+                  <span style={{ fontSize: 11, fontWeight: 400, color: "var(--text-muted)", marginLeft: 6 }}>{lead.companyName}</span>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#10b981" }}>
+                    <Phone size={14} /> {lead.phone || "—"}
+                  </div>
+                  <div
+                    onClick={() => window.open(`mailto:${lead.email}`)}
+                    style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#6366f1", cursor: "pointer" }}
+                  >
+                    <Mail size={14} /> {lead.email || "—"}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

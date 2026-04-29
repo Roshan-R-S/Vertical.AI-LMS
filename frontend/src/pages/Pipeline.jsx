@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContextCore';
-import { api } from '../utils/api';
+import { api, formatCurrency } from '../utils/api';
 import { 
   Filter, Plus, Search, MoreHorizontal, 
   IndianRupee, TrendingUp, Calendar, ArrowRight,
@@ -28,9 +28,9 @@ export default function Pipeline() {
   }
   
   if (currentUser?.role === 'BDE') {
-    pipelineLeads = pipelineLeads.filter(l => l.assignedTo?.name === currentUser.name);
+    pipelineLeads = pipelineLeads.filter(l => l.assignedBDEId === currentUser.id || l.assignedToId === currentUser.id);
   } else if (filterBDE !== 'All') {
-    pipelineLeads = pipelineLeads.filter(l => l.assignedTo?.name === filterBDE);
+    pipelineLeads = pipelineLeads.filter(l => l.assignedBDE === filterBDE);
   }
 
   const totalValue = pipelineLeads.reduce((sum, l) => sum + (l.value || 0), 0);
@@ -53,7 +53,7 @@ export default function Pipeline() {
           <h3 style={{ fontSize: 16, fontWeight: 700 }}>{lead.companyName}</h3>
         </div>
         <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)' }}>₹{(lead.value/1000).toFixed(0)}k</div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)' }}>{formatCurrency(lead.value)}</div>
           <div style={{ fontSize: 11, color: '#10b981', fontWeight: 600 }}>{lead.probability}% Prob.</div>
         </div>
       </div>
@@ -66,9 +66,9 @@ export default function Pipeline() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div className="avatar avatar-sm" style={{ width: 24, height: 24, fontSize: 10 }}>
-            {lead.assignedTo?.name ? lead.assignedTo.name.split(' ').map(n=>n[0]).join('') : '??'}
+            {lead.assignedBDE ? lead.assignedBDE.split(' ').map(n=>n[0]).join('') : '??'}
           </div>
-          <span style={{ fontSize: 12 }}>{lead.assignedTo?.name || 'Unassigned'}</span>
+          <span style={{ fontSize: 12 }}>{lead.assignedBDE || 'Unassigned'}</span>
         </div>
         <div style={{ padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: `${getStageColor(lead.milestone)}15`, color: getStageColor(lead.milestone), border: `1px solid ${getStageColor(lead.milestone)}30` }}>
           {lead.milestone.toUpperCase()}
@@ -113,14 +113,14 @@ export default function Pipeline() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, color: 'var(--text-secondary)' }}>
             <IndianRupee size={16} /> <span style={{ fontSize: 12, fontWeight: 600 }}>Total Pipeline</span>
           </div>
-          <div style={{ fontSize: 24, fontWeight: 700 }}>₹{(totalValue/100000).toFixed(2)}L</div>
+          <div style={{ fontSize: 24, fontWeight: 700 }}>{formatCurrency(totalValue)}</div>
           <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>{pipelineLeads.length} Active deals</div>
         </div>
         <div className="studio-card" style={{ padding: 20 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, color: 'var(--text-secondary)' }}>
             <TrendingUp size={16} /> <span style={{ fontSize: 12, fontWeight: 600 }}>Weighted Value</span>
           </div>
-          <div style={{ fontSize: 24, fontWeight: 700 }}>₹{(weightedValue/100000).toFixed(2)}L</div>
+          <div style={{ fontSize: 24, fontWeight: 700 }}>{formatCurrency(weightedValue)}</div>
           <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Based on probabilities</div>
         </div>
         <div className="studio-card" style={{ padding: 20 }}>
@@ -134,7 +134,7 @@ export default function Pipeline() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, color: 'var(--text-secondary)' }}>
             <AlertCircle size={16} /> <span style={{ fontSize: 12, fontWeight: 600 }}>At Risk</span>
           </div>
-          <div style={{ fontSize: 24, fontWeight: 700, color: '#ef4444' }}>₹{( (analytics?.kpis?.staleLeads || 0) * 45).toFixed(0)}k</div>
+          <div style={{ fontSize: 24, fontWeight: 700, color: '#ef4444' }}>{formatCurrency((analytics?.kpis?.staleLeads || 0) * 45000)}</div>
           <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>{analytics?.kpis?.staleLeads || 0} deals with no activity</div>
         </div>
       </div>
@@ -152,7 +152,7 @@ export default function Pipeline() {
                   <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>{stage.split(' ')[0]}</h3>
                   <span style={{ fontSize: 11, background: 'var(--bg-card)', padding: '2px 8px', borderRadius: 10, border: '1px solid var(--border-subtle)' }}>{stageLeads.length}</span>
                 </div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>₹{(stageVal/1000).toFixed(0)}k</div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>{formatCurrency(stageVal)}</div>
               </div>
               
               <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
@@ -169,6 +169,7 @@ export default function Pipeline() {
           onSave={addLead}
           milestones={milestones}
           dispositions={dispositions}
+          forcedAssignedToId={currentUser?.role === 'BDE' ? currentUser.id : undefined}
         />
       )}
     </div>

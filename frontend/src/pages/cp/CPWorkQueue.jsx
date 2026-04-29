@@ -1,21 +1,22 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContextCore';
-import { CheckCircle, Clock, MessageSquare, Phone, Search, Star, Filter } from 'lucide-react';
+import { CheckCircle, Clock, Mail, MessageSquare, MoreHorizontal, Phone, Search, Star, X } from 'lucide-react';
 
 export default function CPWorkQueue() {
   const { currentUser, leads, tasks, updateTask, fetchDashboard } = useApp();
   const [activeTab, setActiveTab] = useState('today');
   const [loading, setLoading] = useState(true);
+  const [openContactId, setOpenContactId] = useState(null);
 
   useEffect(() => { fetchDashboard('today').then(() => setLoading(false)); }, [fetchDashboard]);
 
   const myTasks = tasks.filter(t => t.assignedToId === currentUser.id);
-  const myLeads = leads.filter(l => l.assignedToId === currentUser.id);
+  const myLeads = leads.filter(l => l.assignedBDEId === currentUser.id || l.assignedToId === currentUser.id);
   const today = new Date().toISOString().split('T')[0];
 
-  const todayFollowUps = myTasks.filter(t => t.dueDate === today && t.status !== 'completed');
-  const overdueFollowUps = myTasks.filter(t => t.dueDate < today && t.status !== 'completed');
-  const upcomingFollowUps = myTasks.filter(t => t.dueDate > today && t.status !== 'completed');
+  const todayFollowUps = myTasks.filter(t => t.dueDate?.startsWith(today) && t.status !== 'completed');
+  const overdueFollowUps = myTasks.filter(t => t.dueDate && t.dueDate.slice(0, 10) < today && t.status !== 'completed');
+  const upcomingFollowUps = myTasks.filter(t => t.dueDate && t.dueDate.slice(0, 10) > today && t.status !== 'completed');
   const callbackQueue = myLeads.filter(l => l.disposition === 'Callback Requested');
   const priorityLeads = myLeads.filter(l => l.priority === 'High' && l.status === 'active');
 
@@ -39,13 +40,34 @@ export default function CPWorkQueue() {
               <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><MessageSquare size={12} /> {lead.disposition}</span>
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 8, position: 'relative' }}>
             <button className="btn btn-ghost btn-sm" style={{ color: '#10b981' }} onClick={() => updateTask(item.id, { status: 'completed' })}>
               <CheckCircle size={18} />
             </button>
-            <button className="btn btn-primary btn-sm" style={{ background: '#10b981', borderColor: '#10b981' }}>
-              <Phone size={14} /> Call Now
+            <button className="btn btn-ghost btn-sm" style={{ padding: '6px' }} title="Contact Info"
+              onClick={() => setOpenContactId(openContactId === item.id ? null : item.id)}>
+              <MoreHorizontal size={18} />
             </button>
+            {openContactId === item.id && (
+              <div style={{ position: 'absolute', top: '100%', right: 0, zIndex: 100, background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: '14px 16px', minWidth: 220, boxShadow: '0 8px 24px rgba(0,0,0,0.15)', marginTop: 4 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>Contact Info</span>
+                  <button onClick={() => setOpenContactId(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 0 }}><X size={14} /></button>
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>
+                  {lead.contactName || '—'}
+                  <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--text-muted)', marginLeft: 6 }}>{lead.companyName}</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#10b981' }}>
+                    <Phone size={14} /> {lead.phone || '—'}
+                  </div>
+                  <div onClick={() => window.open(`mailto:${lead.email}`)} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#6366f1', cursor: 'pointer' }}>
+                    <Mail size={14} /> {lead.email || '—'}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -61,11 +83,9 @@ export default function CPWorkQueue() {
           <div className="page-subtitle">MY DAILY EXECUTION</div>
           <h1 className="page-title">Work Queue</h1>
         </div>
-        <div style={{ display: 'flex', gap: 12 }}>
-          <div className="search-wrapper" style={{ width: 300 }}>
-            <Search className="search-icon" size={16} />
-            <input className="search-input" placeholder="Search work queue..." />
-          </div>
+        <div className="search-wrapper" style={{ width: 300 }}>
+          <Search className="search-icon" size={16} />
+          <input className="search-input" placeholder="Search work queue..." />
         </div>
       </div>
 

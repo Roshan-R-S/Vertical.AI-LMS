@@ -17,6 +17,7 @@ import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import Pagination from "../components/Pagination";
 import { useApp } from "../context/AppContextCore";
+import { formatCurrency } from "../utils/api";
 
 // UI Components
 import Badge from "../components/ui/Badge";
@@ -30,6 +31,7 @@ import InteractionModal from "./leads/InteractionModal";
 import KanbanColumn from "./leads/KanbanColumn";
 import LeadCard from "./leads/LeadCard";
 import LeadModal from "./leads/LeadModal";
+import StageChangeModal from "./leads/StageChangeModal";
 
 const MILESTONE_COLORS = {
   New: "#6366f1",
@@ -83,6 +85,7 @@ export default function Leads() {
   );
   const [showFollowUpModal, setShowFollowUpModal] = useState(false);
   const [pendingStageChange, setPendingStageChange] = useState(null);
+  const [showStageChangeModal, setShowStageChangeModal] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -92,7 +95,7 @@ export default function Leads() {
     }),
   );
 
-  const handleDragEnd = async (event) => {
+  const handleDragEnd = (event) => {
     const { active, over } = event;
     if (!over) return;
 
@@ -102,58 +105,51 @@ export default function Leads() {
     const milestone = milestones.find((m) => m.id === newMilestoneId);
 
     if (lead && lead.milestoneId !== newMilestoneId) {
-      const isDealClosed = milestone.name === "Deal Closed";
-      const isDemoPostponed = milestone.name === "Demo Postponed";
-      
-      if (isDealClosed) {
-        if (window.confirm(`Move "${lead.companyName}" to Deal Closed and convert to Client?`)) {
-          try {
-            await updateLead(leadId, { milestoneId: newMilestoneId });
-            await convertLead(leadId);
-          } catch {
-            // Error alert handled by context
-          }
-          return;
-        }
-      }
-
-      // For Demo Postponed, show follow-up date picker
-      if (isDemoPostponed) {
-        setPendingStageChange({ leadId, newMilestoneId });
-        setShowFollowUpModal(true);
-        return;
-      }
-
-      if (
-        window.confirm(
-          `Move "${lead.companyName}" to stage: ${milestone.name}?`,
-        )
-      ) {
-        try {
-          await updateLead(leadId, { milestoneId: newMilestoneId });
-        } catch {
-          // Error alert handled by context
-        }
-      }
+      // Always show disposition selection modal for every stage change
+      setPendingStageChange({ leadId, newMilestoneId });
+      setShowStageChangeModal(true);
     }
+  };
+
+  const handleStageChangeConfirm = async (dispositionId) => {
+    if (!pendingStageChange) return;
+    const { leadId, newMilestoneId } = pendingStageChange;
+    const milestone = milestones.find((m) => m.id === newMilestoneId);
+    setShowStageChangeModal(false);
+
+    if (milestone?.name === 'Demo Postponed') {
+      // Store dispositionId in pendingStageChange, then ask for follow-up date
+      setPendingStageChange((prev) => ({ ...prev, dispositionId }));
+      setShowFollowUpModal(true);
+      return;
+    }
+
+    try {
+      await updateLead(leadId, { milestoneId: newMilestoneId, dispositionId });
+      if (milestone?.name === 'Deal Closed') {
+        if (window.confirm(`Convert "${leads.find(l => l.id === leadId)?.companyName}" to Client?`)) {
+          await convertLead(leadId);
+        }
+      }
+    } catch {
+      // handled by context
+    }
+    setPendingStageChange(null);
   };
 
   const handleFollowUpConfirm = async (followUpDates) => {
     if (!pendingStageChange) return;
-
     try {
-      const lead = leads.find((l) => l.id === pendingStageChange.leadId);
       await updateLead(pendingStageChange.leadId, {
         milestoneId: pendingStageChange.newMilestoneId,
+        dispositionId: pendingStageChange.dispositionId,
         ...followUpDates,
       });
-      setShowFollowUpModal(false);
-      setPendingStageChange(null);
-    } catch (error) {
-      // Error alert handled by context
-      setShowFollowUpModal(false);
-      setPendingStageChange(null);
+    } catch {
+      // handled by context
     }
+    setShowFollowUpModal(false);
+    setPendingStageChange(null);
   };
 
   const filtered = leads.filter((l) => {
@@ -399,7 +395,7 @@ export default function Leads() {
                       </div>
                     </td>
                     <td className="text-sm">{lead.assignedBDE || "Unassigned"}</td>
-                    <td className="font-bold text-sm">₹{(lead.value / 1000).toFixed(0)}K</td>
+                    <td className="font-bold text-sm">{formatCurrency(lead.value)}</td>
                     <td>
                       <span
                         className={`font-bold text-sm ${
@@ -516,6 +512,15 @@ export default function Leads() {
             }
             setShowImportModal(false);
           }}
+        />
+      )}
+      {showStageChangeModal && pendingStageChange && (
+        <StageChangeModal
+          lead={leads.find((l) => l.id === pendingStageChange.leadId)}
+          targetMilestone={milestones.find((m) => m.id === pendingStageChange.newMilestoneId)}
+          dispositions={dispositions}
+          onConfirm={handleStageChangeConfirm}
+          onCancel={() => { setShowStageChangeModal(false); setPendingStageChange(null); }}
         />
       )}
       {showFollowUpModal && pendingStageChange && (

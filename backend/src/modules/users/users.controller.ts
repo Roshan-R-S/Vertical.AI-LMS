@@ -93,21 +93,22 @@ export const updateUser = asyncHandler(async (req: Request, res: Response) => {
 // DELETE /api/v1/users/:id
 export const deleteUser = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
+  const userId = id as string;
   const currentUserId = (req as any).user.id;
 
-  if (id === currentUserId) {
+  if (userId === currentUserId) {
     return res.status(400).json({ error: 'You cannot delete your own account.' });
   }
 
-  const user = await prisma.user.findUnique({ where: { id } });
+  const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) return res.status(404).json({ error: 'User not found' });
 
   // Unassign leads, tasks, clients before deleting
-  await prisma.lead.updateMany({ where: { assignedToId: id }, data: { assignedToId: currentUserId } });
-  await prisma.task.updateMany({ where: { assignedToId: id }, data: { assignedToId: currentUserId } });
-  await prisma.client.updateMany({ where: { accountManagerId: id }, data: { accountManagerId: null } });
+  await prisma.lead.updateMany({ where: { assignedToId: userId }, data: { assignedToId: currentUserId } });
+  await prisma.task.updateMany({ where: { assignedToId: userId }, data: { assignedToId: currentUserId } });
+  await prisma.client.updateMany({ where: { accountManagerId: userId }, data: { accountManagerId: null } });
 
-  await prisma.user.delete({ where: { id } });
+  await prisma.user.delete({ where: { id: userId } });
   return res.json({ success: true });
 });
 

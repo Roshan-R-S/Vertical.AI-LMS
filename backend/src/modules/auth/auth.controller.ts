@@ -34,6 +34,7 @@ const DEFAULT_DISPOSITIONS = [
   { milestone: 'First Call',      name: 'Callback Requested', type: 'positive', isDefault: false },
   { milestone: 'Demo Scheduled',  name: 'Meeting Confirmed',  type: 'positive', isDefault: true  },
   { milestone: 'Demo Scheduled',  name: 'No-Show',            type: 'negative', isDefault: false },
+  { milestone: 'Demo Postponed',  name: 'Follow Up',          type: 'neutral',  isDefault: true  },
   { milestone: 'Demo Completed',  name: 'Interested',         type: 'positive', isDefault: true  },
   { milestone: 'Demo Completed',  name: 'Not a Fit',          type: 'negative', isDefault: false },
   { milestone: 'Proposal Shared', name: 'Proposal Sent',      type: 'positive', isDefault: true  },

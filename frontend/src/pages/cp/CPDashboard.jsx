@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContextCore';
+import { formatCurrency } from '../../utils/api';
 import { Clock, CheckCircle, Target, TrendingUp, AlertTriangle, Zap, Calendar } from 'lucide-react';
 
 function FocusCard({ title, value, sub, icon: Icon, color, urgent = false }) {
@@ -38,7 +39,7 @@ export default function CPDashboard() {
   const followUpsToday = myTasks.filter(t => t.dueDate === todayStr && t.status !== 'completed').length;
   const overdueCount = myTasks.filter(t => t.dueDate < todayStr && t.status !== 'completed').length;
   const highPriority = myLeads.filter(l => l.priority === 'High' && l.status === 'active').length;
-  const monthlyTarget = 500000;
+  const monthlyTarget = currentUser.monthlyTarget || 500000;
   const achieved = kpis.closedRevenue;
   const progress = Math.min(100, (achieved / monthlyTarget) * 100);
 
@@ -85,8 +86,8 @@ export default function CPDashboard() {
         <div className="studio-card" style={{ padding: 24, background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)', color: 'white' }}>
           <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 24, color: 'rgba(255,255,255,0.7)' }}>Revenue Tracker</h3>
           <div style={{ textAlign: 'center', marginBottom: 24 }}>
-            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', marginBottom: 8 }}>Monthly Target: ₹{(monthlyTarget / 100000).toFixed(1)}L</div>
-            <div style={{ fontSize: 40, fontWeight: 300 }}>₹{(achieved / 100000).toFixed(2)}L</div>
+            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', marginBottom: 8 }}>Monthly Target: {formatCurrency(monthlyTarget)}</div>
+            <div style={{ fontSize: 40, fontWeight: 300 }}>{formatCurrency(achieved)}</div>
             <div style={{ fontSize: 14, color: '#10b981', fontWeight: 600, marginTop: 4 }}>{progress.toFixed(1)}% Achieved</div>
           </div>
           <div style={{ height: 8, background: 'rgba(255,255,255,0.1)', borderRadius: 4, overflow: 'hidden' }}>

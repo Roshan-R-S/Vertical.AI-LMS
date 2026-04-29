@@ -120,12 +120,15 @@ export default function AppProvider({ children }) {
   // Lead actions
   const addLead = async (lead) => {
     try {
+      const resolvedMilestoneId = lead.milestoneId || milestones[0]?.id;
+      const resolvedDispositionId = lead.dispositionId ||
+        dispositions.find(d => d.milestoneId === resolvedMilestoneId && d.isActive)?.id;
       const res = await api.post("/leads", {
         ...lead,
         value: lead.value !== '' ? Number(lead.value) : 0,
         assignedToId: lead.assignedToId || currentUser.id,
-        milestoneId: lead.milestoneId || milestones[0]?.id,
-        dispositionId: lead.dispositionId || dispositions[0]?.id,
+        milestoneId: resolvedMilestoneId,
+        dispositionId: resolvedDispositionId,
       });
       setLeads((prev) => [res, ...prev]);
     } catch (err) {
@@ -154,8 +157,9 @@ export default function AppProvider({ children }) {
         ...(updates.value !== undefined && { value: Number(updates.value) }),
       });
       setLeads((prev) => prev.map((l) => (l.id === id ? res : l)));
-      // Refresh notifications in case a milestone change triggered new ones
+      // Refresh notifications and tasks in case a milestone change triggered new ones
       api.get('/notifications').then(n => setNotifications(n)).catch(() => {});
+      api.get('/tasks').then(t => setTasks(t)).catch(() => {});
     } catch (err) {
       alert(formatError(err));
     }

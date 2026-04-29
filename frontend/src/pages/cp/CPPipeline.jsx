@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContextCore';
+import { formatCurrency } from '../../utils/api';
 import { api } from '../../utils/api';
 import { Plus, Search, IndianRupee, TrendingUp, Clock, AlertCircle, Target, Calendar } from 'lucide-react';
 import LeadModal from '../leads/LeadModal';
@@ -48,8 +49,8 @@ export default function CPPipeline() {
 
       <div className="form-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 32 }}>
         {[
-          { label: 'Total Pipeline', value: `₹${(totalValue / 100000).toFixed(2)}L`, sub: `${pipelineLeads.length} active deals`, icon: IndianRupee, color: '#6366f1' },
-          { label: 'Weighted Value', value: `₹${(weightedValue / 100000).toFixed(2)}L`, sub: 'Probability adjusted', icon: TrendingUp, color: '#10b981' },
+          { label: 'Total Pipeline', value: formatCurrency(totalValue), sub: `${pipelineLeads.length} active deals`, icon: IndianRupee, color: '#6366f1' },
+          { label: 'Weighted Value', value: formatCurrency(weightedValue), sub: 'Probability adjusted', icon: TrendingUp, color: '#10b981' },
           { label: 'Avg. Cycle', value: `${analytics?.cycleData?.[0]?.days || '—'} Days`, sub: 'Live tracking', icon: Clock, color: '#06b6d4' },
           { label: 'At Risk', value: `${analytics?.kpis?.staleLeads || 0}`, sub: 'No activity', icon: AlertCircle, color: '#ef4444' },
         ].map((kpi, i) => (
@@ -75,14 +76,14 @@ export default function CPPipeline() {
                   <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>{stage.split(' ')[0]}</h3>
                   <span style={{ fontSize: 11, background: 'var(--bg-card)', padding: '2px 8px', borderRadius: 10, border: '1px solid var(--border-subtle)' }}>{stageLeads.length}</span>
                 </div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>₹{(stageVal / 1000).toFixed(0)}k</div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>{formatCurrency(stageVal)}</div>
               </div>
               {stageLeads.map(lead => (
                 <div key={lead.id} className="studio-card animate-fadeIn" style={{ padding: 20, marginBottom: 16 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
                     <h3 style={{ fontSize: 15, fontWeight: 700 }}>{lead.companyName}</h3>
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: 16, fontWeight: 700 }}>₹{(lead.value / 1000).toFixed(0)}k</div>
+                      <div style={{ fontSize: 16, fontWeight: 700 }}>{formatCurrency(lead.value)}</div>
                       <div style={{ fontSize: 11, color: '#10b981', fontWeight: 600 }}>{lead.probability}%</div>
                     </div>
                   </div>
@@ -97,7 +98,7 @@ export default function CPPipeline() {
         })}
       </div>
 
-      {showAddModal && <LeadModal onClose={() => setShowAddModal(false)} onSave={addLead} milestones={milestones} dispositions={dispositions} />}
+      {showAddModal && <LeadModal onClose={() => setShowAddModal(false)} onSave={addLead} milestones={milestones} dispositions={dispositions} forcedAssignedToId={currentUser.id} />}
     </div>
   );
 }

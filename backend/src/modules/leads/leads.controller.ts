@@ -250,7 +250,8 @@ export const updateLead = asyncHandler(async (req: Request, res: Response) => {
 
   const user = (req as any).user;
   const existing = await prisma.lead.findFirst({
-    where: { id: id as string, ...getLeadScopeFilter(user) }
+    where: { id: id as string, ...getLeadScopeFilter(user) },
+    include: { milestone: true, disposition: true },
   });
   if (!existing) return res.status(404).json({ error: 'Lead not found or access denied' });
   const oldMilestoneId = existing.milestoneId;
@@ -280,16 +281,12 @@ export const updateLead = asyncHandler(async (req: Request, res: Response) => {
     if (!dispositionId || dispositionId === existing.dispositionId) {
       // Find a default disposition for the new milestone
       const defaultDisp = await prisma.disposition.findFirst({
-        where: { milestoneId, isDefault: true }
+        where: { milestoneId, isDefault: true, isActive: true }
       });
-      
       if (defaultDisp) {
         finalDispositionId = defaultDisp.id;
-      } else {
-        return res.status(400).json({
-          error: 'Workflow Error: Disposition selection is mandatory and no default was found for this stage.'
-        });
       }
+      // If no default exists, allow the move without a disposition (don't block)
     }
   }
   // ──────────────────────────────────────────────────────────────────
@@ -353,32 +350,23 @@ export const updateLead = asyncHandler(async (req: Request, res: Response) => {
 
     // 2. Create Follow-up Task for Demo Postponed
     if (FOLLOWUP_TRIGGER_STAGES.includes(newMilestoneName)) {
-      const followUpDateFrom = body.followUpDateFrom ? new Date(body.followUpDateFrom) : new Date();
-      const followUpDateTo = body.followUpDateTo ? new Date(body.followUpDateTo) : null;
+      const followUpDateFrom = body.followUpDateFrom ? new Date(body.followUpDateFrom) : new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-      const task = await prisma.task.create({
+      await prisma.task.create({
         data: {
           title: `Follow-up: Reschedule demo for ${lead.companyName}`,
           leadId: lead.id,
           assignedToId: lead.assignedToId,
           createdById: user.id,
           dueDate: followUpDateFrom,
-          type: 'follow_up',
-          followUpDateTo: followUpDateTo,
-          followUpReason: 'Demo Postponed - reschedule required',
           status: 'pending',
-        },
-        include: {
-          assignedTo: { include: { team: true } },
-          lead: { select: { id: true, companyName: true } },
         },
       });
 
-      // Notify the assigned user about follow-up task
       await prisma.notification.create({
         data: {
           userId: lead.assignedToId,
-          text: `📋 Follow-up task created for "${lead.companyName}" - reschedule demo before ${followUpDateFrom.toDateString()}`,
+          text: `📋 Follow-up task created for "${lead.companyName}" — reschedule demo by ${followUpDateFrom.toDateString()}`,
           type: 'warning',
         },
       });

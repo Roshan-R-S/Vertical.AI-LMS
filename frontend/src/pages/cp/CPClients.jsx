@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useApp } from '../../context/AppContextCore';
+import { formatCurrency } from '../../utils/api';
 import { Search, Eye, Edit2, FileText, AlertCircle } from 'lucide-react';
 import Pagination from '../../components/Pagination';
 
@@ -32,7 +33,7 @@ export default function CPClients() {
       <div className="page-header">
         <div>
           <h1 className="page-title">My Clients</h1>
-          <p className="page-subtitle">{myClients.length} clients • ₹{(totalARR / 100000).toFixed(1)}L ARR</p>
+          <p className="page-subtitle">{myClients.length} clients • {formatCurrency(totalARR)} ARR</p>
         </div>
       </div>
 
@@ -49,9 +50,9 @@ export default function CPClients() {
       <div className="form-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', marginBottom: 24 }}>
         {[
           { label: 'Total Clients', value: myClients.length, color: '#6366f1' },
-          { label: 'Total ARR', value: `₹${(totalARR / 100000).toFixed(1)}L`, color: '#10b981' },
+          { label: 'Total ARR', value: formatCurrency(totalARR), color: '#10b981' },
           { label: 'Renewal Due', value: renewalDue, color: '#f59e0b' },
-          { label: 'Avg Deal Size', value: `₹${(totalARR / (myClients.length || 1) / 1000).toFixed(0)}K`, color: '#06b6d4' },
+          { label: 'Avg Deal Size', value: formatCurrency(totalARR / (myClients.length || 1)), color: '#06b6d4' },
         ].map((s, i) => (
           <div key={i} className="studio-card" style={{ padding: 20 }}>
             <div style={{ fontSize: 24, fontWeight: 300, color: s.color, marginBottom: 8 }}>{s.value}</div>
@@ -90,7 +91,7 @@ export default function CPClients() {
                     <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{client.email}</div>
                   </td>
                   <td><div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>{(client.products || []).map((p, i) => <span key={i} className="badge badge-primary" style={{ fontSize: 10 }}>{p}</span>)}</div></td>
-                  <td style={{ fontWeight: 700 }}>₹{(client.orderValue / 1000).toFixed(0)}K</td>
+                  <td style={{ fontWeight: 700 }}>{formatCurrency(client.orderValue)}</td>
                   <td style={{ fontSize: 12, color: client.status === 'renewal_due' ? '#f59e0b' : 'var(--text-secondary)' }}>{client.renewalDate}</td>
                   <td><span style={{ fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: s.bg, color: s.color, border: `1px solid ${s.border}` }}>{client.status?.replace('_', ' ')}</span></td>
                 </tr>

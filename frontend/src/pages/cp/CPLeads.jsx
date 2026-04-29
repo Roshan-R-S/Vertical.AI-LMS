@@ -9,9 +9,12 @@ import Pagination from '../../components/Pagination';
 import LeadModal from '../leads/LeadModal';
 import InteractionModal from '../leads/InteractionModal';
 import ImportModal from '../leads/ImportModal';
+import StageChangeModal from '../leads/StageChangeModal';
+import FollowUpModal from '../leads/FollowUpModal';
 import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
 import Select from '../../components/ui/Select';
+import { formatCurrency } from '../../utils/api';
 import LeadCard from '../leads/LeadCard';
 import KanbanColumn from '../leads/KanbanColumn';
 
@@ -53,26 +56,53 @@ export default function CPLeads() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [pendingStageChange, setPendingStageChange] = useState(null);
+  const [showStageChangeModal, setShowStageChangeModal] = useState(false);
+  const [showFollowUpModal, setShowFollowUpModal] = useState(false);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
-  const handleDragEnd = async (event) => {
+  const handleDragEnd = (event) => {
     const { active, over } = event;
     if (!over) return;
     const lead = myLeads.find(l => l.id === active.id);
-    const milestone = milestones.find(m => m.id === over.id);
     if (!lead || lead.milestoneId === over.id) return;
+    setPendingStageChange({ leadId: active.id, newMilestoneId: over.id });
+    setShowStageChangeModal(true);
+  };
 
-    if (milestone.name === 'Deal Closed') {
-      if (window.confirm(`Move "${lead.companyName}" to Deal Closed and convert to Client?`)) {
-        await updateLead(active.id, { milestoneId: over.id });
-        await convertLead(active.id);
-      }
+  const handleStageChangeConfirm = async (dispositionId) => {
+    if (!pendingStageChange) return;
+    const { leadId, newMilestoneId } = pendingStageChange;
+    const milestone = milestones.find(m => m.id === newMilestoneId);
+    setShowStageChangeModal(false);
+    if (milestone?.name === 'Demo Postponed') {
+      setPendingStageChange(prev => ({ ...prev, dispositionId }));
+      setShowFollowUpModal(true);
       return;
     }
-    if (window.confirm(`Move "${lead.companyName}" to stage: ${milestone.name}?`)) {
-      await updateLead(active.id, { milestoneId: over.id });
-    }
+    try {
+      await updateLead(leadId, { milestoneId: newMilestoneId, dispositionId });
+      if (milestone?.name === 'Deal Closed') {
+        if (window.confirm(`Convert "${myLeads.find(l => l.id === leadId)?.companyName}" to Client?`)) {
+          await convertLead(leadId);
+        }
+      }
+    } catch { /* handled by context */ }
+    setPendingStageChange(null);
+  };
+
+  const handleFollowUpConfirm = async (followUpDates) => {
+    if (!pendingStageChange) return;
+    try {
+      await updateLead(pendingStageChange.leadId, {
+        milestoneId: pendingStageChange.newMilestoneId,
+        dispositionId: pendingStageChange.dispositionId,
+        ...followUpDates,
+      });
+    } catch { /* handled by context */ }
+    setShowFollowUpModal(false);
+    setPendingStageChange(null);
   };
 
   const filtered = myLeads.filter(l => {
@@ -221,7 +251,7 @@ export default function CPLeads() {
                       </Badge>
                     </td>
                     <td className="text-sm text-secondary font-medium">{lead.disposition || 'Not Contacted'}</td>
-                    <td className="font-bold text-sm">₹{(lead.value / 1000).toFixed(0)}K</td>
+                    <td className="font-bold text-sm">{formatCurrency(lead.value)}</td>
                     <td>
                       <span className={`font-bold text-sm ${lead.score >= 80 ? 'text-[#10b981]' : lead.score >= 60 ? 'text-[#f59e0b]' : 'text-[#ef4444]'}`}>
                         {lead.score}
@@ -268,6 +298,22 @@ export default function CPLeads() {
       {editLead && <LeadModal lead={editLead} onClose={() => setEditLead(null)} onSave={d => updateLead(editLead.id, d)} milestones={milestones} dispositions={dispositions} forcedAssignedToId={currentUser.id} />}
       {viewLead && <InteractionModal lead={viewLead} interactions={interactions} onClose={() => setViewLead(null)} onAdd={addInteraction} />}
       {showImportModal && <ImportModal onClose={() => setShowImportModal(false)} onImport={async d => { await cpBulkAdd(d); setShowImportModal(false); }} />}
+      {showStageChangeModal && pendingStageChange && (
+        <StageChangeModal
+          lead={myLeads.find(l => l.id === pendingStageChange.leadId)}
+          targetMilestone={milestones.find(m => m.id === pendingStageChange.newMilestoneId)}
+          dispositions={dispositions}
+          onConfirm={handleStageChangeConfirm}
+          onCancel={() => { setShowStageChangeModal(false); setPendingStageChange(null); }}
+        />
+      )}
+      {showFollowUpModal && pendingStageChange && (
+        <FollowUpModal
+          lead={myLeads.find(l => l.id === pendingStageChange.leadId)}
+          onConfirm={handleFollowUpConfirm}
+          onCancel={() => { setShowFollowUpModal(false); setPendingStageChange(null); }}
+        />
+      )}
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import { formatCurrency } from '../utils/api';
 import { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../context/AppContextCore';
 import {
@@ -81,9 +82,8 @@ const PERIOD_OPTIONS = [
   { label: 'Custom', value: 'custom' },
 ];
 
-function formatLakhs(value) {
-  return `₹${((value || 0) / 100000).toFixed(1)} L`;
-}
+function formatLakhs(value) { return formatCurrency(value); }
+
 
 function formatNumber(value) {
   return Number(value || 0).toLocaleString('en-IN');

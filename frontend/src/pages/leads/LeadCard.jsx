@@ -1,5 +1,6 @@
 import React from 'react';
 import { GripVertical } from 'lucide-react';
+import { formatCurrency } from '../../utils/api';
 
 const LeadCard = ({ lead, onView, attributes, listeners, setNodeRef, transform, isDragging }) => {
   const style = {
@@ -43,7 +44,7 @@ const LeadCard = ({ lead, onView, attributes, listeners, setNodeRef, transform, 
       
       <div className="flex justify-between items-center">
         <span className="text-sm font-bold">
-          ₹{(lead.value / 1000).toFixed(0)}K
+          {formatCurrency(lead.value)}
         </span>
         <span
           className="badge-neutral text-xxs font-bold px-1.5 py-0.5 rounded border"
@@ -58,7 +59,7 @@ const LeadCard = ({ lead, onView, attributes, listeners, setNodeRef, transform, 
       </div>
       
       <div className="mt-2.5 pt-2.5 border-t border-subtle text-xs text-secondary flex justify-between">
-        <span>By: {lead.assignedTo?.name || "Unassigned"}</span>
+        <span>By: {lead.assignedBDE || 'Unassigned'}</span>
         <span className="opacity-70">{lead.source}</span>
       </div>
     </div>
