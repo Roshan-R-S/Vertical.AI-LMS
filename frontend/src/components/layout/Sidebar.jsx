@@ -1,4 +1,4 @@
-import { Bell, ChevronDown, ChevronRight, Clock, LayoutDashboard, LogOut, Moon, Rocket,
+import { Bell, ChevronDown, ChevronRight, Clock, IndianRupee, LayoutDashboard, LogOut, Moon, Rocket,
         Settings, Sun, UserCheck, Users as UsersIcon, Target } from 'lucide-react';
 import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
@@ -82,6 +82,9 @@ export default function Sidebar() {
             </NavLink>
             <NavLink to="/clients" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
               <UserCheck size={18} /> Clients
+            </NavLink>
+            <NavLink to="/billing" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+              <IndianRupee size={18} /> Billing
             </NavLink>
           </>
         )}

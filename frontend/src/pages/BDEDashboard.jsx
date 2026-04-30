@@ -76,10 +76,10 @@ export default function BDEDashboard() {
   ];
 
   // 4. Personal Tracker
-  const monthlyTarget = currentUser.monthlyTarget || 500000;
+  const monthlyTarget = currentUser.monthlyTarget || 0;
   const achievedSoFar = kpis.closedRevenue;
   const remaining = Math.max(0, monthlyTarget - achievedSoFar);
-  const progressPercent = Math.min(100, (achievedSoFar / monthlyTarget) * 100);
+  const progressPercent = monthlyTarget > 0 ? Math.min(100, (achievedSoFar / monthlyTarget) * 100) : 0;
 
   return (
     <div className="animate-fadeIn">
@@ -150,7 +150,7 @@ export default function BDEDashboard() {
           <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 24, color: 'rgba(255,255,255,0.7)' }}>Personal Target Tracker</h3>
           
           <div style={{ textAlign: 'center', marginBottom: 32 }}>
-            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', marginBottom: 8 }}>Monthly Target: {formatCurrency(monthlyTarget)}</div>
+            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', marginBottom: 8 }}>Monthly Target: {monthlyTarget > 0 ? formatCurrency(monthlyTarget) : <span style={{ color: '#f59e0b' }}>Not Set</span>}</div>
             <div style={{ fontSize: 48, fontWeight: 300 }}>{formatCurrency(achievedSoFar)}</div>
             <div style={{ fontSize: 14, color: '#10b981', fontWeight: 600, marginTop: 4 }}>{progressPercent.toFixed(1)}% Achieved</div>
           </div>
@@ -166,9 +166,18 @@ export default function BDEDashboard() {
           </div>
 
           <div style={{ background: 'rgba(255,255,255,0.05)', padding: 16, borderRadius: 12, display: 'flex', alignItems: 'center', gap: 12 }}>
-            <Target size={20} color="#10b981" />
+            <Target size={20} color={monthlyTarget > 0 ? (progressPercent >= 100 ? '#10b981' : progressPercent >= 50 ? '#f59e0b' : '#ef4444') : '#94a3b8'} />
             <div style={{ fontSize: 12, lineHeight: 1.5 }}>
-              You are <b>on track</b>! Based on your current conversion rate, you'll hit your target by the 28th.
+              {monthlyTarget === 0
+                ? 'No target assigned yet. Ask your manager to set a monthly target.'
+                : progressPercent >= 100
+                ? <span>🎉 <b>Target achieved!</b> You've hit your monthly goal.</span>
+                : progressPercent >= 75
+                ? <span>Almost there! <b>{(100 - progressPercent).toFixed(1)}%</b> remaining to hit your target.</span>
+                : progressPercent >= 50
+                ? <span>Halfway through. <b>{formatCurrency(remaining)}</b> more needed to reach your target.</span>
+                : <span>Behind target. <b>{formatCurrency(remaining)}</b> remaining — push harder this month.</span>
+              }
             </div>
           </div>
         </div>
